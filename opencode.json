@@ -3,9 +3,6 @@
   "agent": {
     "build": {
       "model": "opencode/minimax-m2.5-free"
-    },
-    "plan": {
-      "model": "google/gemini-2.5-flash-lite"
     }
   },
   "mcp": {
@@ -16,6 +13,22 @@
       "headers": {
         "X-Goog-Api-Key": "YOUR_API_KEY_HERE"
       }
+    },
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-notion"],
+      "env": {
+        "NOTION_API_KEY": "${NOTION_TOKEN}"
+      },
+      "enabled": true
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"],
+      "enabled": true
     }
-  }
+  },
+  "plugins": [
+    "oh-my-opencode-slim"
+  ]
 }
