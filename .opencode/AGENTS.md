@@ -11,8 +11,6 @@ Este arquivo serve como índice central de todos os sub-agents disponíveis para
 ├── docs-architect/              # ✅ Documentação técnica
 ├── project-review/             # ✅ Clean Architecture validation
 ├── security-secret-auditor/     # ✅ Auditoria de segurança
-├── opencode-skill-architect/    # ✅ Gerenciamento de skills
-└── builder/                     # ✅ Build e deploy
 ```
 
 ## Visão Geral dos Agents
