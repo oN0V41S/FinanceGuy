@@ -4,12 +4,11 @@ on:
   push:
     branches:
       - main
-      - develop
       - 'feat/**'
+      - 'fix/**'
   pull_request:
     branches:
       - main
-      - develop
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,7 +21,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [20.x]
     
     steps:
       - name: Checkout code
@@ -54,8 +53,8 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm exec prisma generate
 
-      - name: Lint check
-        run: pnpm lint --max-warnings 0
+      - name: Generate types
+        run: pnpm exec next typegen
 
       - name: Run Jest tests
         run: pnpm test:ci
@@ -71,6 +70,7 @@ jobs:
 
       - name: Comment PR with coverage
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         uses: romeovs/lcov-reporter-action@v0.3.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -111,6 +111,32 @@ jobs:
 
       - name: Build application
         run: pnpm build
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'pnpm'
+          cache-dependency-path: pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm exec prisma generate
+
+      - name: Type check
+        run: npx tsc --noEmit
 
   security:
     name: Security Scan

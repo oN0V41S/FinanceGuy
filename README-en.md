@@ -8,56 +8,70 @@ The application is a SPA (Single Page Application) that allows users to manage p
 
 ## 💻 Technologies Used
 
-- **Framework:** Next.js (App Router)
-- **Language:** TypeScript
-- **Back-end:** Next.js native API Routes
-- **Database:** A local `db.json` file for data persistence.
+- **Framework:** Next.js 16 (App Router)
+- **Language:** TypeScript 5.9
+- **Back-end:** Next.js API Routes (Proxy + Features)
+- **Database:** PostgreSQL (Neon) with Prisma 5.22 ORM
+- **Validation:** Zod
+- **UI:** React 19, Tailwind CSS, shadcn-ui
+- **Tests:** Jest 30 + React Testing Library
 
 ---
 
-## 🎯 First Delivery Scope (Back-end)
+## 🎯 Current Scope (Backend + Auth)
 
-The goal of this stage is to build the logical foundation of the application: a RESTful API for **CRUD (Create, Read, Update, Delete)** operations on transactions.
+The application provides a full-stack financial management system:
+
+- **Auth**: Registration, login/logout with JWT tokens (cookies)
+- **CRUD Transactions**: Create, read, update, and delete financial transactions
+- **Reports**: Financial summary (income, expense, balance)
+- **Installments**: Support for recurring and installment payments
 
 ### Data Model (`Transaction`)
 
-This is the data contract that the API uses, based on the `src/types/finance.ts` file:
+Based on Prisma schema:
 
 ```typescript
 interface Transaction {
-  id: number;
-  dueDate: string; // Format YYYY-MM-DD
-  value: number;
-  description: string;
-  responsible: string;
-  category: string;
-  type: "income" | "expense";
+  id: string;                          // UUID (CUID)
+  type: 'income' | 'expense';          // Transaction type
+  description: string;                 // Description (1-255 chars)
+  value: number;                       // Decimal value (positive)
+  date: string;                        // ISO 8601 (YYYY-MM-DD)
+  category: TransactionCategory;       // Fixed category
+  responsible: string;                 // Person responsible
+  userId: string;                      // Foreign key to user
+  installment_number?: number;         // Installment number (1-based)
+  total_installments?: number;         // Total installments
+  is_recurring?: boolean;              // Recurring flag
+  parent_transaction_id?: string;      // Parent transaction UUID (for installments)
+  paid?: boolean;                      // Payment flag
 }
 ```
 
-### API Endpoints (CRUD)
+### API Endpoints
 
-All endpoints are located at `/api/transacoes`:
+All endpoints are located at `/api/transactions`:
 
-| Method   | Endpoint               | Action                                                                                                         |
-| -------- | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `GET`    | `/api/transacoes`      | (Read) Returns a list of all transactions.                                                                     |
-| `POST`   | `/api/transacoes`      | (Create) Creates a new transaction. Expects a `Transaction` object (without `id`) in the request body.         |
-| `PUT`    | `/api/transacoes/[id]` | (Update) Updates an existing transaction based on `id`. Expects the complete `Transaction` object in the body. |
-| `DELETE` | `/api/transacoes/[id]` | (Delete) Removes a transaction based on `id`.                                                                  |
+| Method   | Endpoint                  | Action                                                                                                         |
+| -------- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `GET`    | `/api/transactions`       | (Read) Returns a list of all transactions.                                                                     |
+| `POST`   | `/api/transactions`       | (Create) Creates a new transaction. Expects a `Transaction` object (without `id`) in the request body.         |
+| `PUT`    | `/api/transactions/[id]`  | (Update) Updates an existing transaction based on `id`. Expects the complete `Transaction` object in the body. |
+| `DELETE` | `/api/transactions/[id]`  | (Delete) Removes a transaction based on `id`.                                                                  |
 
 ## 🚀 How to Run the Project
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/oN0V41S/controleFinanceiro.git
+git clone https://github.com/oN0V41S/FinanceGuy.git
 ```
 
 2. Navigate to the folder:
 
 ```bash
-cd controle-financeiro
+cd FinanceGuy
 ```
 
 3. Install dependencies:

@@ -410,37 +410,53 @@ Pipeline de CI/CD configurado via [.github/workflows/test.yml](.github/workflows
 ### Componentes do Pipeline
 
 #### 1. **Job: Test Suite** (Principal)
-- **Trigger**: Push em `main`, `develop`, `feat/**`; PRs
-- **Matrix**: Node 18.x, 20.x (testa múltiplas versões)
+- **Trigger**: Push em `main`, `feat/**`, `fix/**`; PRs para `main`
+- **Node**: 20.x (única versão suportada)
 - **Steps**:
   - ✅ Checkout código
   - ✅ Setup pnpm + Node
   - ✅ Install dependencies (com cache)
-  - ✅ ESLint check (linting)
+  - ✅ `next typegen` (geração de tipos das rotas)
   - ✅ Jest tests com `--coverage`
   - ✅ Upload coverage para Codecov
+  - ⚠️ Comentário de cobertura no PR (`continue-on-error: true`)
 
-**Duração**: ~3-5 minutos por Node version
+**Duração**: ~3-5 minutos
 
 #### 2. **Job: Build Check** (Bloqueador)
 - Valida `pnpm build` em ambiente de produção
-- Previne PRs com erros de TypeScript/Next.js
+- Previne PRs com erros de compilação
 - Depende de Test Suite (só executa se testes passam)
 
-#### 3. **Job: Security Scan** (Não-bloqueador)
+#### 3. **Job: Type Check** (Não-bloqueador — `continue-on-error: true`)
+- `npx tsc --noEmit` para análise estática de tipos
+- Falhas não bloqueiam merge (erros pré-existentes conhecidos)
+- Visibilidade para correção progressiva
+
+#### 4. **Job: Security Scan** (Não-bloqueador)
 - `pnpm audit` para verificar vulnerabilidades de dependências
 - Relatório é comentado no PR (informativo)
 
-### Proteção de Branches
+### Convenções de Teste
 
-Com configuração via GitHub Settings:
+- **API Routes**: Usam `@jest-environment node` (docblock no topo do arquivo) porque dependem de `Request`/`Response` do Node 18+
+- **Componentes**: Usam `jsdom` (default) para testes de renderização React
+- **Testes pré-existentes falhando**: Mantidos em `testPathIgnorePatterns` no `jest.config.mjs` até correção em PRs separados
+
+### Proteção de Branches (GitHub Flow)
+
+Configurada via **GitHub Settings → Branches → Branch Protection Rules**:
 
 ```
 main branch:
-├─ ✅ Testes devem passar (Test Suite 18.x + 20.x)
-├─ ✅ Build deve passar
-├─ ✅ 1 aprovação obrigatória
-└─ ✅ Branch deve estar atualizado com main
+├─ ✅ Requer PR antes de merge
+├─ ✅ Requer 1 aprovação
+├─ ✅ Status checks obrigatórios:
+│   ├─ Test Suite (20.x)
+│   └─ Build Check
+├─ ✅ Branch deve estar atualizada com main
+├─ ✅ Stale approvals descartados em novo push
+└─ ✅ Include administrators
 ```
 
 ### Codecov Integration
@@ -450,38 +466,41 @@ Relatório automático de **cobertura de testes** em cada PR:
 - **Comentários automáticos** no PR com diferença de cobertura
 - **Dashboard**: https://codecov.io/
 
-### Fluxo de Desenvolvimento
+### Fluxo de Desenvolvimento (GitHub Flow)
 
 ```
-1. git checkout -b feat/minha-feature
-2. Fazer alterações + testes
-3. git push origin feat/minha-feature
-4. Criar PR via GitHub
+1. git checkout -b feat/minha-feature   ← nasce de main
+2. Escrever testes (TDD) + implementar
+3. Refatorar + lint + testes
+4. git push origin feat/minha-feature
+5. Criar PR via GitHub para main
    ↓
-5. GitHub Actions executa:
-   - Jest (Node 18.x) → 2-3 min
-   - Jest (Node 20.x) → 2-3 min
+6. GitHub Actions executa:
+   - Test Suite (Node 20.x) → 3-5 min
    - Build Check → 1-2 min
+   - Type Check (não-bloqueador) → 1 min
    - Security Scan → 1 min
    ↓
-6. Status checks aparecem no PR
-   ✅ Test Suite (18.x)
+7. Status checks aparecem no PR
    ✅ Test Suite (20.x)
    ✅ Build Check
+   ⚠️ Type Check (informativo)
    ✅ Security Scan
    ✓ Codecov (informativo)
    ↓
-7. Se tudo verde: ✅ PR pode ser mergeado
-   Se algum falhou: ❌ Deve corrigir e fazer push novamente
+8. Code review (1 aprovação obrigatória)
+   ↓
+9. Squash merge em main
+   ↓
+10. Deletar branch (local + remoto)
 ```
 
 ### Boas Práticas Implementadas
 
 ✅ **Caching**: pnpm-lock.yaml cachado (~30% mais rápido)
 ✅ **Concurrency**: Cancela workflows antigos se novo push chega
-✅ **Matrix Testing**: Múltiplas versões do Node para compatibilidade
 ✅ **Fail-fast**: Build Check depende de testes (economiza tempo)
-✅ **Não-bloqueadores**: Security/Linting não impedem merge (feedback apenas)
+✅ **Não-bloqueadores**: Type Check / Security não impedem merge
 ✅ **Coverage Tracking**: Histórico de cobertura em Codecov
 ✅ **PR Comments**: Feedback automático nos PRs
 
@@ -489,7 +508,7 @@ Relatório automático de **cobertura de testes** em cada PR:
 
 1. **GitHub Settings → Branches → Branch Protection Rule**:
    - Pattern: `main`
-   - Require status checks: `Test Suite (18.x)`, `Test Suite (20.x)`, `Build Check`
+   - Require status checks: `Test Suite (20.x)`, `Build Check`
    - Require PR before merge: Sim
    - Require approvals: 1
 
@@ -501,7 +520,7 @@ Relatório automático de **cobertura de testes** em cada PR:
 
 3. **Tudo pronto**: Próximo push acionará workflow automaticamente
 
-Consulte [docs/GITHUB_ACTIONS_SETUP.md](docs/GITHUB_ACTIONS_SETUP.md) para **instruções completas de configuração**.
+O repositório está configurado para GitHub Flow. Consulte o [AGENTS.md](../AGENTS.md) para detalhes do fluxo de desenvolvimento.
 
 ---
 
@@ -593,4 +612,4 @@ vercel deploy --prod
 
 ---
 
-**Mantainer**: Tim de Desenvolvimento | **Última atualização**: Janeiro 2026
+**Mantainer**: Tim de Desenvolvimento | **Última atualização**: Junho 2026

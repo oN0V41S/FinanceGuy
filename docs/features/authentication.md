@@ -1,6 +1,6 @@
 # Diário de Bordo: `authentication`
 
-**Branch**: `authentication`  
+**Branch**: `feat/authentication` (deletada — conteúdo em `main`)  
 **Criado em**: Abril 2026  
 **Objetivo**: Implementar autenticação completa (API + UI) e integrar com CRUD de transações.
 

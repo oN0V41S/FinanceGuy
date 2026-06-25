@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { POST as registerPOST } from "@/app/api/auth/register/route";
 import { POST as loginPOST } from "@/app/api/auth/login/route";
 import { NextRequest } from "next/server";

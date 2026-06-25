@@ -54,7 +54,7 @@ Aplicação web para gerenciamento de transações financeiras pessoais com supo
 │   ├── features/                  # Lógica de negócio (Auth, Transactions)
 │   ├── lib/                       # Prisma Singleton, Auth Middleware
 │   ├── shared/                    # Tipos e utilitários globais
-│   └── middleware.ts              # Proteção de rotas
+│   └── proxy.ts                # Proteção de rotas e injeção de x-user-id (Next.js 16+)
 ├── .env.example
 ├── package.json
 └── ...
@@ -108,16 +108,28 @@ Testes incluem:
 
 ---
 
+## 🌿 Fluxo de Desenvolvimento
+
+O projeto segue **GitHub Flow**:
+1. Crie uma feature branch: `git checkout -b feat/nome-descritivo`
+2. Escreva testes antes de implementar (TDD)
+3. Implemente e refatore
+4. Execute `pnpm run lint` e `pnpm run test`
+5. Commit com Conventional Commits (`feat:`, `fix:`, etc.)
+6. Push e abra PR para `main`
+7. Após squash merge, delete a branch
+
 ## 🔧 Próximas Fases
 
 - [x] **Fase 1**: Schemas e validação
 - [x] **Fase 2**: Repository Pattern + PostgreSQL
 - [x] **Fase 3**: Handlers CRUD (GET, POST, PUT, DELETE)
-- [ ] **Fase 4**: Testes completos
-- [ ] **Fase 5**: Integração Frontend ↔ API
-- [ ] **Fase 6**: Integração IA (Gemini)
-- [ ] **Fase 7**: Autenticação (NextAuth.js)
-- [ ] **Fase 8**: Deploy (Vercel)
+- [x] **Fase 4**: CI/CD com GitHub Actions
+- [x] **Fase 5**: Autenticação (API + UI)
+- [ ] **Fase 6**: Integração Frontend ↔ API
+- [ ] **Fase 7**: Integração IA (Gemini)
+- [ ] **Fase 8**: Testes de integração
+- [ ] **Fase 9**: Deploy (Vercel)
 
 ---
 

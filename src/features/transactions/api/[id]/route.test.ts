@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { PUT, DELETE } from './route';
 import { NextRequest } from 'next/server';
 import { transactionRepository } from '@/core/container';
