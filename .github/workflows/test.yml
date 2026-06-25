@@ -54,7 +54,7 @@ jobs:
         run: pnpm exec prisma generate
 
       - name: Lint check
-        run: pnpm lint
+        run: pnpm exec next lint src/
 
       - name: Run Jest tests
         run: pnpm test:ci
