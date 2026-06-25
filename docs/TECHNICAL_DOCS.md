@@ -410,7 +410,7 @@ Pipeline de CI/CD configurado via [.github/workflows/test.yml](.github/workflows
 ### Componentes do Pipeline
 
 #### 1. **Job: Test Suite** (Principal)
-- **Trigger**: Push em `main`, `develop`, `feat/**`; PRs
+- **Trigger**: Push em `main`, `feat/**`, `fix/**`; PRs para `main`
 - **Matrix**: Node 18.x, 20.x (testa múltiplas versões)
 - **Steps**:
   - ✅ Checkout código
@@ -431,16 +431,21 @@ Pipeline de CI/CD configurado via [.github/workflows/test.yml](.github/workflows
 - `pnpm audit` para verificar vulnerabilidades de dependências
 - Relatório é comentado no PR (informativo)
 
-### Proteção de Branches
+### Proteção de Branches (GitHub Flow)
 
-Com configuração via GitHub Settings:
+Configurada via **GitHub Settings → Branches → Branch Protection Rules**:
 
 ```
 main branch:
-├─ ✅ Testes devem passar (Test Suite 18.x + 20.x)
-├─ ✅ Build deve passar
-├─ ✅ 1 aprovação obrigatória
-└─ ✅ Branch deve estar atualizado com main
+├─ ✅ Requer PR antes de merge
+├─ ✅ Requer 1 aprovação
+├─ ✅ Status checks obrigatórios:
+│   ├─ Test Suite (18.x)
+│   ├─ Test Suite (20.x)
+│   └─ Build Check
+├─ ✅ Branch deve estar atualizada com main
+├─ ✅ Stale approvals descartados em novo push
+└─ ✅ Include administrators
 ```
 
 ### Codecov Integration
@@ -450,29 +455,33 @@ Relatório automático de **cobertura de testes** em cada PR:
 - **Comentários automáticos** no PR com diferença de cobertura
 - **Dashboard**: https://codecov.io/
 
-### Fluxo de Desenvolvimento
+### Fluxo de Desenvolvimento (GitHub Flow)
 
 ```
-1. git checkout -b feat/minha-feature
-2. Fazer alterações + testes
-3. git push origin feat/minha-feature
-4. Criar PR via GitHub
+1. git checkout -b feat/minha-feature   ← nasce de main
+2. Escrever testes (TDD) + implementar
+3. Refatorar + lint + testes
+4. git push origin feat/minha-feature
+5. Criar PR via GitHub para main
    ↓
-5. GitHub Actions executa:
+6. GitHub Actions executa:
    - Jest (Node 18.x) → 2-3 min
    - Jest (Node 20.x) → 2-3 min
    - Build Check → 1-2 min
    - Security Scan → 1 min
    ↓
-6. Status checks aparecem no PR
+7. Status checks aparecem no PR
    ✅ Test Suite (18.x)
    ✅ Test Suite (20.x)
    ✅ Build Check
    ✅ Security Scan
    ✓ Codecov (informativo)
    ↓
-7. Se tudo verde: ✅ PR pode ser mergeado
-   Se algum falhou: ❌ Deve corrigir e fazer push novamente
+8. Code review (1 aprovação obrigatória)
+   ↓
+9. Squash merge em main
+   ↓
+10. Deletar branch (local + remoto)
 ```
 
 ### Boas Práticas Implementadas
@@ -501,7 +510,7 @@ Relatório automático de **cobertura de testes** em cada PR:
 
 3. **Tudo pronto**: Próximo push acionará workflow automaticamente
 
-Consulte [docs/GITHUB_ACTIONS_SETUP.md](docs/GITHUB_ACTIONS_SETUP.md) para **instruções completas de configuração**.
+O repositório está configurado para GitHub Flow. Consulte o [AGENTS.md](../AGENTS.md) para detalhes do fluxo de desenvolvimento.
 
 ---
 
@@ -593,4 +602,4 @@ vercel deploy --prod
 
 ---
 
-**Mantainer**: Tim de Desenvolvimento | **Última atualização**: Janeiro 2026
+**Mantainer**: Tim de Desenvolvimento | **Última atualização**: Junho 2026

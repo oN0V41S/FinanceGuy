@@ -1,0 +1,8 @@
+# Owners globais
+* @oN0V41S
+
+# Áreas específicas (quando o time crescer)
+/src/features/auth/         @oN0V41S
+/src/features/transactions/ @oN0V41S
+/.github/workflows/         @oN0V41S
+/docs/                      @oN0V41S
