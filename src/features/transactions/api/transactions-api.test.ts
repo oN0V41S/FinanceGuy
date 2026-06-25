@@ -1,3 +1,6 @@
+/**
+ * @jest-environment node
+ */
 import { GET, POST } from './route';
 import { DELETE } from './[id]/route';
 import { NextRequest } from 'next/server';

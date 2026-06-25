@@ -46,14 +46,6 @@ const config = {
     "/node_modules/(?!(jose)/.*)",
   ],
   
-  // Ignore specific API test files that have issues with Next.js Request
-  // These tests require special environment setup
-  modulePathIgnorePatterns: [
-    "<rootDir>/src/features/auth/api/auth-flow.test.ts",
-    "<rootDir>/src/features/transactions/api/transactions-api.test.ts",
-    "<rootDir>/src/features/transactions/api/[id]/route.test.ts",
-    "<rootDir>/src/features/transactions/api/transactions.test.ts",
-  ],
 };
 
 export default createJestConfig(config);
