@@ -411,25 +411,37 @@ Pipeline de CI/CD configurado via [.github/workflows/test.yml](.github/workflows
 
 #### 1. **Job: Test Suite** (Principal)
 - **Trigger**: Push em `main`, `feat/**`, `fix/**`; PRs para `main`
-- **Matrix**: Node 18.x, 20.x (testa múltiplas versões)
+- **Node**: 20.x (única versão suportada)
 - **Steps**:
   - ✅ Checkout código
   - ✅ Setup pnpm + Node
   - ✅ Install dependencies (com cache)
-  - ✅ ESLint check (linting)
+  - ✅ `next typegen` (geração de tipos das rotas)
   - ✅ Jest tests com `--coverage`
   - ✅ Upload coverage para Codecov
+  - ⚠️ Comentário de cobertura no PR (`continue-on-error: true`)
 
-**Duração**: ~3-5 minutos por Node version
+**Duração**: ~3-5 minutos
 
 #### 2. **Job: Build Check** (Bloqueador)
 - Valida `pnpm build` em ambiente de produção
-- Previne PRs com erros de TypeScript/Next.js
+- Previne PRs com erros de compilação
 - Depende de Test Suite (só executa se testes passam)
 
-#### 3. **Job: Security Scan** (Não-bloqueador)
+#### 3. **Job: Type Check** (Não-bloqueador — `continue-on-error: true`)
+- `npx tsc --noEmit` para análise estática de tipos
+- Falhas não bloqueiam merge (erros pré-existentes conhecidos)
+- Visibilidade para correção progressiva
+
+#### 4. **Job: Security Scan** (Não-bloqueador)
 - `pnpm audit` para verificar vulnerabilidades de dependências
 - Relatório é comentado no PR (informativo)
+
+### Convenções de Teste
+
+- **API Routes**: Usam `@jest-environment node` (docblock no topo do arquivo) porque dependem de `Request`/`Response` do Node 18+
+- **Componentes**: Usam `jsdom` (default) para testes de renderização React
+- **Testes pré-existentes falhando**: Mantidos em `testPathIgnorePatterns` no `jest.config.mjs` até correção em PRs separados
 
 ### Proteção de Branches (GitHub Flow)
 
@@ -440,7 +452,6 @@ main branch:
 ├─ ✅ Requer PR antes de merge
 ├─ ✅ Requer 1 aprovação
 ├─ ✅ Status checks obrigatórios:
-│   ├─ Test Suite (18.x)
 │   ├─ Test Suite (20.x)
 │   └─ Build Check
 ├─ ✅ Branch deve estar atualizada com main
@@ -465,15 +476,15 @@ Relatório automático de **cobertura de testes** em cada PR:
 5. Criar PR via GitHub para main
    ↓
 6. GitHub Actions executa:
-   - Jest (Node 18.x) → 2-3 min
-   - Jest (Node 20.x) → 2-3 min
+   - Test Suite (Node 20.x) → 3-5 min
    - Build Check → 1-2 min
+   - Type Check (não-bloqueador) → 1 min
    - Security Scan → 1 min
    ↓
 7. Status checks aparecem no PR
-   ✅ Test Suite (18.x)
    ✅ Test Suite (20.x)
    ✅ Build Check
+   ⚠️ Type Check (informativo)
    ✅ Security Scan
    ✓ Codecov (informativo)
    ↓
@@ -488,9 +499,8 @@ Relatório automático de **cobertura de testes** em cada PR:
 
 ✅ **Caching**: pnpm-lock.yaml cachado (~30% mais rápido)
 ✅ **Concurrency**: Cancela workflows antigos se novo push chega
-✅ **Matrix Testing**: Múltiplas versões do Node para compatibilidade
 ✅ **Fail-fast**: Build Check depende de testes (economiza tempo)
-✅ **Não-bloqueadores**: Security/Linting não impedem merge (feedback apenas)
+✅ **Não-bloqueadores**: Type Check / Security não impedem merge
 ✅ **Coverage Tracking**: Histórico de cobertura em Codecov
 ✅ **PR Comments**: Feedback automático nos PRs
 
@@ -498,7 +508,7 @@ Relatório automático de **cobertura de testes** em cada PR:
 
 1. **GitHub Settings → Branches → Branch Protection Rule**:
    - Pattern: `main`
-   - Require status checks: `Test Suite (18.x)`, `Test Suite (20.x)`, `Build Check`
+   - Require status checks: `Test Suite (20.x)`, `Build Check`
    - Require PR before merge: Sim
    - Require approvals: 1
 
