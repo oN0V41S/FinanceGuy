@@ -53,8 +53,8 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm exec prisma generate
 
-      - name: Lint check
-        run: npx next lint
+      - name: Type check
+        run: pnpm exec next typegen && npx tsc --noEmit
 
       - name: Run Jest tests
         run: pnpm test:ci
