@@ -153,7 +153,7 @@ export default function DashboardPage() {
                 />
                 <MonthFilter
                   value={selectedMonth}
-                  onChange={(m) => m && setSelectedMonth(m)}
+                  onChange={(m: string | null) => m && setSelectedMonth(m)}
                   year={selectedYear}
                   onYearChange={setSelectedYear}
                 />
