@@ -1,6 +1,6 @@
 # Documentação Técnica – FinanceGuy
 
-**Versão**: 1.0 | **Data**: Março 2026 | **Status**: Backend Concluído (Auth + Transactions)
+**Versão**: 1.1 | **Data**: Junho 2026 | **Status**: Dashboard completo (lazy loading, filtro quinzenal, cards de resumo)
 
 ---
 
@@ -26,6 +26,9 @@
 
 - **Autenticação Segura**: Registro e login com tokens JWT (Cookies).
 - **CRUD Completo**: Criar, ler, atualizar e deletar transações.
+- **Dashboard Financeiro**: Cards de resumo (entradas, saídas, saldo), transações recentes.
+- **Filtros Avançados**: Filtro mensal e quinzenal (Mês inteiro / Dia 1 ao 15 / Dia 16 ao 31).
+- **Lazy Loading**: Componentes carregam sob demanda com indicadores de carregamento acessíveis.
 - **Relatórios**: Sumário financeiro (income, expense, balance).
 - **Persistência Robusta**: PostgreSQL, abstraída via Repository Pattern.
 
@@ -49,19 +52,49 @@ A aplicação segue **Clean Architecture** com separação clara entre a interfa
 ```
 src/
 ├── app/
-│   └── api/                # Handlers proxy (chamam as features)
-│       ├── auth/
-│       └── transactions/
+│   ├── (auth)/               # Rotas de autenticação (login, register)
+│   ├── api/                   # Handlers proxy (chamam as features)
+│   │   ├── auth/
+│   │   └── transactions/
+│   ├── dashboard/             # Rota do dashboard
+│   └── ...                    # Outras rotas
+├── components/                # Componentes UI globais (shadcn/ui)
+│   └── ui/
+│       ├── select.tsx
+│       ├── skeleton.tsx
+│       └── badge.tsx
 ├── core/
-│   └── container.ts        # Injeção de dependência (DI)
-├── features/               # Domínio (Clean Architecture)
+│   └── container.ts           # Injeção de dependência (DI)
+├── features/                  # Domínio (Clean Architecture)
 │   ├── auth/
+│   │   ├── components/
+│   │   ├── actions/
+│   │   ├── schemas/
+│   │   └── ...
+│   ├── dashboard/             # Dashboard (cards, tabelas, filtros)
+│   │   ├── components/
+│   │   │   ├── SummaryCard.tsx
+│   │   │   ├── RecentTransactions.tsx
+│   │   │   ├── MonthFilter.tsx
+│   │   │   ├── FortnightFilter.tsx      # ← Novo: filtro quinzenal
+│   │   │   ├── EmptyState.tsx
+│   │   │   ├── HeaderLayout.tsx
+│   │   │   └── MobileNavBar.tsx
+│   │   └── hooks/
+│   │       └── useDashboardData.ts      # Hook principal do dashboard
 │   └── transactions/
+│       ├── components/
+│       ├── api/
+│       └── ...
 ├── lib/
-│   ├── prisma.ts           # Singleton PrismaClient
-│   └── auth-middleware.ts  # Segurança JWT
-├── shared/                 # Tipos e utilitários globais
-└── middleware.ts           # Proteção de rotas e injeção de x-user-id
+│   ├── prisma.ts              # Singleton PrismaClient
+│   └── auth-middleware.ts     # Segurança JWT
+├── shared/                    # Componentes e hooks compartilhados
+│   ├── components/
+│   │   ├── LazyLoad.tsx       # Wrapper de lazy loading
+│   │   └── LoadingSpinner.tsx # Spinner acessível
+│   └── hooks/
+├── proxy.ts                   # Proteção de rotas e injeção de x-user-id (Next.js 16+)
 ```
 
 ### Fluxo de Dados
@@ -77,6 +110,38 @@ Repository Layer
     ↓
 Prisma + PostgreSQL
 ```
+
+### Dashboard
+
+O dashboard (`src/app/dashboard/`) é o componente central de visualização financeira, construído com lazy loading e filtros de data.
+
+**Componentes:**
+
+| Componente | Função |
+|---|---|
+| `SummaryCard` | Exibe entradas, saídas e saldo do período |
+| `RecentTransactions` | Tabela com as 5 transações mais recentes |
+| `MonthFilter` | Seletor de mês/ano |
+| `FortnightFilter` | Seletor quinzenal — "Mês inteiro", "Dia 1 ao 15", "Dia 16 ao 31" |
+| `EmptyState` | Estado vazio quando não há transações |
+| `LazyLoad` | Wrapper que só renderiza children quando `isReady=true`; exibe `LoadingSpinner` enquanto carrega |
+
+**Hook `useDashboardData`** aceita três parâmetros: `month`, `year`, `fortnight`. A lógica de datas:
+
+| Fortnight | startDate | endDate |
+|---|---|---|
+| `all` (default) | YYYY-MM-01 | YYYY-MM-último_dia |
+| `first` | YYYY-MM-01 | YYYY-MM-15 |
+| `second` | YYYY-MM-16 | YYYY-MM-último_dia |
+
+**Regra de isolamento quinzenal**: A alteração do filtro quinzenal **só** refaz a requisição dos `SummaryCards`. A tabela de `RecentTransactions` permanece estática com os dados do mês inteiro. Internamente, o hook faz duas chamadas paralelas quando necessário:
+1. Uma com o range completo do mês → para `recentTransactions`
+2. Uma com o range quinzenal → apenas para `summary`
+
+**Lazy Loading**: Os componentes do dashboard usam o padrão de dois estados:
+- **`isReady`** (controle do `LazyLoad`): enquanto `false`, o conteúdo não monta no DOM — apenas o `LoadingSpinner` aparece.
+- **`isLoading`** (controle do hook): enquanto `true`, os componentes que já montaram exibem esqueletos/shimmer.
+- **Regra "never render empty"**: Durante o carregamento, `SummaryCards` e `RecentTransactions` estão **fora do DOM** (apenas spinner visível). Após carregar com dados zerados, apenas `EmptyState` aparece.
 
 ---
 
