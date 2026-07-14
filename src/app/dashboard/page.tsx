@@ -44,6 +44,7 @@ export default function DashboardPage() {
       {/* Drawer overlay backdrop */}
       {drawerOpen && (
         <div
+          data-testid="drawer-overlay"
           className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm"
           onClick={() => setDrawerOpen(false)}
           aria-hidden="true"
@@ -136,6 +137,12 @@ export default function DashboardPage() {
         {/* Dashboard Content */}
         <main className="flex-1 p-4 md:p-6">
           <div className="max-w-6xl mx-auto">
+            {error && (
+              <div className="mb-4 p-4 rounded-md bg-red-500/10 text-red-500 text-sm" role="alert">
+                {error}
+              </div>
+            )}
+
             {/* Page Title + Filters */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>

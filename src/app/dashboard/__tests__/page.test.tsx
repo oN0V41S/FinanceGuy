@@ -1,10 +1,28 @@
 'use client';
 
-import { render, screen } from '@testing-library/react';
+import React from 'react';
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import '@testing-library/jest-dom';
 
-// Mock components
+const mockUseDashboardData = jest.fn();
+
+jest.mock('@/features/dashboard/hooks/useDashboardData', () => ({
+  useDashboardData: (...args: any[]) => mockUseDashboardData(...args),
+}));
+
+jest.mock('next/navigation', () => ({
+  usePathname: () => '/dashboard',
+}));
+
 jest.mock('@/features/dashboard/components/HeaderLayout', () => ({
-  HeaderLayout: () => <header data-testid="header">Header</header>,
+  HeaderLayout: ({ onOpenMobileDrawer }: { onOpenMobileDrawer?: () => void }) => (
+    <header data-testid="header">
+      <button aria-label="Abrir menu" onClick={onOpenMobileDrawer}>
+        Menu
+      </button>
+    </header>
+  ),
 }));
 
 jest.mock('@/features/dashboard/components/MobileNavBar', () => ({
@@ -20,37 +38,167 @@ jest.mock('@/features/dashboard/components/RecentTransactions', () => ({
 }));
 
 jest.mock('@/features/dashboard/components/MonthFilter', () => ({
-  MonthFilter: () => <div data-testid="month-filter">MonthFilter</div>,
+  MonthFilter: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (month: string | null) => void;
+  }) => (
+    <div data-testid="month-filter">
+      <button aria-label="Mês" onClick={() => onChange('06')}>
+        Month: {value}
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock('@/features/dashboard/components/FortnightFilter', () => ({
+  FortnightFilter: ({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (val: string) => void;
+  }) => (
+    <div data-testid="fortnight-filter">
+      <button aria-label="Quinzena" onClick={() => onChange('first')}>
+        Fortnight: {value}
+      </button>
+    </div>
+  ),
 }));
 
 jest.mock('@/features/dashboard/components/EmptyState', () => ({
   EmptyState: () => <div data-testid="empty-state">EmptyState</div>,
 }));
 
-jest.mock('@/features/dashboard/hooks/useDashboardData', () => ({
-  useDashboardData: () => ({
-    recentTransactions: [],
-    summary: { income: 0, expense: 0, balance: 0 },
-    isLoading: false,
-    error: null,
-  }),
-}));
+import DashboardPage from '../page';
 
-jest.mock('next/navigation', () => ({
-  usePathname: () => '/dashboard',
-}));
-
-import { HeaderLayout } from '@/features/dashboard/components/HeaderLayout';
-import { MobileNavBar } from '@/features/dashboard/components/MobileNavBar';
+const defaultData = {
+  recentTransactions: [],
+  summary: { income: 0, expense: 0, balance: 0 },
+  isLoading: false,
+  error: null,
+  refresh: jest.fn(),
+};
 
 describe('DashboardPage Integration', () => {
-  it('renderiza HeaderLayout', () => {
-    render(<HeaderLayout />);
-    expect(screen.getByTestId('header')).toBeInTheDocument();
+  beforeEach(() => {
+    mockUseDashboardData.mockReturnValue(defaultData);
   });
 
-  it('renderiza MobileNavBar', () => {
-    render(<MobileNavBar />);
-    expect(screen.getByTestId('mobile-navbar')).toBeInTheDocument();
+  describe('HeaderLayout and MobileNavBar', () => {
+    it('renderiza HeaderLayout', () => {
+      render(<DashboardPage />);
+      expect(screen.getByTestId('header')).toBeInTheDocument();
+    });
+
+    it('renderiza MobileNavBar', () => {
+      render(<DashboardPage />);
+      expect(screen.getByTestId('mobile-navbar')).toBeInTheDocument();
+    });
+  });
+
+  describe('Drawer behavior', () => {
+    it('clicking menu button opens drawer', async () => {
+      const user = userEvent.setup();
+      render(<DashboardPage />);
+
+      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
+
+      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Menu de navegação' })).toHaveClass('translate-x-0');
+    });
+
+    it('clicking overlay closes drawer', async () => {
+      const user = userEvent.setup();
+      render(<DashboardPage />);
+
+      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
+      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
+
+      await user.click(screen.getByTestId('drawer-overlay'));
+
+      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Menu de navegação' })).toHaveClass('-translate-x-full');
+    });
+
+    it('clicking close button closes drawer', async () => {
+      const user = userEvent.setup();
+      render(<DashboardPage />);
+
+      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
+      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
+
+      await user.click(within(screen.getByRole('dialog', { name: 'Menu de navegação' })).getByRole('button', { name: 'Fechar menu' }));
+
+      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
+      expect(screen.getByRole('dialog', { name: 'Menu de navegação' })).toHaveClass('-translate-x-full');
+    });
+  });
+
+  describe('Filter interactions', () => {
+    it('MonthFilter renders and triggers onChange', async () => {
+      const user = userEvent.setup();
+      render(<DashboardPage />);
+
+      expect(screen.getByTestId('month-filter')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Mês' })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Mês' }));
+
+      expect(mockUseDashboardData).toHaveBeenCalledWith(
+        '06',
+        expect.any(String),
+        'all',
+      );
+    });
+
+    it('FortnightFilter renders and triggers onChange', async () => {
+      const user = userEvent.setup();
+      render(<DashboardPage />);
+
+      expect(screen.getByTestId('fortnight-filter')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Quinzena' })).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Quinzena' }));
+
+      expect(mockUseDashboardData).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        'first',
+      );
+    });
+  });
+
+  describe('Error state', () => {
+    it('displays error message when useDashboardData returns error', () => {
+      mockUseDashboardData.mockReturnValue({
+        ...defaultData,
+        error: 'Falha ao carregar dados financeiros',
+      });
+
+      render(<DashboardPage />);
+
+      expect(screen.getByText('Falha ao carregar dados financeiros')).toBeInTheDocument();
+    });
+  });
+
+  describe('Page title', () => {
+    it('renders "Visão Geral" heading', () => {
+      render(<DashboardPage />);
+      expect(screen.getByRole('heading', { name: 'Visão Geral' })).toBeInTheDocument();
+    });
+
+    it('renders current month/year subtitle', () => {
+      const now = new Date();
+      const expected = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+      render(<DashboardPage />);
+      expect(screen.getByText(expected)).toBeInTheDocument();
+    });
   });
 });

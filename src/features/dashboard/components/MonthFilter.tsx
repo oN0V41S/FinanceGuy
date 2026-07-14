@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-// SelectValue is used for year selector only; month uses custom label display
 import { cn } from '@/lib/utils';
 import { CalendarDays } from 'lucide-react';
 
@@ -65,9 +64,9 @@ export function MonthFilter({
             aria-label="Filtrar por mês"
           >
             <CalendarDays className="w-4 h-4 text-on-surface-variant mr-1.5" />
-            <span className="flex flex-1 text-left" data-slot="select-value">
-              {selectedMonth?.label || 'Mês'}
-            </span>
+            <SelectValue placeholder="Mês">
+              {(v) => MONTHS.find((m) => m.value === v)?.label || 'Mês'}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
             {MONTHS.map((month) => (
