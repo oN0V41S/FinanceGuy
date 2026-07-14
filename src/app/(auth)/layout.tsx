@@ -19,7 +19,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
       {/* Main Content */}
       <main className="flex-1 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md rounded-xl shadow-lg border border-outline-variant bg-surface-container">
+        <Card className="w-full max-w-md rounded-xl bg-surface-container">
           <CardContent className="pt-6">
             {children}
           </CardContent>
