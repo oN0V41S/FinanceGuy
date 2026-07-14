@@ -75,7 +75,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             onClick={onClose}
             className={cn(
               'flex items-center justify-center p-2 rounded-md',
-              'text-neutral hover:bg-surface-container-low transition-colors'
+              'text-on-surface-variant hover:bg-surface-container-low transition-colors'
             )}
             aria-label="Fechar menu"
           >
@@ -98,18 +98,18 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
                   'transition-colors',
                   active
                     ? 'text-primary bg-surface-container-low'
-                    : 'text-neutral hover:bg-surface-container-low'
+                    : 'text-on-surface-variant hover:bg-surface-container-low'
                 )}
               >
                 <Icon 
                   className={cn(
                     'w-5 h-5',
-                    active ? 'text-primary' : 'text-neutral'
+                    active ? 'text-primary' : 'text-on-surface-variant'
                   )} 
                 />
                 <span className={cn(
                   'text-sm font-medium',
-                  active ? 'text-primary' : 'text-neutral'
+                  active ? 'text-primary' : 'text-on-surface-variant'
                 )}>
                   {item.label}
                 </span>
@@ -126,20 +126,20 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             className={cn(
               'flex items-center gap-3 px-3 py-2.5 rounded-md',
               'transition-colors',
-              isActive(footerItem.href)
-                ? 'text-primary bg-surface-container-low'
-                : 'text-neutral hover:bg-surface-container-low'
+                isActive(footerItem.href)
+                  ? 'text-primary bg-surface-container-low'
+                  : 'text-on-surface-variant hover:bg-surface-container-low'
             )}
           >
             <Settings 
               className={cn(
                 'w-5 h-5',
-                isActive(footerItem.href) ? 'text-primary' : 'text-neutral'
+                isActive(footerItem.href) ? 'text-primary' : 'text-on-surface-variant'
               )} 
             />
             <span className={cn(
               'text-sm font-medium',
-              isActive(footerItem.href) ? 'text-primary' : 'text-neutral'
+              isActive(footerItem.href) ? 'text-primary' : 'text-on-surface-variant'
             )}>
               {footerItem.label}
             </span>

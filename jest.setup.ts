@@ -122,3 +122,8 @@ jest.mock("next/navigation", () => ({
   ...jest.requireActual("next/navigation"),
   redirect: jest.fn(() => Promise.resolve()),
 }));
+
+// Mock do server action de nickname para evitar cascata de import ESM (next-auth)
+jest.mock("@/features/auth/actions/updateNicknameAction", () => ({
+  updateNicknameAction: jest.fn(),
+}));

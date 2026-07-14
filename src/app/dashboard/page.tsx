@@ -132,7 +132,10 @@ export default function DashboardPage() {
       {/* Main Content Area */}
       <div className="flex flex-col pb-16 md:pb-0">
         {/* Header — menu button triggers drawer on ALL screen sizes */}
-        <HeaderLayout onOpenMobileDrawer={() => setDrawerOpen(true)} />
+        <HeaderLayout
+          isDrawerOpen={drawerOpen}
+          onToggleDrawer={() => setDrawerOpen(!drawerOpen)}
+        />
 
         {/* Dashboard Content */}
         <main className="flex-1 p-4 md:p-6">

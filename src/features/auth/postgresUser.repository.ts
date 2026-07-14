@@ -55,4 +55,10 @@ export class PostgresUserRepository implements IUserRepository {
       emailVerified: user.emailVerified
     };
   }
+
+  async updateNickname(id: string, nickname: string): Promise<Omit<UserRecord, 'password'>> {
+    const user = await prisma.user.update({ where: { id }, data: { nickname } });
+    const { password, ...rest } = user;
+    return rest;
+  }
 }

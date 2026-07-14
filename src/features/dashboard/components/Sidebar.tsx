@@ -53,7 +53,7 @@ export function Sidebar() {
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
               <Wallet className="w-5 h-5 text-primary" />
             </div>
-            <span className="font-display font-semibold text-xl text-on-surface text-primary">
+            <span className="font-display font-semibold text-xl text-primary">
               FinanceGuy
             </span>
           </>
@@ -71,7 +71,7 @@ export function Sidebar() {
         onClick={() => setCollapsed(!collapsed)}
         className={cn(
           'mx-2 mb-2 p-2 rounded-md',
-          'text-neutral hover:bg-surface-container-low',
+          'text-on-surface-variant hover:bg-surface-container-low',
           'transition-colors flex items-center justify-center'
         )}
         aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
@@ -102,7 +102,7 @@ export function Sidebar() {
                 collapsed && 'justify-center px-0',
                 active
                   ? 'text-primary bg-surface-container-low'
-                  : 'text-on-surface text-neutral hover:bg-surface-container-low'
+                  : 'text-on-surface-variant hover:bg-surface-container-low'
               )}
             >
               <Icon
@@ -138,13 +138,13 @@ export function Sidebar() {
           <Settings
             className={cn(
               'w-5 h-5 transition-colors flex-shrink-0',
-              isActive(footerItem.href) ? 'text-primary' : 'text-neutral'
+              isActive(footerItem.href) ? 'text-primary' : 'text-on-surface-variant'
             )}
           />
           {!collapsed && (
             <span className={cn(
               'text-sm font-medium',
-              isActive(footerItem.href) ? 'text-primary' : 'text-neutral'
+              isActive(footerItem.href) ? 'text-primary' : 'text-on-surface-variant'
             )}>
               {footerItem.label}
             </span>
