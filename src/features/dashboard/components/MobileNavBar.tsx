@@ -44,19 +44,19 @@ export function MobileNavBar() {
                 'transition-colors',
                 active
                   ? 'text-secondary bg-surface-container-low rounded-xl'
-                  : 'text-neutral hover:bg-surface-container-low'
+                  : 'text-on-surface-variant hover:bg-surface-container-low'
               )}
             >
               <Icon
                 className={cn(
                   'w-6 h-6 transition-colors',
-                  active ? 'text-secondary' : 'text-neutral'
+                  active ? 'text-secondary' : 'text-on-surface-variant'
                 )}
               />
               <span
                 className={cn(
                   'text-xs font-medium',
-                  active ? 'text-secondary' : 'text-neutral'
+                  active ? 'text-secondary' : 'text-on-surface-variant'
                 )}
               >
                 {item.label}
