@@ -44,16 +44,33 @@ describe("Modal Component", () => {
       expect(closeButton).toBeInTheDocument();
     });
 
-    it("should render with overlay", () => {
+    it("should render with overlay that has no backdrop blur classes", () => {
       render(
         <Modal isOpen={true} onClose={mockOnClose} title="Test">
           <p>Content</p>
         </Modal>
       );
 
-      // The overlay should be present with fixed positioning
+      // The overlay should be present with fixed positioning and centering
       const overlay = document.querySelector(".fixed.inset-0");
       expect(overlay).toBeInTheDocument();
+      expect(overlay).toHaveClass("flex", "items-center", "justify-center");
+
+      // The overlay should NOT have backdrop dimming classes
+      expect(overlay).not.toHaveClass("bg-background/80");
+      expect(overlay).not.toHaveClass("backdrop-blur-sm");
+    });
+
+    it("should render panel with bg-surface-container", () => {
+      render(
+        <Modal isOpen={true} onClose={mockOnClose} title="Test">
+          <p>Content</p>
+        </Modal>
+      );
+
+      // The panel (inner div) should have the surface background color
+      const panel = document.querySelector(".bg-surface-container");
+      expect(panel).toBeInTheDocument();
     });
   });
 
