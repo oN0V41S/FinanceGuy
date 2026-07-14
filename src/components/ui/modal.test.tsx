@@ -72,6 +72,19 @@ describe("Modal Component", () => {
       const panel = document.querySelector(".bg-surface-container");
       expect(panel).toBeInTheDocument();
     });
+
+    it("should render the title with font-sans (not font-display) per VISUAL_IDENTITY.md", () => {
+      render(
+        <Modal isOpen={true} onClose={mockOnClose} title="Test Modal">
+          <p>Content</p>
+        </Modal>
+      );
+
+      const title = screen.getByText("Test Modal");
+      expect(title.tagName).toBe("H3");
+      expect(title).toHaveClass("font-sans");
+      expect(title).not.toHaveClass("font-display");
+    });
   });
 
   describe("Not Rendering", () => {

@@ -23,7 +23,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
             >
                 <div className="p-6">
                     <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
-                        <h3 className="text-xl font-display font-semibold text-on-surface">{title}</h3>
+                        <h3 className="text-xl font-sans font-semibold text-on-surface">{title}</h3>
                         <button
                             onClick={onClose}
                             aria-label="Fechar"

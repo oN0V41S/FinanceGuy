@@ -34,4 +34,13 @@ describe("LandingPage Design System Styling Tests", () => {
     const header = screen.getByRole("banner");
     expect(header).toHaveClass("bg-surface-container/80", "border-outline-variant");
   });
+
+  it("verifies the Features section heading uses the brand-secondary color token (new color pattern)", () => {
+    render(<LandingPage />);
+    const featuresHeading = screen.getByRole("heading", {
+      level: 2,
+      name: /tudo o que você precisa para organizar suas finanças/i,
+    });
+    expect(featuresHeading).toHaveClass("text-brand-secondary");
+  });
 });

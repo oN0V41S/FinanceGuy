@@ -9,7 +9,6 @@ import {
   Shield, 
   ArrowRight 
 } from "lucide-react";
-import { LogoMark } from "@/components/ui/logo-mark";
 
 const features = [
   {
@@ -46,7 +45,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center">
-              <LogoMark className="w-5 h-5 text-white" />
+              <Wallet className="w-5 h-5 text-white" />
             </div>
             <span className="font-bold text-xl font-sans">FinanceGuy</span>
           </div>
@@ -101,7 +100,7 @@ export default function LandingPage() {
       <section className="py-20 px-4 bg-surface-container">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold font-sans text-brand-secondary mb-4">
               Tudo o que você precisa para organizar suas finanças
             </h2>
             <p className="text-lg text-foreground/70 max-w-2xl mx-auto">
@@ -118,7 +117,7 @@ export default function LandingPage() {
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
                   <feature.icon className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold font-sans text-foreground mb-2">
+                <h3 className="text-xl font-semibold font-sans text-brand-secondary mb-2">
                   {feature.title}
                 </h3>
                 <p className="text-foreground/70">
@@ -158,7 +157,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center">
-                <LogoMark className="w-5 h-5 text-white" />
+                <Wallet className="w-5 h-5 text-white" />
               </div>
               <span className="font-bold font-sans text-foreground">FinanceGuy</span>
             </div>
