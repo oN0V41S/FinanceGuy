@@ -7,7 +7,9 @@
 Aplicação web para gerenciamento de transações financeiras pessoais com suporte a:
 - ✅ CRUD completo (Create, Read, Update, Delete)
 - ✅ Categorização automática de transações
-- ✅ Análises financeiras (income, expense, balance)
+- ✅ Dashboard com cards de resumo financeiro (income, expense, balance)
+- ✅ Filtro mensal e quinzenal no dashboard
+- ✅ Lazy loading com indicador de carregamento
 - ✅ Suporte a parcelas/installments
 - 🔄 (Em desenvolvimento) Integração com IA para insights automáticos
 
@@ -48,13 +50,20 @@ Aplicação web para gerenciamento de transações financeiras pessoais com supo
 ├── prisma/                        # Schema (Prisma)
 ├── src/
 │   ├── app/
-│   │   └── api/                   # Handlers Proxy (Auth + Transações)
+│   │   ├── (auth)/                # Rotas de autenticação
+│   │   ├── api/                   # Handlers Proxy (Auth + Transações)
+│   │   └── dashboard/             # Dashboard
+│   ├── components/ui/             # shadcn/ui components
 │   ├── core/                      # Container de DI
-│   ├── components/                # React components
-│   ├── features/                  # Lógica de negócio (Auth, Transactions)
+│   ├── features/                  # Lógica de negócio
+│   │   ├── auth/                  #   Autenticação
+│   │   ├── dashboard/             #   Dashboard (SummaryCard, filtros, tabelas)
+│   │   └── transactions/          #   Transações
 │   ├── lib/                       # Prisma Singleton, Auth Middleware
-│   ├── shared/                    # Tipos e utilitários globais
-│   └── proxy.ts                # Proteção de rotas e injeção de x-user-id (Next.js 16+)
+│   ├── shared/                    # Componentes e utilitários compartilhados
+│   │   ├── components/            #   LazyLoad, LoadingSpinner
+│   │   └── hooks/                 #   Custom hooks
+│   └── proxy.ts                   # Proteção de rotas (Next.js 16+)
 ├── .env.example
 ├── package.json
 └── ...

@@ -19,7 +19,7 @@ export function HeaderLayout({ onOpenMobileDrawer }: HeaderLayoutProps) {
           <button
             type="button"
             className={cn(
-              'md:hidden flex items-center justify-center p-2 rounded-md',
+              'flex items-center justify-center p-2 rounded-md',
               'text-neutral hover:bg-surface-container-low transition-colors',
               'focus:outline-none focus:ring-2 focus:ring-primary/50'
             )}
@@ -64,7 +64,7 @@ export function HeaderLayout({ onOpenMobileDrawer }: HeaderLayoutProps) {
           <button
             type="button"
             className={cn(
-              'md:hidden flex items-center justify-center p-2 rounded-md',
+              'flex items-center justify-center p-2 rounded-md',
               'text-secondary hover:bg-surface-container-low transition-colors',
               'focus:outline-none focus:ring-2 focus:ring-primary/50'
             )}
