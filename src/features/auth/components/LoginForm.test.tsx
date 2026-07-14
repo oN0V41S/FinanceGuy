@@ -119,6 +119,30 @@ describe("LoginForm", () => {
     });
   });
 
+  describe("Submit Button Disabled State", () => {
+    it("should disable the submit button with empty/invalid fields", () => {
+      render(<LoginForm />);
+
+      const submitButton = screen.getByRole("button", { name: /Entrar na conta/i });
+      expect(submitButton).toHaveAttribute("disabled");
+      expect(submitButton).toBeDisabled();
+    });
+
+    it("should enable the submit button after valid email and non-empty password", () => {
+      render(<LoginForm />);
+
+      const emailInput = screen.getByTestId("email");
+      const passwordInput = screen.getByTestId("password");
+      const submitButton = screen.getByRole("button", { name: /Entrar na conta/i });
+
+      fireEvent.change(emailInput, { target: { value: "usuario@exemplo.com" } });
+      fireEvent.change(passwordInput, { target: { value: "123456" } });
+
+      expect(submitButton).not.toBeDisabled();
+      expect(submitButton).toHaveProperty("disabled", false);
+    });
+  });
+
   describe("Server Error Display", () => {
     it("should display server error when loginAction returns error", async () => {
       mockLoginAction.mockResolvedValue({ error: "Credenciais inválidas!" } as any);

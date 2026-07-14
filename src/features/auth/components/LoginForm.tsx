@@ -26,6 +26,8 @@ export function LoginForm() {
 
   const watchEmail = watch("email") || "";
   const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchEmail);
+  const watchPassword = watch("password") || "";
+  const isLoginValid = isEmailValid && watchPassword.length >= 1;
   const emailStatus: FieldStatus = errors.email
     ? "invalid"
     : watchEmail && isEmailValid
@@ -88,8 +90,8 @@ export function LoginForm() {
       <Button
         type="submit"
         variant={"default"}
-        disabled={isSubmitting}
-        className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-medium transition-colors"
+        disabled={isSubmitting || !isLoginValid}
+        className="w-full h-12 rounded-xl bg-primary text-primary-foreground font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isSubmitting ? (
           <>
