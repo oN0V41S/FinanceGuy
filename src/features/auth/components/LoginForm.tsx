@@ -31,8 +31,8 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email" className="text-brand-secondary font-medium">
             Endereço de e-mail
@@ -41,7 +41,7 @@ export function LoginForm() {
             id="email"
             type="email"
             placeholder="seu@email.com"
-            className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
             aria-invalid={!!errors.email}
             
             {...register("email")}
@@ -59,7 +59,7 @@ export function LoginForm() {
             id="password"
             type="password"
             placeholder="••••••••"
-            className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
             aria-invalid={!!errors.password}
             {...register("password")}
           />

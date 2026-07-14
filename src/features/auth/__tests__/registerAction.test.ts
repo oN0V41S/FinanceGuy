@@ -26,6 +26,7 @@ describe("registerAction", () => {
         nickname: "nick",
         email: "test@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       // Act
@@ -43,6 +44,7 @@ describe("registerAction", () => {
         nickname: "a",
         email: "test@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       // Act
@@ -60,6 +62,7 @@ describe("registerAction", () => {
         nickname: "john",
         email: "not-an-email",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       // Act
@@ -191,6 +194,7 @@ describe("registerAction", () => {
         nickname: "john",
         email: "new@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       mockAuthService.register.mockResolvedValue({
@@ -217,6 +221,7 @@ describe("registerAction", () => {
         nickname: "jane",
         email: "jane@example.com",
         password: "SecurePass1@",
+        confirmPassword: "SecurePass1@",
       };
 
       mockAuthService.register.mockResolvedValue({
@@ -243,6 +248,7 @@ describe("registerAction", () => {
         nickname: "john",
         email: "existing@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       mockAuthService.register.mockRejectedValue(
@@ -264,6 +270,7 @@ describe("registerAction", () => {
         nickname: "john",
         email: "test@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       mockAuthService.register.mockRejectedValue(
@@ -284,6 +291,7 @@ describe("registerAction", () => {
         nickname: "john",
         email: "test@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       // Create an Error with an empty message
@@ -304,6 +312,7 @@ describe("registerAction", () => {
         nickname: "john",
         email: "test@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       mockAuthService.register.mockRejectedValue("String error" as any);
@@ -324,6 +333,7 @@ describe("registerAction", () => {
         nickname: "joao",
         email: "joao@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       mockAuthService.register.mockResolvedValue({
@@ -345,6 +355,7 @@ describe("registerAction", () => {
         nickname: "maria",
         email: "maria@dominio.com.br",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       mockAuthService.register.mockResolvedValue({
@@ -366,6 +377,7 @@ describe("registerAction", () => {
         nickname: "test",
         email: "test@test.com",
         password: "Pass@word1", // @ como caractere especial (válido conforme regex)
+        confirmPassword: "Pass@word1",
       };
 
       mockAuthService.register.mockResolvedValue({

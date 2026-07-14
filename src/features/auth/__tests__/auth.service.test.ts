@@ -33,7 +33,8 @@ describe('AuthService', () => {
       name: 'Test User',
       nickname: 'test',
       email: 'test@test.com',
-      password: 'secret'
+      password: 'secret',
+      confirmPassword: 'secret',
     };
 
     // Act & Assert: Espera que o método 'register' rejeite com a mensagem de erro correta
@@ -50,7 +51,8 @@ describe('AuthService', () => {
       name: 'New User',
       nickname: 'new',
       email: 'new@test.com',
-      password: 'password123'
+      password: 'password123',
+      confirmPassword: 'password123',
     };
 
     // Act: Chama o método de registro

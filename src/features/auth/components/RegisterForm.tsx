@@ -11,7 +11,7 @@ import { FormAlert, FormError } from "./ui";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PasswordRequirements, validatePasswordRequirements } from "./PasswordRequirements";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check, X } from "lucide-react";
 
 export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +32,10 @@ export function RegisterForm() {
   const isPasswordValid = validatePasswordRequirements(watchPassword);
 
   const onSubmit = async (data: RegisterInput) => {
+    // confirmPassword is validated client + server side via RegisterSchema.
+    // registerAction re-parses the full payload with RegisterSchema (which now
+    // requires confirmPassword), so the field must be included here. The
+    // AuthService/repository layer ignores it when persisting the user.
     const result = await registerAction(data);
     if (result?.error) {
       setError(result.error);
@@ -42,8 +46,8 @@ export function RegisterForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <div className="space-y-4">
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name" data-testid="label-name" className="text-brand-secondary font-medium">
@@ -54,7 +58,7 @@ export function RegisterForm() {
               id="name"
               type="text"
               placeholder="João Silva"
-              className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+              className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
               aria-invalid={!!errors.name}
               {...register("name")}
             />
@@ -72,7 +76,7 @@ export function RegisterForm() {
               id="nickname"
               type="text"
               placeholder="Como você quer ser chamado"
-              className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+              className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
               aria-invalid={!!errors.nickname}
               {...register("nickname")}
             />
@@ -91,7 +95,7 @@ export function RegisterForm() {
             id="email"
             type="email"
             placeholder="seu@email.com"
-            className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
             aria-invalid={!!errors.email}
             {...register("email")}
           />
@@ -104,16 +108,43 @@ export function RegisterForm() {
           <Label htmlFor="password" data-testid="label-password" className="text-brand-secondary font-medium">
             Senha
           </Label>
+          <div className="relative">
+            <Input
+              data-testid="password"
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200 pr-12"
+              aria-invalid={!!errors.password}
+              {...register("password")}
+            />
+            {watchPassword.length > 0 && (
+              isPasswordValid ? (
+                <Check className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-finance-income pointer-events-none" />
+              ) : (
+                <X className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-finance-expense pointer-events-none" />
+              )
+            )}
+          </div>
+          <PasswordRequirements passwordValue={watchPassword} />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword" data-testid="label-confirmPassword" className="text-brand-secondary font-medium">
+            Confirmar senha
+          </Label>
           <Input
-            data-testid="password"
-            id="password"
+            data-testid="confirmPassword"
+            id="confirmPassword"
             type="password"
             placeholder="••••••••"
-            className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
-            aria-invalid={!!errors.password}
-            {...register("password")}
+            className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            aria-invalid={!!errors.confirmPassword}
+            {...register("confirmPassword")}
           />
-          <PasswordRequirements passwordValue={watchPassword} />
+          {errors.confirmPassword && (
+            <FormError message={errors.confirmPassword.message} />
+          )}
         </div>
       </div>
       

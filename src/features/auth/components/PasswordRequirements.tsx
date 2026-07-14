@@ -28,25 +28,25 @@ export function PasswordRequirements({ passwordValue = "" }: PasswordRequirement
         {requirements.map((req) => {
           const isValid = req.test(passwordValue);
           return (
-            <div 
-              key={req.key} 
-              className="flex items-center gap-2 text-xs transition-colors duration-200"
+            <div
+              key={req.key}
+              className="flex items-center gap-1.5 text-sm transition-colors duration-200"
               data-testid={`password-requirement-${req.key}`}
             >
               {!isEmpty && (
                 <span
-                  className={isValid 
+                  className={isValid
                     ? "bg-finance-income text-white w-4 h-4 rounded-full flex items-center justify-center"
                     : "bg-finance-expense/20 text-finance-expense w-4 h-4 rounded-full flex items-center justify-center"
                   }
                   aria-hidden="true"
                 >
-                  {isValid ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                  {isValid ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
                 </span>
               )}
-              <span 
-                className={isValid && !isEmpty ? "line-through text-on-surface-variant" : "text-on-surface-variant"}
-                aria-label={`${req.label}, ${isValid ? 'satisfeito' : 'não satisfeito'}`}
+              <span
+                className={isValid ? "text-finance-income line-through" : "text-finance-expense"}
+                aria-label={`${req.label}, ${isValid ? "satisfeito" : "não satisfeito"}`}
               >
                 {req.label}
               </span>
