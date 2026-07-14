@@ -1,3 +1,9 @@
+---
+name: security-secret-auditor
+description: Audita segurança do código: secrets expostos, SQL injection, CVEs e dados financeiros. Use when auditando segurança, verificando secrets, ou antes de deploy.
+mode: subagent
+---
+
 # Sub-Agent: security-secret-auditor
 
 ## Visão Geral do Problema

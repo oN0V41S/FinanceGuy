@@ -1,3 +1,9 @@
+---
+name: docs-architect
+description: Gera documentação técnica, ADRs, diagramas Mermaid e documentação de API. Use when documentando APIs, criando guias, ou escrevendo ADRs.
+mode: subagent
+---
+
 # Sub-Agent: docs-architect
 
 ## Visão Geral do Problema

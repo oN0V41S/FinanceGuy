@@ -1,3 +1,9 @@
+---
+name: project-review
+description: Audita conformidade com Clean Architecture, revisa estrutura do código e valida padrões TypeScript/Prisma/Zod. Use when revisando arquitetura, validando features, ou antes de PRs.
+mode: subagent
+---
+
 # Sub-Agent: project-review
 
 ## Visão Geral do Problema
