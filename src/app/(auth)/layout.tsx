@@ -4,9 +4,9 @@ import Link from "next/link";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-surface-container flex flex-col">
       {/* Header */}
-      <header className="border-b border-outline-variant bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+      <header className="border-b border-outline-variant bg-surface-container sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -27,7 +27,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-outline-variant py-6 px-4 bg-background">
+      <footer className="border-t border-outline-variant py-6 px-4 bg-surface-container">
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
