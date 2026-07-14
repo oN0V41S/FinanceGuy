@@ -6,7 +6,7 @@ import { LoginSchema, LoginInput } from "@/features/auth/schemas/auth.schema";
 import { loginAction } from "@/features/auth/actions/loginAction";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { FormAlert, FormError, ValidatedInput } from "./ui";
+import { FormAlert, ValidatedInput } from "./ui";
 import type { FieldStatus } from "./ui/FieldStatusIcon";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
@@ -39,8 +39,16 @@ export function LoginForm() {
     }
   };
 
+  // For Zod-only failures (no native constraint), surface the native bubble too.
+  const onInvalid = (errs: Record<string, unknown>) => {
+    const firstKey = Object.keys(errs)[0];
+    if (firstKey) {
+      (document.getElementById(firstKey) as HTMLInputElement | null)?.reportValidity();
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4" noValidate>
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="email" className="text-brand-secondary font-medium">
@@ -51,12 +59,11 @@ export function LoginForm() {
             type="email"
             placeholder="seu@email.com"
             status={emailStatus}
+            required
             aria-invalid={!!errors.email}
+            invalidMessage={errors.email?.message}
             {...register("email")}
           />
-          {errors.email && (
-            <FormError message={errors.email.message} />
-          )}
         </div>
         
         <div className="space-y-2">
@@ -68,12 +75,11 @@ export function LoginForm() {
             type="password"
             placeholder="••••••••"
             showToggle
+            required
             aria-invalid={!!errors.password}
+            invalidMessage={errors.password?.message}
             {...register("password")}
           />
-          {errors.password && (
-            <FormError message={errors.password.message} />
-          )}
         </div>
       </div>
       

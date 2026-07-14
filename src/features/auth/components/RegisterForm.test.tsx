@@ -97,11 +97,19 @@ describe("RegisterForm", () => {
 
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
 
       // Email and password have explicit types set in the component
       expect(emailInput).toHaveAttribute("type", "email");
       expect(passwordInput).toHaveAttribute("type", "password");
-      
+
+      // Native HTML5 validation contract: email, password and confirm are required,
+      // and password enforces a minimum length.
+      expect(emailInput).toHaveAttribute("required");
+      expect(passwordInput).toHaveAttribute("required");
+      expect(confirmInput).toHaveAttribute("required");
+      expect(passwordInput).toHaveAttribute("minlength", "8");
+
       // Name and nickname don't have explicit type attributes in the component
       // They default to text type in the browser
       const nameInput = screen.getByTestId("name");
@@ -211,50 +219,21 @@ describe("RegisterForm", () => {
     });
   });
 
-  describe("Validation Errors - Email Field", () => {
-    it("should show validation error for empty email on submit", async () => {
-      mockRegisterAction.mockResolvedValue(undefined as any);
-
+  describe("Native HTML5 Validation - Email Field (setCustomValidity bubble)", () => {
+    it("should show native validation for an invalid email after blur", async () => {
       render(<RegisterForm />);
 
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
-      const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "" } });
-      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
-      fireEvent.submit(submitButton);
+      const emailInput = screen.getByTestId("email") as HTMLInputElement;
+      fireEvent.change(emailInput, { target: { value: "gmail" } });
+      fireEvent.blur(emailInput);
 
       await waitFor(() => {
-        expect(screen.getByText("Email inválido")).toBeInTheDocument();
+        // The status icon still reflects the Zod error...
+        expect(screen.getByTestId("field-status-invalid")).toBeInTheDocument();
+        // ...and the BROWSER native bubble must carry OUR Portuguese text.
+        expect(emailInput.validationMessage).toBe("Email inválido");
+        expect(emailInput.checkValidity()).toBe(false);
       });
-    });
-
-    it("should show validation error for invalid email format", async () => {
-      mockRegisterAction.mockResolvedValue(undefined as any);
-
-      render(<RegisterForm />);
-
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
-      const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "invalid-email" } });
-      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
-      
-      fireEvent.submit(submitButton);
-
-      await waitFor(() => {
-        expect(mockRegisterAction).not.toHaveBeenCalled();
-      }, { timeout: 1000 });
     });
   });
 
@@ -325,7 +304,8 @@ describe("RegisterForm", () => {
       await waitFor(() => {
         expect(screen.getByText("Nome deve ter pelo menos 2 caracteres")).toBeInTheDocument();
         expect(screen.getByText("O apelido é obrigatório")).toBeInTheDocument();
-        expect(screen.getByText("Email inválido")).toBeInTheDocument();
+        // NOTE: email no longer renders a below-field FormError paragraph; the
+        // native HTML5 bubble carries the "Email inválido" message instead.
         expect(
           within(passwordInput.parentElement as HTMLElement).getByTestId("field-status-invalid")
         ).toBeInTheDocument();
@@ -785,6 +765,23 @@ describe("RegisterForm", () => {
       const wrapper = confirmInput.parentElement as HTMLElement;
       await waitFor(() => {
         expect(within(wrapper).getByTestId("field-status-invalid")).toBeInTheDocument();
+      });
+    });
+
+    it("should set native invalid validity on a mismatching confirm password", async () => {
+      render(<RegisterForm />);
+      const passwordInput = screen.getByTestId("password") as HTMLInputElement;
+      const confirmInput = screen.getByTestId("confirmPassword") as HTMLInputElement;
+      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Different123!" } });
+
+      const wrapper = confirmInput.parentElement as HTMLElement;
+      await waitFor(() => {
+        // The status icon reflects the mismatch...
+        expect(within(wrapper).getByTestId("field-status-invalid")).toBeInTheDocument();
+        // ...and the native bubble must carry OUR Portuguese mismatch message.
+        expect(confirmInput.checkValidity()).toBe(false);
+        expect(confirmInput.validationMessage).toBe("As senhas não coincidem");
       });
     });
 

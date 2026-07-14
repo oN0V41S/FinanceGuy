@@ -1,7 +1,11 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { ValidatedInput } from "../ValidatedInput";
 
 describe("ValidatedInput", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("renders the input with the border-outline and bg-background classes", () => {
     render(<ValidatedInput placeholder="E-mail" />);
     const input = screen.getByPlaceholderText("E-mail");
@@ -60,5 +64,63 @@ describe("ValidatedInput", () => {
     const input = screen.getByTestId("email");
     expect(input).toBeInTheDocument();
     expect(input).toHaveAttribute("name", "email");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Native HTML5 validation contract (TDD red phase — implementation pending)
+  // The component will gain an optional `invalidMessage` prop and call
+  // `input.setCustomValidity(invalidMessage ?? "")` plus `reportValidity()` on
+  // blur so the BROWSER'S native bubble shows OUR Portuguese text.
+  // ---------------------------------------------------------------------------
+
+  it("forwards the native required attribute onto the underlying input", () => {
+    render(<ValidatedInput required placeholder="E-mail" />);
+    const input = screen.getByPlaceholderText("E-mail");
+    expect(input).toHaveAttribute("required");
+  });
+
+  it("forwards the native minLength attribute onto the underlying input", () => {
+    render(<ValidatedInput minLength={8} placeholder="Senha" />);
+    const input = screen.getByPlaceholderText("Senha");
+    expect(input).toHaveAttribute("minlength", "8");
+  });
+
+  it("sets the input validationMessage to invalidMessage and marks it invalid", async () => {
+    render(<ValidatedInput invalidMessage="Email inválido" placeholder="E-mail" />);
+    const input = screen.getByPlaceholderText("E-mail") as HTMLInputElement;
+
+    await waitFor(() => {
+      expect(input.validationMessage).toBe("Email inválido");
+    });
+    expect(input.checkValidity()).toBe(false);
+  });
+
+  it("keeps validationMessage empty and valid when invalidMessage is omitted", () => {
+    render(<ValidatedInput placeholder="E-mail" />);
+    const input = screen.getByPlaceholderText("E-mail") as HTMLInputElement;
+    expect(input.validationMessage).toBe("");
+    expect(input.checkValidity()).toBe(true);
+  });
+
+  it("keeps validationMessage empty and valid when invalidMessage is an empty string", () => {
+    render(<ValidatedInput invalidMessage="" placeholder="E-mail" />);
+    const input = screen.getByPlaceholderText("E-mail") as HTMLInputElement;
+    expect(input.validationMessage).toBe("");
+    expect(input.checkValidity()).toBe(true);
+  });
+
+  it("calls reportValidity on the underlying input when it is blurred", () => {
+    const reportValiditySpy = jest.spyOn(HTMLInputElement.prototype, "reportValidity");
+    const onBlurSpy = jest.fn();
+
+    render(<ValidatedInput placeholder="E-mail" onBlur={onBlurSpy} />);
+    const input = screen.getByPlaceholderText("E-mail") as HTMLInputElement;
+
+    fireEvent.blur(input);
+
+    // The merged onBlur from props should still fire...
+    expect(onBlurSpy).toHaveBeenCalled();
+    // ...but the native reportValidity bubble must also be triggered.
+    expect(reportValiditySpy).toHaveBeenCalled();
   });
 });

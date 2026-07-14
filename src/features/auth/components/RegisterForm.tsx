@@ -50,6 +50,14 @@ export function RegisterForm() {
       ? "valid"
       : null;
 
+  // For Zod-only failures (no native constraint), surface the native bubble too.
+  const onInvalid = (errs: Record<string, unknown>) => {
+    const firstKey = Object.keys(errs)[0];
+    if (firstKey) {
+      (document.getElementById(firstKey) as HTMLInputElement | null)?.reportValidity();
+    }
+  };
+
   const onSubmit = async (data: RegisterInput) => {
     // confirmPassword is validated client + server side via RegisterSchema.
     // registerAction re-parses the full payload with RegisterSchema (which now
@@ -65,7 +73,7 @@ export function RegisterForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4" noValidate>
       <div className="space-y-4">
         <div className="space-y-4">
           <div className="space-y-2">
@@ -115,12 +123,11 @@ export function RegisterForm() {
             type="email"
             placeholder="seu@email.com"
             status={emailStatus}
+            required
             aria-invalid={!!errors.email}
+            invalidMessage={errors.email?.message}
             {...register("email")}
           />
-          {errors.email && (
-            <FormError message={errors.email.message} />
-          )}
         </div>
         
         <div className="space-y-2">
@@ -134,7 +141,10 @@ export function RegisterForm() {
             placeholder="••••••••"
             status={passwordStatus}
             showToggle
+            required
+            minLength={8}
             aria-invalid={!!errors.password}
+            invalidMessage={errors.password?.message}
             {...register("password")}
           />
           <PasswordRequirements passwordValue={watchPassword} />
@@ -151,12 +161,11 @@ export function RegisterForm() {
             type="password"
             placeholder="••••••••"
             status={confirmStatus}
+            required
             aria-invalid={!!errors.confirmPassword}
+            invalidMessage={errors.confirmPassword?.message}
             {...register("confirmPassword")}
           />
-          {errors.confirmPassword && (
-            <FormError message={errors.confirmPassword.message} />
-          )}
         </div>
       </div>
       
