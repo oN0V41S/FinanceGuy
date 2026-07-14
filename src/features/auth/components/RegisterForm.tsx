@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { RegisterSchema, RegisterInput } from "@/features/auth/schemas/auth.schema";
@@ -7,11 +9,10 @@ import { registerAction } from "@/features/auth/actions/registerAction";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormAlert, FormError } from "./ui";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormAlert, FormError, ValidatedInput, PasswordStrengthMeter } from "./ui";
+import type { FieldStatus } from "./ui/FieldStatusIcon";
 import { PasswordRequirements, validatePasswordRequirements } from "./PasswordRequirements";
-import { Loader2, Check, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,25 @@ export function RegisterForm() {
   });
 
   const watchPassword = watch("password") || "";
+  const watchEmail = watch("email") || "";
+  const watchConfirm = watch("confirmPassword") || "";
   const isPasswordValid = validatePasswordRequirements(watchPassword);
+
+  const emailStatus: FieldStatus = errors.email
+    ? "invalid"
+    : watchEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchEmail)
+      ? "valid"
+      : null;
+  const passwordStatus: FieldStatus = errors.password
+    ? "invalid"
+    : watchPassword && isPasswordValid
+      ? "valid"
+      : null;
+  const confirmStatus: FieldStatus = errors.confirmPassword
+    ? "invalid"
+    : watchConfirm && watchConfirm === watchPassword && watchPassword.length > 0
+      ? "valid"
+      : null;
 
   const onSubmit = async (data: RegisterInput) => {
     // confirmPassword is validated client + server side via RegisterSchema.
@@ -90,12 +109,12 @@ export function RegisterForm() {
           <Label htmlFor="email" data-testid="label-email" className="text-brand-secondary font-medium">
             Endereço de e-mail
           </Label>
-          <Input
+          <ValidatedInput
             data-testid="email"
             id="email"
             type="email"
             placeholder="seu@email.com"
-            className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            status={emailStatus}
             aria-invalid={!!errors.email}
             {...register("email")}
           />
@@ -108,37 +127,30 @@ export function RegisterForm() {
           <Label htmlFor="password" data-testid="label-password" className="text-brand-secondary font-medium">
             Senha
           </Label>
-          <div className="relative">
-            <Input
-              data-testid="password"
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200 pr-12"
-              aria-invalid={!!errors.password}
-              {...register("password")}
-            />
-            {watchPassword.length > 0 && (
-              isPasswordValid ? (
-                <Check className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-finance-income pointer-events-none" />
-              ) : (
-                <X className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-finance-expense pointer-events-none" />
-              )
-            )}
-          </div>
+          <ValidatedInput
+            data-testid="password"
+            id="password"
+            type="password"
+            placeholder="••••••••"
+            status={passwordStatus}
+            showToggle
+            aria-invalid={!!errors.password}
+            {...register("password")}
+          />
           <PasswordRequirements passwordValue={watchPassword} />
+          <PasswordStrengthMeter password={watchPassword} />
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="confirmPassword" data-testid="label-confirmPassword" className="text-brand-secondary font-medium">
             Confirmar senha
           </Label>
-          <Input
+          <ValidatedInput
             data-testid="confirmPassword"
             id="confirmPassword"
             type="password"
             placeholder="••••••••"
-            className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            status={confirmStatus}
             aria-invalid={!!errors.confirmPassword}
             {...register("confirmPassword")}
           />

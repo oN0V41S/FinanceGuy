@@ -271,7 +271,53 @@ describe("LoginForm", () => {
       });
     });
 
-    // Note: The LoginForm component does not automatically clear server errors on successful submission.
-    // The error state persists until a new error is returned.
+  // Note: The LoginForm component does not automatically clear server errors on successful submission.
+  // The error state persists until a new error is returned.
+  });
+
+  describe("ValidatedInput integration", () => {
+    it("should show an invalid status icon for an invalid email", async () => {
+      render(<LoginForm />);
+
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "abc" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-invalid")).toBeInTheDocument();
+      });
+    });
+
+    it("should show a valid status icon and remove the invalid one for a valid email", async () => {
+      render(<LoginForm />);
+
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "abc" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-invalid")).toBeInTheDocument();
+      });
+
+      fireEvent.change(emailInput, { target: { value: "a@b.com" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-valid")).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId("field-status-invalid")).not.toBeInTheDocument();
+    });
+
+    it("should toggle password visibility via the show/hide button", async () => {
+      render(<LoginForm />);
+
+      const passwordInput = screen.getByTestId("password");
+      expect(passwordInput).toHaveAttribute("type", "password");
+
+      const toggle = screen.getByRole("button", { name: "Mostrar senha" });
+      fireEvent.click(toggle);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("password")).toHaveAttribute("type", "text");
+      });
+      expect(screen.getByRole("button", { name: "Ocultar senha" })).toBeInTheDocument();
+    });
   });
 });

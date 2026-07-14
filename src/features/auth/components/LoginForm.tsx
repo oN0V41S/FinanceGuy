@@ -5,9 +5,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { LoginSchema, LoginInput } from "@/features/auth/schemas/auth.schema";
 import { loginAction } from "@/features/auth/actions/loginAction";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormAlert, FormError } from "./ui";
+import { FormAlert, FormError, ValidatedInput } from "./ui";
+import type { FieldStatus } from "./ui/FieldStatusIcon";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -17,11 +17,20 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
     resolver: zodResolver(LoginSchema),
     mode: "onChange",
   });
+
+  const watchEmail = watch("email") || "";
+  const isEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchEmail);
+  const emailStatus: FieldStatus = errors.email
+    ? "invalid"
+    : watchEmail && isEmailValid
+      ? "valid"
+      : null;
 
   const onSubmit = async (data: LoginInput) => {
     const result = await loginAction(data);
@@ -37,13 +46,12 @@ export function LoginForm() {
           <Label htmlFor="email" className="text-brand-secondary font-medium">
             Endereço de e-mail
           </Label>
-          <Input
+          <ValidatedInput
             id="email"
             type="email"
             placeholder="seu@email.com"
-            className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            status={emailStatus}
             aria-invalid={!!errors.email}
-            
             {...register("email")}
           />
           {errors.email && (
@@ -55,11 +63,11 @@ export function LoginForm() {
           <Label htmlFor="password" className="text-brand-secondary font-medium">
             Senha
           </Label>
-          <Input
+          <ValidatedInput
             id="password"
             type="password"
             placeholder="••••••••"
-            className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            showToggle
             aria-invalid={!!errors.password}
             {...register("password")}
           />
