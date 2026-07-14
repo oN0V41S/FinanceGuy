@@ -17,16 +17,16 @@ describe("LandingPage Design System Styling Tests", () => {
     // But we check if it's consistent with our design system's primary contrast
   });
 
-  it("verifies typography uses design system classes (font-display/font-headline)", () => {
+  it("verifies typography uses design system classes (font-sans per VISUAL_IDENTITY.md §3)", () => {
     render(<LandingPage />);
     const heading = screen.getByRole("heading", { level: 1 });
-    expect(heading.className).toMatch(/font-display|font-headline/);
+    expect(heading.className).toMatch(/font-sans/);
   });
 
   it("verifies feature cards use correct surface tokens", () => {
     render(<LandingPage />);
     const card = screen.getByText("Controle Total").closest("div");
-    expect(card).toHaveClass("bg-surface-container-low", "border-outline-variant/20");
+    expect(card).toHaveClass("bg-surface-container-low", "shadow-soft");
   });
 
   it("verifies header uses correct surface tokens", () => {

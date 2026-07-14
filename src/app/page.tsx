@@ -9,6 +9,7 @@ import {
   Shield, 
   ArrowRight 
 } from "lucide-react";
+import { LogoMark } from "@/components/ui/logo-mark";
 
 const features = [
   {
@@ -44,10 +45,10 @@ export default function LandingPage() {
       <header className="border-b border-outline-variant bg-surface-container/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Wallet className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center">
+              <LogoMark className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-xl font-display">FinanceGuy</span>
+            <span className="font-bold text-xl font-sans">FinanceGuy</span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login">
@@ -67,7 +68,7 @@ export default function LandingPage() {
             Sua gestão financeira pessoal
           </div>
           
-          <h1 className="text-5xl md:text-6xl font-bold font-display mb-6 leading-tight">
+          <h1 className="text-5xl md:text-6xl font-bold font-sans mb-6 leading-tight bg-gradient-to-r from-brand-primary to-brand-secondary bg-clip-text text-transparent">
             FinanceGuy
             <span className="block text-primary">simplificado e inteligente</span>
           </h1>
@@ -91,7 +92,7 @@ export default function LandingPage() {
             </Link>
           </div>
           
-          <p className="mt-4 text-sm text-foreground/50">
+            <p className="mt-4 text-sm text-neutral">
             Sem cartão de crédito obrigatório • Comece em menos de 1 minuto
           </p>
         </div>
@@ -100,7 +101,7 @@ export default function LandingPage() {
       <section className="py-20 px-4 bg-surface-container">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold font-display text-foreground mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold font-sans text-foreground mb-4">
               Tudo o que você precisa para organizar suas finanças
             </h2>
             <p className="text-lg text-foreground/70 max-w-2xl mx-auto">
@@ -112,12 +113,12 @@ export default function LandingPage() {
             {features.map((feature, index) => (
               <Card 
                 key={index}
-                className="bg-surface-container-low p-6 rounded-2xl border border-outline-variant/20 hover:border-outline-variant/40 transition-all duration-300"
+                className="bg-surface-container-low p-6 rounded-xl border border-outline-variant/20 hover:border-outline-variant/40 transition-all duration-300 shadow-soft"
               >
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
                   <feature.icon className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold font-display text-foreground mb-2">
+                <h3 className="text-xl font-semibold font-sans text-foreground mb-2">
                   {feature.title}
                 </h3>
                 <p className="text-foreground/70">
@@ -131,8 +132,8 @@ export default function LandingPage() {
 
       <section className="py-20 px-4">
         <div className="max-w-4xl mx-auto">
-          <Card className="bg-primary rounded-3xl p-8 md:p-12 text-center border-none">
-            <h2 className="text-3xl md:text-4xl font-bold font-display text-white mb-6">
+          <Card className="bg-primary rounded-xl p-8 md:p-12 text-center border-none shadow-soft">
+            <h2 className="text-3xl md:text-4xl font-bold font-sans text-white mb-6">
               Pronto para transformar sua vida financeira?
             </h2>
             <p className="text-white/70 text-lg mb-8 max-w-2xl mx-auto">
@@ -156,12 +157,12 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Wallet className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center">
+                <LogoMark className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold font-display text-foreground">FinanceGuy</span>
+              <span className="font-bold font-sans text-foreground">FinanceGuy</span>
             </div>
-            <p className="text-sm text-foreground/50">
+            <p className="text-sm text-neutral">
               © 2026 FinanceGuy. Todos os direitos reservados.
             </p>
           </div>
