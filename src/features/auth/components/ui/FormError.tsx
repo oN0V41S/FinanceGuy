@@ -10,7 +10,7 @@ export function FormError({ message }: FormErrorProps) {
   if (!message) return null;
 
   return (
-    <p className="text-sm text-red-500 mt-1 flex items-center gap-1.5">
+    <p className="text-sm text-error mt-1 flex items-center gap-1.5">
       <X className="w-4 h-4" />
       {message}
     </p>
