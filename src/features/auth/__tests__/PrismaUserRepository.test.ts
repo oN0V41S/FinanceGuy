@@ -3,19 +3,24 @@ import { PrismaUserRepository } from "../PrismaUserRepository";
 import { RegisterInput } from "../schemas/auth.schema";
 
 // Mock do PrismaClient
+interface MockUserDelegate {
+  findUnique: jest.Mock;
+  create: jest.Mock;
+}
+
 const mockPrisma = {
   user: {
     findUnique: jest.fn(),
     create: jest.fn(),
   },
-} as unknown as jest.Mocked<PrismaClient>;
+} as unknown as { user: MockUserDelegate };
 
 describe("PrismaUserRepository", () => {
   let repository: PrismaUserRepository;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    repository = new PrismaUserRepository(mockPrisma);
+    repository = new PrismaUserRepository(mockPrisma as unknown as PrismaClient);
   });
 
   describe("findByEmail", () => {

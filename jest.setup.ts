@@ -40,7 +40,7 @@ global.Headers = class Headers {
   private headers: Map<string, string>;
   
   constructor(init?: Record<string, string>) {
-    this.headers = new Map(init || []);
+    this.headers = new Map(Object.entries(init || {}));
   }
   
   get(name: string): string | null {
@@ -77,7 +77,7 @@ const MockNextResponse = {
       text: async () => JSON.stringify(data),
       cookies: {
         get: (name: string) => {
-          const cookieHeader = init?.headers?.['Set-Cookie'];
+          const cookieHeader = (init?.headers as Record<string, string> | undefined)?.["Set-Cookie"];
           if (cookieHeader && cookieHeader.includes(`${name}=`)) {
             const match = cookieHeader.match(new RegExp(`${name}=([^;]+)`));
             return match ? { name, value: match[1] } : undefined;
