@@ -1,5 +1,5 @@
 import { ITransactionRepository } from './ITransaction.repository';
-import { IUserRepository } from '../../lib/repositories/IUser.repository'; // Will be fixed later when auth is refactored
+import { IUserRepository } from '@/features/auth/IUser.repository';
 import { CreateTransactionSchema, UpdateTransactionSchema, TransactionInput } from './validations';
 
 export class TransactionService {
@@ -15,7 +15,7 @@ export class TransactionService {
   // Adicione um método para buscar transações por ID, se necessário para o GET
   async getTransactionById(id: string, userId: string) {
     // Garanta que apenas o proprietário da transação possa acessá-la
-    return this.transactionRepository.getById(id, userId);
+    return this.transactionRepository.getById(id);
   }
 
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { RegisterSchema, RegisterInput } from "@/features/auth/schemas/auth.schema";
@@ -7,9 +9,8 @@ import { registerAction } from "@/features/auth/actions/registerAction";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormAlert, FormError } from "./ui";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormAlert, FormError, ValidatedInput, PasswordStrengthMeter } from "./ui";
+import type { FieldStatus } from "./ui/FieldStatusIcon";
 import { PasswordRequirements, validatePasswordRequirements } from "./PasswordRequirements";
 import { Loader2 } from "lucide-react";
 
@@ -29,9 +30,39 @@ export function RegisterForm() {
   });
 
   const watchPassword = watch("password") || "";
+  const watchEmail = watch("email") || "";
+  const watchConfirm = watch("confirmPassword") || "";
   const isPasswordValid = validatePasswordRequirements(watchPassword);
 
+  const emailStatus: FieldStatus = errors.email
+    ? "invalid"
+    : watchEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(watchEmail)
+      ? "valid"
+      : null;
+  const passwordStatus: FieldStatus = errors.password
+    ? "invalid"
+    : watchPassword && isPasswordValid
+      ? "valid"
+      : null;
+  const confirmStatus: FieldStatus = errors.confirmPassword
+    ? "invalid"
+    : watchConfirm && watchConfirm === watchPassword && watchPassword.length > 0
+      ? "valid"
+      : null;
+
+  // For Zod-only failures (no native constraint), surface the native bubble too.
+  const onInvalid = (errs: Record<string, unknown>) => {
+    const firstKey = Object.keys(errs)[0];
+    if (firstKey) {
+      (document.getElementById(firstKey) as HTMLInputElement | null)?.reportValidity();
+    }
+  };
+
   const onSubmit = async (data: RegisterInput) => {
+    // confirmPassword is validated client + server side via RegisterSchema.
+    // registerAction re-parses the full payload with RegisterSchema (which now
+    // requires confirmPassword), so the field must be included here. The
+    // AuthService/repository layer ignores it when persisting the user.
     const result = await registerAction(data);
     if (result?.error) {
       setError(result.error);
@@ -42,8 +73,8 @@ export function RegisterForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      <div className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4" noValidate>
+      <div className="space-y-4">
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name" data-testid="label-name" className="text-brand-secondary font-medium">
@@ -54,7 +85,7 @@ export function RegisterForm() {
               id="name"
               type="text"
               placeholder="João Silva"
-              className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+              className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
               aria-invalid={!!errors.name}
               {...register("name")}
             />
@@ -72,7 +103,7 @@ export function RegisterForm() {
               id="nickname"
               type="text"
               placeholder="Como você quer ser chamado"
-              className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+              className="h-12 px-4 rounded-xl border border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
               aria-invalid={!!errors.nickname}
               {...register("nickname")}
             />
@@ -86,34 +117,55 @@ export function RegisterForm() {
           <Label htmlFor="email" data-testid="label-email" className="text-brand-secondary font-medium">
             Endereço de e-mail
           </Label>
-          <Input
+          <ValidatedInput
             data-testid="email"
             id="email"
             type="email"
             placeholder="seu@email.com"
-            className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            status={emailStatus}
+            required
             aria-invalid={!!errors.email}
+            invalidMessage={errors.email?.message}
             {...register("email")}
           />
-          {errors.email && (
-            <FormError message={errors.email.message} />
-          )}
         </div>
         
         <div className="space-y-2">
           <Label htmlFor="password" data-testid="label-password" className="text-brand-secondary font-medium">
             Senha
           </Label>
-          <Input
+          <ValidatedInput
             data-testid="password"
             id="password"
             type="password"
             placeholder="••••••••"
-            className="h-12 px-4 rounded-xl border-outline bg-background placeholder:text-on-surface-variant focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all duration-200"
+            status={passwordStatus}
+            showToggle
+            required
+            minLength={8}
             aria-invalid={!!errors.password}
+            invalidMessage={errors.password?.message}
             {...register("password")}
           />
           <PasswordRequirements passwordValue={watchPassword} />
+          <PasswordStrengthMeter password={watchPassword} />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="confirmPassword" data-testid="label-confirmPassword" className="text-brand-secondary font-medium">
+            Confirmar senha
+          </Label>
+          <ValidatedInput
+            data-testid="confirmPassword"
+            id="confirmPassword"
+            type="password"
+            placeholder="••••••••"
+            status={confirmStatus}
+            required
+            aria-invalid={!!errors.confirmPassword}
+            invalidMessage={errors.confirmPassword?.message}
+            {...register("confirmPassword")}
+          />
         </div>
       </div>
       

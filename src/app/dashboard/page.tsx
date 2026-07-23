@@ -69,7 +69,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
               <Wallet className="w-5 h-5 text-primary" />
             </div>
-            <span className="font-display font-semibold text-xl text-primary">
+            <span className="font-sans font-semibold text-xl text-primary">
               FinanceGuy
             </span>
           </div>
@@ -149,7 +149,7 @@ export default function DashboardPage() {
             {/* Page Title + Filters */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
-                <h1 className="text-2xl font-semibold text-on-surface font-display">
+                <h1 className="text-2xl font-semibold text-on-surface font-sans">
                   Visão Geral
                 </h1>
                 <p className="text-sm text-on-surface-variant mt-1">

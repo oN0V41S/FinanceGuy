@@ -33,7 +33,8 @@ describe('AuthService', () => {
       name: 'Test User',
       nickname: 'test',
       email: 'test@test.com',
-      password: 'secret'
+      password: 'secret',
+      confirmPassword: 'secret',
     };
 
     // Act & Assert: Espera que o método 'register' rejeite com a mensagem de erro correta
@@ -50,7 +51,8 @@ describe('AuthService', () => {
       name: 'New User',
       nickname: 'new',
       email: 'new@test.com',
-      password: 'password123'
+      password: 'password123',
+      confirmPassword: 'password123',
     };
 
     // Act: Chama o método de registro
@@ -59,7 +61,7 @@ describe('AuthService', () => {
     // Assert: Verifica se os métodos corretos foram chamados e o resultado está correto
     expect(mockUserRepo.findByEmail).toHaveBeenCalledWith('new@test.com');
     expect(mockUserRepo.create).toHaveBeenCalled();
-    expect(result.email).toBe('new@test.com');
-    expect(result.id).toBe('2');
+    expect(result!.email).toBe('new@test.com');
+    expect(result!.id).toBe('2');
   });
 });

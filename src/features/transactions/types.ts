@@ -3,7 +3,7 @@ export type { Transaction };
 
 // O valor é string no formulário para facilitar a manipulação de input
 // e é convertido para number no handler de submissão.
-export type TransactionFormData = Omit<Transaction, 'id' | 'value' | 'created_at' | 'updated_at' | 'installment_number' | 'total_installments' | 'parent_transaction_id' | 'paid'> & {
+export type TransactionFormData = Omit<Transaction, 'id' | 'value' | 'created_at' | 'updated_at' | 'installment_number' | 'total_installments' | 'parent_transaction_id'> & {
     value: string;
     date: string;
     description: string;
@@ -11,6 +11,7 @@ export type TransactionFormData = Omit<Transaction, 'id' | 'value' | 'created_at
     category: string;
     type: 'income' | 'expense';
     is_recurring: boolean;
+    paid?: boolean;
 };
 
 export const initialFormData: TransactionFormData = {
@@ -20,5 +21,6 @@ export const initialFormData: TransactionFormData = {
     responsible: '', 
     category: 'Outros', 
     type: 'expense',
-    is_recurring: false
+    is_recurring: false,
+    paid: false
 };

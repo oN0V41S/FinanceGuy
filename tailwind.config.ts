@@ -12,6 +12,7 @@ const config: Config = {
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         display: ['Sora', 'sans-serif'],
+        space: ['Space Grotesk', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
       colors: {
@@ -85,6 +86,9 @@ const config: Config = {
       },
       borderRadius: {
         'md': '0.375rem',
+      },
+      boxShadow: {
+        soft: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
       },
     },
   },

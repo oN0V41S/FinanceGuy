@@ -77,66 +77,69 @@ describe("LoginForm", () => {
 
       expect(emailInput).toHaveAttribute("type", "email");
       expect(passwordInput).toHaveAttribute("type", "password");
+
+      // Native HTML5 validation contract: both fields are required.
+      expect(emailInput).toHaveAttribute("required");
+      expect(passwordInput).toHaveAttribute("required");
     });
   });
 
-  describe("Validation Errors", () => {
-    it("should show validation error for empty email on submit", async () => {
-      mockLoginAction.mockResolvedValue(undefined as any);
-
+  describe("Native HTML5 Validation (setCustomValidity bubble)", () => {
+    it("should show native validation for an invalid email after blur", async () => {
       render(<LoginForm />);
 
-      const submitButton = screen.getByTestId("submit-button");
-
-      // Submit without filling any fields
-      fireEvent.click(submitButton);
+      const emailInput = screen.getByTestId("email") as HTMLInputElement;
+      fireEvent.change(emailInput, { target: { value: "gmail" } });
+      fireEvent.blur(emailInput);
 
       await waitFor(() => {
-        expect(screen.getByText("Email inválido")).toBeInTheDocument();
+        // The status icon still reflects the Zod error...
+        expect(screen.getByTestId("field-status-invalid")).toBeInTheDocument();
+        // ...and the BROWSER native bubble must carry OUR Portuguese text.
+        expect(emailInput.validationMessage).toBe("Email inválido");
+        expect(emailInput.checkValidity()).toBe(false);
       });
     });
 
-    it("should show validation error for invalid email format on submit", async () => {
-      mockLoginAction.mockResolvedValue(undefined as any);
-
+    it("should show native validation for an empty password after blur", async () => {
       render(<LoginForm />);
 
-      const emailInput = screen.getByTestId("email");
-      const submitButton = screen.getByTestId("submit-button");
-
-      // Enter invalid email format and submit
-      fireEvent.change(emailInput, { target: { value: "invalid-email" } });
-      fireEvent.click(submitButton);
-
-      // Wait for validation to complete - react-hook-form validates on submit
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Check if email validation error appears (either for empty or invalid format)
-      const emailError = screen.queryByText("Email inválido");
-      // Either the email error should show, or validation should prevent submission
-      if (emailError) {
-        expect(emailError).toBeInTheDocument();
-      } else {
-        // If no error shown, loginAction should not have been called
-        expect(mockLoginAction).not.toHaveBeenCalled();
-      }
-    });
-
-    it("should show validation error for empty password on submit", async () => {
-      mockLoginAction.mockResolvedValue(undefined as any);
-
-      render(<LoginForm />);
-
-      const emailInput = screen.getByTestId("email");
-      const submitButton = screen.getByTestId("submit-button");
-
-      // Fill only email to trigger password validation
-      fireEvent.change(emailInput, { target: { value: "test@example.com" } });
-      fireEvent.click(submitButton);
+      const passwordInput = screen.getByTestId("password") as HTMLInputElement;
+      fireEvent.change(passwordInput, { target: { value: "x" } });
+      fireEvent.change(passwordInput, { target: { value: "" } });
+      fireEvent.blur(passwordInput);
 
       await waitFor(() => {
-        expect(screen.getByText("Senha é obrigatória")).toBeInTheDocument();
+        // The field is required (native contract).
+        expect(passwordInput).toHaveAttribute("required");
+        // The native bubble carries OUR Portuguese required message.
+        expect(passwordInput.validationMessage).toBe("Senha é obrigatória");
+        expect(passwordInput.checkValidity()).toBe(false);
       });
+    });
+  });
+
+  describe("Submit Button Disabled State", () => {
+    it("should disable the submit button with empty/invalid fields", () => {
+      render(<LoginForm />);
+
+      const submitButton = screen.getByRole("button", { name: /Entrar na conta/i });
+      expect(submitButton).toHaveAttribute("disabled");
+      expect(submitButton).toBeDisabled();
+    });
+
+    it("should enable the submit button after valid email and non-empty password", () => {
+      render(<LoginForm />);
+
+      const emailInput = screen.getByTestId("email");
+      const passwordInput = screen.getByTestId("password");
+      const submitButton = screen.getByRole("button", { name: /Entrar na conta/i });
+
+      fireEvent.change(emailInput, { target: { value: "usuario@exemplo.com" } });
+      fireEvent.change(passwordInput, { target: { value: "123456" } });
+
+      expect(submitButton).not.toBeDisabled();
+      expect(submitButton).toHaveProperty("disabled", false);
     });
   });
 
@@ -271,7 +274,53 @@ describe("LoginForm", () => {
       });
     });
 
-    // Note: The LoginForm component does not automatically clear server errors on successful submission.
-    // The error state persists until a new error is returned.
+  // Note: The LoginForm component does not automatically clear server errors on successful submission.
+  // The error state persists until a new error is returned.
+  });
+
+  describe("ValidatedInput integration", () => {
+    it("should show an invalid status icon for an invalid email", async () => {
+      render(<LoginForm />);
+
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "abc" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-invalid")).toBeInTheDocument();
+      });
+    });
+
+    it("should show a valid status icon and remove the invalid one for a valid email", async () => {
+      render(<LoginForm />);
+
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "abc" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-invalid")).toBeInTheDocument();
+      });
+
+      fireEvent.change(emailInput, { target: { value: "a@b.com" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-valid")).toBeInTheDocument();
+      });
+      expect(screen.queryByTestId("field-status-invalid")).not.toBeInTheDocument();
+    });
+
+    it("should toggle password visibility via the show/hide button", async () => {
+      render(<LoginForm />);
+
+      const passwordInput = screen.getByTestId("password");
+      expect(passwordInput).toHaveAttribute("type", "password");
+
+      const toggle = screen.getByRole("button", { name: "Mostrar senha" });
+      fireEvent.click(toggle);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("password")).toHaveAttribute("type", "text");
+      });
+      expect(screen.getByRole("button", { name: "Ocultar senha" })).toBeInTheDocument();
+    });
   });
 });

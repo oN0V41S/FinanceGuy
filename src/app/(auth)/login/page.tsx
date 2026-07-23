@@ -6,11 +6,11 @@ export default function LoginPage() {
   return (
     <>
       <CardHeader className="text-center">
-        <CardTitle className="text-2xl font-display text-on-surface">Bem-vindo de volta</CardTitle>
+        <CardTitle className="text-2xl font-semibold text-brand-secondary">Bem-vindo de volta</CardTitle>
         <CardDescription className="text-on-surface-variant">Entre na sua conta para continuar</CardDescription>
       </CardHeader>
       <LoginForm />
-      <div className="text-on-surface-variant mt-6 text-center text-sm">
+      <div className="text-on-surface-variant mt-4 text-center text-sm">
         Não tem uma conta?{" "}
         <Link href="/register" className="text-primary hover:underline font-medium">
           Criar conta

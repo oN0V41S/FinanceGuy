@@ -20,24 +20,31 @@ export class PostgresTransactionRepository implements ITransactionRepository {
       orderBy: { date: 'desc' },
     });
 
-    // Converter Decimal para number e Date para string
-    return transactions.map(t => ({
-      ...t,
-      value: Number(t.value),
-      date: t.date.toISOString().split('T')[0], // YYYY-MM-DD
-      type: t.type as 'income' | 'expense',
+    // Converter Decimal para number, Date para string, null para undefined
+    return transactions.map(({ userId: _u, ...rest }) => ({
+      ...rest,
+      value: Number(rest.value),
+      date: rest.date.toISOString().split('T')[0], // YYYY-MM-DD
+      type: rest.type as 'income' | 'expense',
+      category: rest.category as Transaction['category'],
+      installment_number: rest.installment_number ?? undefined,
+      total_installments: rest.total_installments ?? undefined,
     }));
   }
 
   async getById(id: string): Promise<Transaction | null> {
     const transaction = await prisma.transaction.findUnique({ where: { id } });
     if (!transaction) return null;
+    const { userId: _u, ...rest } = transaction;
 
     return {
-      ...transaction,
-      value: Number(transaction.value),
-      date: transaction.date.toISOString().split('T')[0],
-      type: transaction.type as 'income' | 'expense',
+      ...rest,
+      value: Number(rest.value),
+      date: rest.date.toISOString().split('T')[0],
+      type: rest.type as 'income' | 'expense',
+      category: rest.category as Transaction['category'],
+      installment_number: rest.installment_number ?? undefined,
+      total_installments: rest.total_installments ?? undefined,
     };
   }
 
@@ -52,12 +59,16 @@ export class PostgresTransactionRepository implements ITransactionRepository {
         },
       },
     });
+    const { userId: _u, ...rest } = transaction;
 
     return {
-      ...transaction,
-      value: Number(transaction.value),
-      date: transaction.date.toISOString().split('T')[0],
-      type: transaction.type as 'income' | 'expense',
+      ...rest,
+      value: Number(rest.value),
+      date: rest.date.toISOString().split('T')[0],
+      type: rest.type as 'income' | 'expense',
+      category: rest.category as Transaction['category'],
+      installment_number: rest.installment_number ?? undefined,
+      total_installments: rest.total_installments ?? undefined,
     };
   }
 
@@ -70,12 +81,16 @@ export class PostgresTransactionRepository implements ITransactionRepository {
         where: { id },
         data: updateData,
       });
+      const { userId: _u, ...rest } = transaction;
 
       return {
-        ...transaction,
-        value: Number(transaction.value),
-        date: transaction.date.toISOString().split('T')[0],
-        type: transaction.type as 'income' | 'expense',
+        ...rest,
+        value: Number(rest.value),
+        date: rest.date.toISOString().split('T')[0],
+        type: rest.type as 'income' | 'expense',
+        category: rest.category as Transaction['category'],
+        installment_number: rest.installment_number ?? undefined,
+        total_installments: rest.total_installments ?? undefined,
       };
     } catch (error) {
       return null; // Não encontrado ou erro

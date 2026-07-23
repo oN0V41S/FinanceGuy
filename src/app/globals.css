@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -71,7 +71,7 @@
 
   /* === Finance === */
   --finance-income: #10B981;
-  --finance-expense: #EF4444;
+  --finance-expense: #E11D48;
   --finance-recurring: #F59E0B;
 
   /* === shadcn-ui required tokens === */
@@ -113,6 +113,10 @@ body {
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 500;
+}
+
+.font-ui {
+  font-family: 'Space Grotesk', sans-serif;
 }
 
 /* Drawer Animation */

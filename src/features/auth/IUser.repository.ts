@@ -1,4 +1,4 @@
-import { RegisterInput } from "@validation/auth.schema";
+import { RegisterInput } from "@/features/auth/schemas/auth.schema";
 
 // Substitua pelo tipo correto do seu User, se necessário
 export interface UserRecord {

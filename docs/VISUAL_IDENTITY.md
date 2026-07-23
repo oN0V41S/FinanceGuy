@@ -21,6 +21,18 @@ A interface utiliza uma paleta Dark Mode otimizada para legibilidade de dados fi
 | **Sucesso** | `#10B981` (Success Mint) |
 | **Muted** | `#787679` (Muted Gray) |
 
+> ### 🎨 Padrão de Cor de Marca
+> Regra de uso dos tokens de cor definidos na paleta acima (§2), observada nas telas de autenticação e aplicável a toda a aplicação:
+>
+> | Função | Token | Cor | Onde aplicar |
+> | :--- | :--- | :--- | :--- |
+> | **Identidade / Marca** | `brand-secondary` | Insight Violet `#8B5CF6` | Wordmark "FinanceGuy", títulos de seção (`CardTitle` de Login/Registro), `FormLabel`. |
+> | **Ação** | `primary` (`brand-primary`) | Trust Blue `#2563EB` | Botões primários, links de ação (ex.: "Criar conta" / "Entrar"), estado de foco de inputs. |
+>
+> **Resumo:** a cor de *marca* (quem somos) é o Insight Violet; a cor de *ação* (o que o usuário faz) é o Trust Blue. Não inverta as funções — o Violet nunca deve ser usado como fundo de botão primário, e o Blue nunca deve ser usado como cor de título de seção.
+
+---
+
 ## 3. Tipografia
 *   **Headings/Body:** `Inter`.
 *   **Labels/UI Elements:** `Space Grotesk`.

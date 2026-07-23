@@ -66,7 +66,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps) {
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
               <Wallet className="w-5 h-5 text-primary" />
             </div>
-            <span className="font-display font-semibold text-xl text-primary">
+            <span className="font-sans font-semibold text-xl text-primary">
               FinanceGuy
             </span>
           </div>

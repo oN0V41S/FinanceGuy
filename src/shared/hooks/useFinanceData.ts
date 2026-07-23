@@ -29,7 +29,6 @@ const useFinanceData = () => {
     const [selectedFortnight, setSelectedFortnight] = useState('');
     
     // Modais
-    const [showTransactionModal, setShowTransactionModal] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [transactionToDelete, setTransactionToDelete] = useState<string | null>(null);
     const [formData, setFormData] = useState<TransactionFormData>(initialFormData);
@@ -46,7 +45,6 @@ const useFinanceData = () => {
     
     const closeModal = useCallback(() => {
         // Lógica de fechar modal e resetar estados
-        setShowTransactionModal(false);
         setEditingTransaction(null);
         setFormData(initialFormData);
     }, []);
@@ -66,14 +64,11 @@ const useFinanceData = () => {
                 value: String(Math.abs(transaction.value)),
                 date: transaction.date, // Fixed dueDate to date
                 paid: transaction.paid ?? false, // Ensure 'paid' is handled
-                created_at: transaction.created_at,
-                updated_at: transaction.updated_at
             });
         } else {
             setEditingTransaction(null);
             setFormData(initialFormData);
         }
-        setShowTransactionModal(true);
     }, []);
 
     const handleSubmit = useCallback((e: React.FormEvent) => {
@@ -218,14 +213,14 @@ const useFinanceData = () => {
     
     const sortedTransactions = useMemo(() => {
         // Ordena transações por data (mais recente primeiro)
-        return [...filteredTransactions].sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+        return [...filteredTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [filteredTransactions]);
     
     return {
         // Estados
         transactions, categories, newCategory, showAddCategory, activeTab, 
         filterPeriod, selectedMonth, selectedYear, selectedFortnight,
-        showTransactionModal, editingTransaction, transactionToDelete, formData,
+        editingTransaction, transactionToDelete, formData,
         
         // Dados Calculados
         totalIncome, totalExpenses, balance, chartData, sortedTransactions,

@@ -4,12 +4,13 @@ import { authService } from "@/core/container";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { token, ...user } = await authService.login(body);
+    const result = await authService.login(body);
+    const { token, ...user } = result;
 
     const response = NextResponse.json({ user }, { status: 200 });
     response.cookies.set({
       name: "auth_token",
-      value: token,
+      value: token ?? "",
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
