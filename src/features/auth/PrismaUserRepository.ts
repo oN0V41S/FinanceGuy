@@ -33,4 +33,10 @@ export class PrismaUserRepository implements IUserRepository {
     const { password, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
+
+  async updateNickname(id: string, nickname: string): Promise<Omit<UserRecord, 'password'>> {
+    const user = await this.prisma.user.update({ where: { id }, data: { nickname } });
+    const { password, ...rest } = user;
+    return rest;
+  }
 }

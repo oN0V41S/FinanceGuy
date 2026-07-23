@@ -1,7 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act, within } from "@testing-library/react";
 import { RegisterForm } from "@/features/auth/components/RegisterForm";
 import { registerAction } from "@/features/auth/actions/registerAction";
 import type { RegisterInput } from "@/features/auth/schemas/auth.schema";
@@ -97,11 +97,19 @@ describe("RegisterForm", () => {
 
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
 
       // Email and password have explicit types set in the component
       expect(emailInput).toHaveAttribute("type", "email");
       expect(passwordInput).toHaveAttribute("type", "password");
-      
+
+      // Native HTML5 validation contract: email, password and confirm are required,
+      // and password enforces a minimum length.
+      expect(emailInput).toHaveAttribute("required");
+      expect(passwordInput).toHaveAttribute("required");
+      expect(confirmInput).toHaveAttribute("required");
+      expect(passwordInput).toHaveAttribute("minlength", "8");
+
       // Name and nickname don't have explicit type attributes in the component
       // They default to text type in the browser
       const nameInput = screen.getByTestId("name");
@@ -211,189 +219,72 @@ describe("RegisterForm", () => {
     });
   });
 
-  describe("Validation Errors - Email Field", () => {
-    it("should show validation error for empty email on submit", async () => {
-      mockRegisterAction.mockResolvedValue(undefined as any);
-
+  describe("Native HTML5 Validation - Email Field (setCustomValidity bubble)", () => {
+    it("should show native validation for an invalid email after blur", async () => {
       render(<RegisterForm />);
 
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
-      const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "" } });
-      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
-      fireEvent.submit(submitButton);
+      const emailInput = screen.getByTestId("email") as HTMLInputElement;
+      fireEvent.change(emailInput, { target: { value: "gmail" } });
+      fireEvent.blur(emailInput);
 
       await waitFor(() => {
-        expect(screen.getByText("Email inválido")).toBeInTheDocument();
+        // The status icon still reflects the Zod error...
+        expect(screen.getByTestId("field-status-invalid")).toBeInTheDocument();
+        // ...and the BROWSER native bubble must carry OUR Portuguese text.
+        expect(emailInput.validationMessage).toBe("Email inválido");
+        expect(emailInput.checkValidity()).toBe(false);
       });
-    });
-
-    it("should show validation error for invalid email format", async () => {
-      mockRegisterAction.mockResolvedValue(undefined as any);
-
-      render(<RegisterForm />);
-
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
-      const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "invalid-email" } });
-      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
-      
-      fireEvent.submit(submitButton);
-
-      await waitFor(() => {
-        expect(mockRegisterAction).not.toHaveBeenCalled();
-      }, { timeout: 1000 });
     });
   });
 
   describe("Validation Errors - Password Field", () => {
-    it("should show validation error for empty password on submit", async () => {
-      mockRegisterAction.mockResolvedValue(undefined as any);
-
+    const expectPasswordInvalid = async (value: string) => {
       render(<RegisterForm />);
-
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "test@example.com" } });
-      fireEvent.change(passwordInput, { target: { value: "" } });
-      fireEvent.submit(submitButton);
-
+      fireEvent.change(passwordInput, { target: { value } });
       await waitFor(() => {
-        expect(screen.getByText("Senha deve ter pelo menos 8 caracteres")).toBeInTheDocument();
+        expect(
+          within(passwordInput.parentElement as HTMLElement).getByTestId("field-status-invalid")
+        ).toBeInTheDocument();
       });
+    };
+
+    it("should show validation error for empty password", async () => {
+      mockRegisterAction.mockResolvedValue(undefined as any);
+      // An empty string isn't a "change" from the initial empty value, so RHF
+      // won't validate. A single space is an effectively-empty password that
+      // still triggers the min(8) validation error.
+      await expectPasswordInvalid(" ");
     });
 
     it("should show validation error for password with less than 8 characters", async () => {
       mockRegisterAction.mockResolvedValue(undefined as any);
-
-      render(<RegisterForm />);
-
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
-      const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "test@example.com" } });
-      fireEvent.change(passwordInput, { target: { value: "Pass1!" } });
-      fireEvent.submit(submitButton);
-
-      await waitFor(() => {
-        expect(screen.getByText("Senha deve ter pelo menos 8 caracteres")).toBeInTheDocument();
-      });
+      await expectPasswordInvalid("Pass1!");
     });
 
     it("should show validation error for password without uppercase", async () => {
       mockRegisterAction.mockResolvedValue(undefined as any);
-
-      render(<RegisterForm />);
-
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
-      const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "test@example.com" } });
-      fireEvent.change(passwordInput, { target: { value: "password1!" } });
-      fireEvent.submit(submitButton);
-
-      await waitFor(() => {
-        expect(screen.getByText("Senha deve conter maiúsculas, minúsculas, números e símbolos")).toBeInTheDocument();
-      });
+      await expectPasswordInvalid("password1!");
     });
 
     it("should show validation error for password without lowercase", async () => {
       mockRegisterAction.mockResolvedValue(undefined as any);
-
-      render(<RegisterForm />);
-
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
-      const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "test@example.com" } });
-      fireEvent.change(passwordInput, { target: { value: "PASSWORD1!" } });
-      fireEvent.submit(submitButton);
-
-      await waitFor(() => {
-        expect(screen.getByText("Senha deve conter maiúsculas, minúsculas, números e símbolos")).toBeInTheDocument();
-      });
+      await expectPasswordInvalid("PASSWORD1!");
     });
 
     it("should show validation error for password without numbers", async () => {
       mockRegisterAction.mockResolvedValue(undefined as any);
-
-      render(<RegisterForm />);
-
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
-      const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "test@example.com" } });
-      fireEvent.change(passwordInput, { target: { value: "Password!" } });
-      fireEvent.submit(submitButton);
-
-      await waitFor(() => {
-        expect(screen.getByText("Senha deve conter maiúsculas, minúsculas, números e símbolos")).toBeInTheDocument();
-      });
+      await expectPasswordInvalid("Password!");
     });
 
     it("should show validation error for password without special character", async () => {
       mockRegisterAction.mockResolvedValue(undefined as any);
-
-      render(<RegisterForm />);
-
-      const nameInput = screen.getByTestId("name");
-      const nicknameInput = screen.getByTestId("nickname");
-      const emailInput = screen.getByTestId("email");
-      const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
-
-      fireEvent.change(nameInput, { target: { value: "John Doe" } });
-      fireEvent.change(nicknameInput, { target: { value: "johnd" } });
-      fireEvent.change(emailInput, { target: { value: "test@example.com" } });
-      fireEvent.change(passwordInput, { target: { value: "Password123" } });
-      fireEvent.submit(submitButton);
-
-      await waitFor(() => {
-        expect(screen.getByText("Senha deve conter maiúsculas, minúsculas, números e símbolos")).toBeInTheDocument();
-      });
+      await expectPasswordInvalid("Password123");
     });
   });
 
   describe("Multiple Validation Errors", () => {
-    it("should show multiple validation errors when submitting empty form", async () => {
+    it("should show multiple validation errors when submitting invalid form", async () => {
       mockRegisterAction.mockResolvedValue(undefined as any);
 
       render(<RegisterForm />);
@@ -402,19 +293,25 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
-      const submitButton = screen.getByTestId("submit-button");
+      const confirmInput = screen.getByTestId("confirmPassword");
 
-      fireEvent.change(nameInput, { target: { value: "" } });
-      fireEvent.change(nicknameInput, { target: { value: "" } });
-      fireEvent.change(emailInput, { target: { value: "" } });
-      fireEvent.change(passwordInput, { target: { value: "" } });
-      fireEvent.submit(submitButton);
+      fireEvent.change(nameInput, { target: { value: "A" } });
+      fireEvent.change(nicknameInput, { target: { value: "B" } });
+      fireEvent.change(emailInput, { target: { value: "invalid-email" } });
+      fireEvent.change(passwordInput, { target: { value: "weak" } });
+      fireEvent.change(confirmInput, { target: { value: "different" } });
 
       await waitFor(() => {
         expect(screen.getByText("Nome deve ter pelo menos 2 caracteres")).toBeInTheDocument();
         expect(screen.getByText("O apelido é obrigatório")).toBeInTheDocument();
-        expect(screen.getByText("Email inválido")).toBeInTheDocument();
-        expect(screen.getByText("Senha deve ter pelo menos 8 caracteres")).toBeInTheDocument();
+        // NOTE: email no longer renders a below-field FormError paragraph; the
+        // native HTML5 bubble carries the "Email inválido" message instead.
+        expect(
+          within(passwordInput.parentElement as HTMLElement).getByTestId("field-status-invalid")
+        ).toBeInTheDocument();
+        expect(
+          within(confirmInput.parentElement as HTMLElement).getByTestId("field-status-invalid")
+        ).toBeInTheDocument();
       });
     });
   });
@@ -429,12 +326,14 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
       const submitButton = screen.getByTestId("submit-button");
 
       fireEvent.change(nameInput, { target: { value: "John Doe" } });
       fireEvent.change(nicknameInput, { target: { value: "johnd" } });
       fireEvent.change(emailInput, { target: { value: "test@example.com" } });
       fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -451,12 +350,14 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
       const submitButton = screen.getByTestId("submit-button");
 
       fireEvent.change(nameInput, { target: { value: "John Doe" } });
       fireEvent.change(nicknameInput, { target: { value: "johnd" } });
       fireEvent.change(emailInput, { target: { value: "test@example.com" } });
       fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -473,12 +374,14 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
       const submitButton = screen.getByTestId("submit-button");
 
       fireEvent.change(nameInput, { target: { value: "John Doe" } });
       fireEvent.change(nicknameInput, { target: { value: "johnd" } });
       fireEvent.change(emailInput, { target: { value: "test@example.com" } });
       fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -497,12 +400,14 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
       const submitButton = screen.getByTestId("submit-button");
 
       fireEvent.change(nameInput, { target: { value: "John Doe" } });
       fireEvent.change(nicknameInput, { target: { value: "johnd" } });
       fireEvent.change(emailInput, { target: { value: "test@example.com" } });
       fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -519,12 +424,14 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
       const submitButton = screen.getByTestId("submit-button");
 
       fireEvent.change(nameInput, { target: { value: "John Doe" } });
       fireEvent.change(nicknameInput, { target: { value: "johnd" } });
       fireEvent.change(emailInput, { target: { value: "test@example.com" } });
       fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -628,12 +535,14 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
       const submitButton = screen.getByTestId("submit-button");
 
       fireEvent.change(nameInput, { target: { value: "John Doe" } });
       fireEvent.change(nicknameInput, { target: { value: "johnd" } });
       fireEvent.change(emailInput, { target: { value: "test@example.com" } });
       fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -642,6 +551,7 @@ describe("RegisterForm", () => {
           nickname: "johnd",
           email: "test@example.com",
           password: "Password123!",
+          confirmPassword: "Password123!",
         });
       });
     });
@@ -692,12 +602,14 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
       const submitButton = screen.getByTestId("submit-button");
 
       fireEvent.change(nameInput, { target: { value: "John Doe" } });
       fireEvent.change(nicknameInput, { target: { value: "johnd" } });
       fireEvent.change(emailInput, { target: { value: "test@example.com" } });
       fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -725,12 +637,14 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
       const submitButton = screen.getByTestId("submit-button");
 
       fireEvent.change(nameInput, { target: { value: "John Doe" } });
       fireEvent.change(nicknameInput, { target: { value: "johnd" } });
       fireEvent.change(emailInput, { target: { value: "test@example.com" } });
       fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -755,12 +669,14 @@ describe("RegisterForm", () => {
       const nicknameInput = screen.getByTestId("nickname");
       const emailInput = screen.getByTestId("email");
       const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
       const submitButton = screen.getByTestId("submit-button");
 
       fireEvent.change(nameInput, { target: { value: "John Doe" } });
       fireEvent.change(nicknameInput, { target: { value: "johnd" } });
       fireEvent.change(emailInput, { target: { value: "test@example.com" } });
       fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
       fireEvent.click(submitButton);
 
       await waitFor(() => {
@@ -774,6 +690,112 @@ describe("RegisterForm", () => {
 
       // Router.push should not have been called
       expect(mockRouterPush).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Field Status & Visual Feedback", () => {
+    it("should show field-status-invalid for an invalid email", async () => {
+      render(<RegisterForm />);
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "not-an-email" } });
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-invalid")).toBeInTheDocument();
+      });
+    });
+
+    it("should show field-status-valid for a valid email", async () => {
+      render(<RegisterForm />);
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "user@example.com" } });
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-valid")).toBeInTheDocument();
+      });
+    });
+
+    it("should show field-status-invalid for a weak password", async () => {
+      render(<RegisterForm />);
+      const passwordInput = screen.getByTestId("password");
+      fireEvent.change(passwordInput, { target: { value: "weak" } });
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-invalid")).toBeInTheDocument();
+      });
+    });
+
+    it("should show field-status-valid for a strong password", async () => {
+      render(<RegisterForm />);
+      const passwordInput = screen.getByTestId("password");
+      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      await waitFor(() => {
+        expect(screen.getByTestId("field-status-valid")).toBeInTheDocument();
+      });
+    });
+
+    it("should render a password toggle that switches the input type to text", async () => {
+      render(<RegisterForm />);
+      const passwordInput = screen.getByTestId("password");
+      const toggle = screen.getByRole("button", { name: "Mostrar senha" });
+      expect(toggle).toBeInTheDocument();
+      expect(passwordInput).toHaveAttribute("type", "password");
+
+      fireEvent.click(toggle);
+      expect(screen.getByTestId("password")).toHaveAttribute("type", "text");
+    });
+
+    it("should reveal a password strength meter with 4 segments when typing a password", async () => {
+      render(<RegisterForm />);
+      const passwordInput = screen.getByTestId("password");
+      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+
+      const meter = await screen.findByTestId("password-strength-meter");
+      expect(meter).toBeInTheDocument();
+      expect(screen.getByTestId("strength-segment-1")).toBeInTheDocument();
+      expect(screen.getByTestId("strength-segment-2")).toBeInTheDocument();
+      expect(screen.getByTestId("strength-segment-3")).toBeInTheDocument();
+      expect(screen.getByTestId("strength-segment-4")).toBeInTheDocument();
+      expect(meter).toHaveTextContent("Muito Forte");
+    });
+
+    it("should show field-status-invalid for a mismatching confirm password", async () => {
+      render(<RegisterForm />);
+      const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
+      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Different123!" } });
+
+      const wrapper = confirmInput.parentElement as HTMLElement;
+      await waitFor(() => {
+        expect(within(wrapper).getByTestId("field-status-invalid")).toBeInTheDocument();
+      });
+    });
+
+    it("should set native invalid validity on a mismatching confirm password", async () => {
+      render(<RegisterForm />);
+      const passwordInput = screen.getByTestId("password") as HTMLInputElement;
+      const confirmInput = screen.getByTestId("confirmPassword") as HTMLInputElement;
+      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Different123!" } });
+
+      const wrapper = confirmInput.parentElement as HTMLElement;
+      await waitFor(() => {
+        // The status icon reflects the mismatch...
+        expect(within(wrapper).getByTestId("field-status-invalid")).toBeInTheDocument();
+        // ...and the native bubble must carry OUR Portuguese mismatch message.
+        expect(confirmInput.checkValidity()).toBe(false);
+        expect(confirmInput.validationMessage).toBe("As senhas não coincidem");
+      });
+    });
+
+    it("should show field-status-valid for a matching confirm password", async () => {
+      render(<RegisterForm />);
+      const passwordInput = screen.getByTestId("password");
+      const confirmInput = screen.getByTestId("confirmPassword");
+      fireEvent.change(passwordInput, { target: { value: "Password123!" } });
+      fireEvent.change(confirmInput, { target: { value: "Password123!" } });
+
+      const wrapper = confirmInput.parentElement as HTMLElement;
+      await waitFor(() => {
+        expect(within(wrapper).getByTestId("field-status-valid")).toBeInTheDocument();
+      });
     });
   });
 });

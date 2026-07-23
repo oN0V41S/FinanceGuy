@@ -1,22 +1,96 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Sora:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* Cores fundamentais baseadas no Stitch "Linear Financial" */
+  /* === Core theme tokens === */
   --background: #131315;
   --foreground: #e5e1e4;
-  
+
+  /* === Primary === */
   --primary: #2563EB;
+  --primary-container: #1d4ed8;
+  --on-primary: #ffffff;
+  --on-primary-container: #dbeafe;
+  --primary-fixed: #93c5fd;
+  --primary-fixed-dim: #60a5fa;
+
+  /* === Secondary === */
   --secondary: #8B5CF6;
+  --secondary-container: #7c3aed;
+  --on-secondary: #ffffff;
+  --on-secondary-container: #ede9fe;
+  --secondary-fixed: #c4b5fd;
+  --secondary-fixed-dim: #a78bfa;
+
+  /* === Tertiary === */
   --tertiary: #10B981;
-  
-  /* Mantendo consistência com o que já existe nos tokens */
-  --surface-container: #201f22;
+  --tertiary-container: #059669;
+  --on-tertiary: #ffffff;
+  --on-tertiary-container: #d1fae5;
+  --tertiary-fixed: #6ee7b7;
+  --tertiary-fixed-dim: #34d399;
+
+  /* === Error === */
+  --error: #EF4444;
+  --error-container: #dc2626;
+  --on-error: #ffffff;
+  --on-error-container: #fee2e2;
+
+  /* === Surface tokens === */
+  --surface: #131315;
+  --surface-dim: #0a0a0b;
+  --surface-bright: #1e1e20;
+  --surface-container-lowest: #0e0e10;
   --surface-container-low: #1c1b1d;
+  --surface-container: #201f22;
+  --surface-container-high: #2a292d;
+  --surface-container-highest: #353438;
+  --surface-tint: #2563EB;
+  --surface-variant: #2d2d32;
+
+  /* === On-Surface (text colors) === */
+  --on-surface: #e5e1e4;
+  --on-surface-variant: #a1a1aa;
+
+  /* === Outline === */
+  --outline: #52525b;
   --outline-variant: #434655;
+
+  /* === Inverse === */
+  --inverse-surface: #e5e1e4;
+  --inverse-on-surface: #131315;
+  --inverse-primary: #60a5fa;
+
+  /* === Brand === */
+  --brand-primary: #2563EB;
+  --brand-secondary: #8B5CF6;
+  --brand-background: #131315;
+
+  /* === Finance === */
+  --finance-income: #10B981;
+  --finance-expense: #E11D48;
+  --finance-recurring: #F59E0B;
+
+  /* === shadcn-ui required tokens === */
+  --card: #201f22;
+  --card-foreground: #e5e1e4;
+  --popover: #201f22;
+  --popover-foreground: #e5e1e4;
+  --primary-foreground: #ffffff;
+  --secondary-foreground: #ffffff;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #e5e1e4;
+  --destructive: #E11D48;
+  --destructive-foreground: #ffffff;
+  --border: #434655;
+  --input: #434655;
+  --ring: #2563EB;
+  --radius: 0.75rem;
 }
 
 body {
@@ -39,6 +113,10 @@ body {
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 500;
+}
+
+.font-ui {
+  font-family: 'Space Grotesk', sans-serif;
 }
 
 /* Drawer Animation */

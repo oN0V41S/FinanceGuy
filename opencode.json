@@ -1,5 +1,10 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "bash": {
+      "hermes *": "allow"
+    }
+  },
   "agent": {
     "build": {
       "model": "opencode/deepseek-v4-flash-free"
@@ -7,13 +12,13 @@
   },
   "mcp": {
     "notion": {
+      "type": "local",
       "command": ["npx", "-y", "@notionhq/notion-mcp-server"],
-      "environment": {
-        "NOTION_TOKEN": "{env:NOTION_TOKEN}"
-      },
+      "env": { "NOTION_TOKEN": "{env:NOTION_TOKEN}" },
       "enabled": false
     },
     "playwright": {
+      "type": "local",
       "command": ["npx", "-y", "@playwright/mcp@latest"],
       "enabled": true
     }

@@ -51,6 +51,10 @@ export class AuthService {
       const { password, ...userWithoutPassword } = user;
       return userWithoutPassword;
   }
+
+  async updateNickname(id: string, nickname: string): Promise<Omit<UserRecord, 'password'>> {
+    return this.userRepository.updateNickname(id, nickname);
+  }
 }
 
 // Exportar uma instância configurada para ser usada

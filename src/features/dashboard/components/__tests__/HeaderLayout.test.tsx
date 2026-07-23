@@ -1,51 +1,77 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { HeaderLayout } from '../HeaderLayout';
 
-describe('HeaderLayout', () => {
-  it('renderiza botão de menu em mobile', () => {
-    render(<HeaderLayout />);
-    // O botão tem aria-label "Abrir menu"
-    const menuButton = screen.getByLabelText('Abrir menu');
-    expect(menuButton).toBeInTheDocument();
-    // Verifica que tem classe md:hidden
-    expect(menuButton).toHaveClass('md:hidden');
-  });
+jest.mock('@/features/auth/actions/logoutAction', () => ({
+  logoutAction: jest.fn(),
+}));
 
-  it('esconde botão de menu em desktop', () => {
-    // Em ambiente de teste, verificamos a estrutura do componente
-    // O botão de menu tem a classe 'md:hidden' que esconde em desktop
-    // Não é possível testar comportamento responsivo real sem CSS completo
-    // Então verificamos que a classe existe no elemento
+describe('HeaderLayout', () => {
+  it('renderiza o botão de menu visível em todas as telas', () => {
     const { container } = render(<HeaderLayout />);
     const menuButton = container.querySelector('button[aria-label="Abrir menu"]');
-    expect(menuButton).toHaveClass('md:hidden');
+    expect(menuButton).toBeInTheDocument();
+    expect(menuButton).not.toHaveClass('md:hidden');
+    expect(menuButton).toHaveClass('inline-flex');
   });
 
-  it('chama onOpenMobileDrawer ao clicar no menu', () => {
-    const mockOpenDrawer = jest.fn();
-    render(<HeaderLayout onOpenMobileDrawer={mockOpenDrawer} />);
-    fireEvent.click(screen.getByLabelText('Abrir menu'));
-    expect(mockOpenDrawer).toHaveBeenCalled();
-  });
-
-  it('renderiza SearchInput em desktop', () => {
-    // O SearchInput está dentro de um container com classe 'hidden md:flex'
-    // Verificamos a estrutura e a presença do input de busca
-    const { container } = render(<HeaderLayout />);
-    // O container desktop tem a classe que esconde em mobile
-    const searchContainer = container.querySelector('.hidden.md\\:flex');
-    expect(searchContainer).toBeInTheDocument();
-    // Verifica que existe um input dentro do container desktop
-    const searchInput = searchContainer?.querySelector('input[type="search"]');
-    expect(searchInput).toBeInTheDocument();
-    expect(searchInput).toHaveAttribute('placeholder', 'Buscar transações...');
-  });
-
-  it('renderiza todos os botões de ação', () => {
+  it('renderiza a marca "FinanceGuy" visível em todas as telas', () => {
     render(<HeaderLayout />);
-    // Há dois botões de Assistente IA (mobile e desktop), usamos getAllByLabelText
-    expect(screen.getAllByLabelText('Assistente IA')).toHaveLength(2);
+    expect(screen.getByText('FinanceGuy')).toBeInTheDocument();
+  });
+
+  it('chama onToggleDrawer ao clicar no botão de menu', () => {
+    const mockToggleDrawer = jest.fn();
+    render(<HeaderLayout onToggleDrawer={mockToggleDrawer} isDrawerOpen={false} />);
+    fireEvent.click(screen.getByLabelText('Abrir menu'));
+    expect(mockToggleDrawer).toHaveBeenCalledTimes(1);
+  });
+
+  it('não chama onToggleDrawer quando a prop não é fornecida', () => {
+    render(<HeaderLayout />);
+    expect(() => fireEvent.click(screen.getByLabelText('Abrir menu'))).not.toThrow();
+  });
+
+  it('reflete o estado do drawer via aria-expanded (false)', () => {
+    render(<HeaderLayout isDrawerOpen={false} />);
+    expect(screen.getByLabelText('Abrir menu')).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('reflete o estado do drawer via aria-expanded (true)', () => {
+    render(<HeaderLayout isDrawerOpen={true} />);
+    expect(screen.getByLabelText('Abrir menu')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('alterna aria-expanded conforme a prop isDrawerOpen muda', () => {
+    const { rerender } = render(<HeaderLayout isDrawerOpen={false} />);
+    expect(screen.getByLabelText('Abrir menu')).toHaveAttribute('aria-expanded', 'false');
+
+    rerender(<HeaderLayout isDrawerOpen={true} />);
+    expect(screen.getByLabelText('Abrir menu')).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('renderiza exatamente um botão "Assistente IA"', () => {
+    render(<HeaderLayout />);
+    expect(screen.getAllByLabelText('Assistente IA')).toHaveLength(1);
+  });
+
+  it('renderiza os botões de ação Notificações, Configurações e Perfil', () => {
+    render(<HeaderLayout />);
     expect(screen.getByLabelText('Notificações')).toBeInTheDocument();
+    expect(screen.getByLabelText('Configurações')).toBeInTheDocument();
     expect(screen.getByLabelText('Perfil')).toBeInTheDocument();
+  });
+
+  it('renderiza Configurações ativo (sem aria-disabled)', () => {
+    render(<HeaderLayout />);
+    expect(screen.getByLabelText('Configurações')).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('renderiza a busca com input type search e placeholder correto', () => {
+    const { container } = render(<HeaderLayout />);
+    const searchInput = container.querySelector(
+      'input[type="search"]',
+    ) as HTMLInputElement;
+    expect(searchInput).toBeInTheDocument();
+    expect(searchInput).toHaveAttribute('type', 'search');
   });
 });

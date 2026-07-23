@@ -12,9 +12,9 @@ export interface FormAlertProps {
 }
 
 const alertStyles: Record<AlertType, string> = {
-  error: "bg-red-500 text-red-500 border-red-500",
-  success: "bg-emerald-500 text-emerald-500 border-emerald-500",
-  warning: "bg-amber-500 text-amber-500 border-amber-500",
+  error: "bg-error-container text-error-on-container border-error",
+  success: "bg-tertiary-container text-tertiary-on-container border-tertiary",
+  warning: "bg-surface-container-high text-finance-recurring border-finance-recurring",
   info: "bg-primary/10 text-primary border-primary/20",
 };
 

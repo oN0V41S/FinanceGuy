@@ -38,7 +38,7 @@ describe("AuthForms Design System Styling Tests", () => {
     it("verifies inputs use surface and outline tokens (no hardcoded colors)", () => {
       render(<LoginForm />);
       const emailInput = screen.getByLabelText(/endereço de e-mail/i);
-      expect(emailInput).toHaveClass("bg-surface", "border-outline");
+      expect(emailInput).toHaveClass("border", "border-outline", "bg-background");
     });
   });
 
@@ -88,7 +88,7 @@ describe("AuthForms Design System Styling Tests", () => {
     it("verifies inputs use surface and outline tokens (no hardcoded colors)", () => {
       render(<RegisterForm />);
       const nameInput = screen.getByLabelText(/nome completo/i);
-      expect(nameInput).toHaveClass("bg-surface", "border-outline");
+      expect(nameInput).toHaveClass("border", "border-outline", "bg-background");
     });
   });
 });

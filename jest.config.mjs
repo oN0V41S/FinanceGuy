@@ -40,7 +40,6 @@ const config = {
     "/node_modules/",
     "/.next/",
     // Pre-existing failures to be fixed in follow-up PRs
-    "src/features/auth/components/RegisterForm.test.tsx",
     "src/features/dashboard/__tests__/layout.spec.tsx",
     "src/features/dashboard/__tests__/responsive.spec.tsx",
     "src/features/auth/components/__tests__/PasswordRequirements.test.tsx",

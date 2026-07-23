@@ -1,104 +1,42 @@
 'use client';
 
-import React from 'react';
-import { Wallet, Sparkles, Bell, UserCircle2, Menu } from 'lucide-react';
-import { SearchInput } from './SearchInput';
-import { cn } from '@/lib/utils';
+import { Menu } from 'lucide-react';
+import { HeaderIconButton } from './HeaderIconButton';
+import { HeaderBrand } from './HeaderBrand';
+import { HeaderSearch } from './HeaderSearch';
+import { HeaderActions } from './HeaderActions';
+import { logoutAction } from '@/features/auth/actions/logoutAction';
 
 interface HeaderLayoutProps {
-  onOpenMobileDrawer?: () => void;
+  isDrawerOpen?: boolean;
+  onToggleDrawer?: () => void;
 }
 
-export function HeaderLayout({ onOpenMobileDrawer }: HeaderLayoutProps) {
+export function HeaderLayout({ isDrawerOpen, onToggleDrawer }: HeaderLayoutProps) {
+  async function handleLogout() {
+    await logoutAction();
+  }
+
   return (
     <header className="sticky top-0 z-50 bg-surface-container">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Left Side - Mobile: Menu + Logo | Desktop: Search + IA */}
-        <div className="flex items-center gap-3">
-          {/* Mobile - Menu Button */}
-          <button
-            type="button"
-            className={cn(
-              'md:hidden flex items-center justify-center p-2 rounded-md',
-              'text-neutral hover:bg-surface-container-low transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50'
-            )}
-            aria-label="Abrir menu"
-            onClick={onOpenMobileDrawer}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+        {/* Left - Menu + Brand (visible on all screen sizes) */}
+        <div className="flex items-center gap-3 shrink-0">
+          <HeaderIconButton
+            icon={<Menu className="size-5" />}
+            label="Abrir menu"
+            onClick={onToggleDrawer}
+            aria-expanded={isDrawerOpen ?? false}
+          />
 
-        {/* Mobile - Logo */}
-        <div className="md:hidden flex items-center gap-2">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10">
-            <Wallet className="w-5 h-5 text-primary" />
-          </div>
-          <span className="font-display font-semibold text-lg text-primary">
-            FinanceGuy
-          </span>
+          <HeaderBrand />
         </div>
 
-          {/* Desktop - Search + IA */}
-          <div className="hidden md:flex items-center gap-2">
-            <div className="w-[480px]">
-              <SearchInput placeholder="Buscar transações..." />
-            </div>
-            <button
-              type="button"
-              className={cn(
-                'flex items-center justify-center p-2.5 rounded-md',
-                'text-secondary hover:bg-surface-container-low transition-colors',
-                'focus:outline-none focus:ring-2 focus:ring-primary/50'
-              )}
-              aria-label="Assistente IA"
-            >
-              <Sparkles className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+        {/* Center - Search + Assistente IA (desktop only, truly centered) */}
+        <HeaderSearch />
 
-        {/* Right Side - Mobile: IA + Bell + Profile | Desktop: Bell + Profile */}
-        <div className="flex items-center gap-1">
-          {/* Mobile - IA Button */}
-          <button
-            type="button"
-            className={cn(
-              'md:hidden flex items-center justify-center p-2 rounded-md',
-              'text-secondary hover:bg-surface-container-low transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50'
-            )}
-            aria-label="Assistente IA"
-          >
-            <Sparkles className="w-5 h-5" />
-          </button>
-
-          {/* Mobile + Desktop - Bell Button */}
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-center p-2 rounded-md',
-              'text-neutral hover:bg-surface-container-low transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50'
-            )}
-            aria-label="Notificações"
-          >
-            <Bell className="w-5 h-5" />
-          </button>
-
-          {/* Mobile + Desktop - Profile Button */}
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-center p-2 rounded-md',
-              'text-neutral hover:bg-surface-container-low transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50'
-            )}
-            aria-label="Perfil"
-          >
-            <UserCircle2 className="w-5 h-5" />
-          </button>
-        </div>
+        {/* Right - Notificações + Perfil */}
+        <HeaderActions onLogout={handleLogout} />
       </div>
     </header>
   );

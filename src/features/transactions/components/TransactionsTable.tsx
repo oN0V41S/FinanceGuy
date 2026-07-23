@@ -6,7 +6,7 @@ import { Edit2, Trash2 } from 'lucide-react';
 interface Props {
     sortedTransactions: Transaction[];
     openModal: (transaction: Transaction) => void;
-    handleDeleteRequest: (id: number) => void;
+    handleDeleteRequest: (id: string) => void;
 }
 
 const TransactionsTable: React.FC<Props> = ({ sortedTransactions, openModal, handleDeleteRequest }) => {
@@ -30,7 +30,7 @@ const TransactionsTable: React.FC<Props> = ({ sortedTransactions, openModal, han
                             sortedTransactions.map(t => (
                                 <tr key={t.id} className="border-b border-gray-200 hover:bg-gray-50/50">
                                     <td className="py-4 px-6"><p className="font-medium text-gray-800">{t.description}</p><p className="text-xs text-gray-500">{t.responsible}</p></td>
-                                    <td className="py-4 px-6 text-gray-600">{formatDate(t.dueDate)}</td>
+                                    <td className="py-4 px-6 text-gray-600">{formatDate(t.date)}</td>
                                     <td className="py-4 px-6"><span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">{t.category}</span></td>
                                     <td className={`py-4 px-6 text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(t.value)}</td>
                                     <td className="py-4 px-6"><div className="flex items-center justify-center gap-3">

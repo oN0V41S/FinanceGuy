@@ -1,5 +1,5 @@
 import { IUserRepository, UserRecord } from "./IUser.repository";
-import { RegisterInput } from "./validations";
+import type { RegisterInput } from "@/features/auth/schemas/auth.schema";
 import { prisma } from "@/lib/prisma";
 
 export class PostgresUserRepository implements IUserRepository {
@@ -54,5 +54,11 @@ export class PostgresUserRepository implements IUserRepository {
       email: user.email,
       emailVerified: user.emailVerified
     };
+  }
+
+  async updateNickname(id: string, nickname: string): Promise<Omit<UserRecord, 'password'>> {
+    const user = await prisma.user.update({ where: { id }, data: { nickname } });
+    const { password, ...rest } = user;
+    return rest;
   }
 }

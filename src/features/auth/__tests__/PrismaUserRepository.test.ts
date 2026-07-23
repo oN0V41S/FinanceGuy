@@ -3,19 +3,24 @@ import { PrismaUserRepository } from "../PrismaUserRepository";
 import { RegisterInput } from "../schemas/auth.schema";
 
 // Mock do PrismaClient
+interface MockUserDelegate {
+  findUnique: jest.Mock;
+  create: jest.Mock;
+}
+
 const mockPrisma = {
   user: {
     findUnique: jest.fn(),
     create: jest.fn(),
   },
-} as unknown as jest.Mocked<PrismaClient>;
+} as unknown as { user: MockUserDelegate };
 
 describe("PrismaUserRepository", () => {
   let repository: PrismaUserRepository;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    repository = new PrismaUserRepository(mockPrisma);
+    repository = new PrismaUserRepository(mockPrisma as unknown as PrismaClient);
   });
 
   describe("findByEmail", () => {
@@ -149,6 +154,7 @@ describe("PrismaUserRepository", () => {
         nickname: "john",
         email: "john@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       const hashedPassword = "hashed_password_123";
@@ -192,6 +198,7 @@ describe("PrismaUserRepository", () => {
         nickname: "jane",
         email: "jane@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       const mockCreatedUser = {
@@ -233,6 +240,7 @@ describe("PrismaUserRepository", () => {
         nickname: "test",
         email: "test@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       const hashedPassword = "secret_hash";
@@ -269,6 +277,7 @@ describe("PrismaUserRepository", () => {
         nickname: "verified",
         email: "verified@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       const emailVerified = new Date("2024-01-01");
@@ -299,6 +308,7 @@ describe("PrismaUserRepository", () => {
         nickname: "bcrypt",
         email: "bcrypt@test.com",
         password: "MySecureP@ss1",
+        confirmPassword: "MySecureP@ss1",
       };
 
       // Simulando o hash que o bcrypt geraria

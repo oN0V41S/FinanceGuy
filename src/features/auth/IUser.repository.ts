@@ -1,4 +1,4 @@
-import { RegisterInput } from "@validation/auth.schema";
+import { RegisterInput } from "@/features/auth/schemas/auth.schema";
 
 // Substitua pelo tipo correto do seu User, se necessário
 export interface UserRecord {
@@ -14,4 +14,5 @@ export interface IUserRepository {
   findById(id: string): Promise<UserRecord | null>;
   findByEmail(email: string): Promise<UserRecord | null>;
   create(data: RegisterInput, hashedPassword?: string): Promise<Omit<UserRecord, 'password'>>;
+  updateNickname(id: string, nickname: string): Promise<Omit<UserRecord, 'password'>>;
 }

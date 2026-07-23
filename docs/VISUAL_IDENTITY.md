@@ -21,6 +21,18 @@ A interface utiliza uma paleta Dark Mode otimizada para legibilidade de dados fi
 | **Sucesso** | `#10B981` (Success Mint) |
 | **Muted** | `#787679` (Muted Gray) |
 
+> ### 🎨 Padrão de Cor de Marca
+> Regra de uso dos tokens de cor definidos na paleta acima (§2), observada nas telas de autenticação e aplicável a toda a aplicação:
+>
+> | Função | Token | Cor | Onde aplicar |
+> | :--- | :--- | :--- | :--- |
+> | **Identidade / Marca** | `brand-secondary` | Insight Violet `#8B5CF6` | Wordmark "FinanceGuy", títulos de seção (`CardTitle` de Login/Registro), `FormLabel`. |
+> | **Ação** | `primary` (`brand-primary`) | Trust Blue `#2563EB` | Botões primários, links de ação (ex.: "Criar conta" / "Entrar"), estado de foco de inputs. |
+>
+> **Resumo:** a cor de *marca* (quem somos) é o Insight Violet; a cor de *ação* (o que o usuário faz) é o Trust Blue. Não inverta as funções — o Violet nunca deve ser usado como fundo de botão primário, e o Blue nunca deve ser usado como cor de título de seção.
+
+---
+
 ## 3. Tipografia
 *   **Headings/Body:** `Inter`.
 *   **Labels/UI Elements:** `Space Grotesk`.
@@ -54,8 +66,8 @@ export default {
     extend: {
       colors: {
         brand: {
-          primary: '#064E3B',
-          secondary: '#334155',
+          primary: '#2563EB',
+          secondary: '#8B5CF6',
           background: '#F8FAFC',
         },
         finance: {
@@ -147,7 +159,7 @@ O componente de entrada deve seguir as especificações abaixo para manter consi
 | Estado | Borda | Fundo | Sombra |
 | :--- | :--- | :--- | :--- |
 | **Padrão** | border-gray-200 | bg-white | nenhuma |
-| **Foco** | border-brand-primary (#064E3B) | bg-white | `ring-2 ring-brand-primary/20` |
+| **Foco** | border-brand-primary (#2563EB) | bg-white | `ring-2 ring-brand-primary/20` |
 | **Erro** | border-finance-expense (#E11D48) | bg-finance-expense/5 | nenhuma |
 | **Desabilitado** | border-gray-100 | bg-gray-50 | nenhuma |
 | **Sucesso** | border-finance-income (#10B981) | bg-white | nenhuma |
@@ -207,7 +219,7 @@ O botão de submissão deve ser o elemento de ação principal do formulário, c
 | **Largura** | 100% | `w-full` |
 | **Altura** | 48px | `h-12` |
 | **Border radius** | 12px | `rounded-xl` |
-| **Cor de fundo** | Deep Emerald (#064E3B) | `bg-brand-primary` |
+| **Cor de fundo** | Trust Blue (#2563EB) | `bg-brand-primary` |
 | **Cor do texto** | Branco | `text-white` |
 | **Peso da fonte** | 500 | `font-medium` |
 | **Transição** | 200ms | `transition-colors` |
@@ -216,12 +228,12 @@ O botão de submissão deve ser o elemento de ação principal do formulário, c
 
 | Estado | Fundo | Texto | Comportamento |
 | :--- | :--- | :--- | :--- |
-| **Padrão** | #064E3B | branco | cursor pointer |
-| **Hover** | #064E3B/90 | branco | escurecer 10% |
-| **Foco** | #064E3B | branco | ring-2 ring-brand-primary/40 |
-| **Ativo/Press** | #064E3B/80 | branco | scale-98 |
-| **Desabilitado** | #064E3B/50 | branco/50 | cursor not-allowed |
-| **Loading** | #064E3B | branco | opacity-80 |
+| **Padrão** | #2563EB | branco | cursor pointer |
+| **Hover** | #2563EB/90 | branco | escurecer 10% |
+| **Foco** | #2563EB | branco | ring-2 ring-brand-primary/40 |
+| **Ativo/Press** | #2563EB/80 | branco | scale-98 |
+| **Desabilitado** | #2563EB/50 | branco/50 | cursor not-allowed |
+| **Loading** | #2563EB | branco | opacity-80 |
 
 ---
 
@@ -527,7 +539,7 @@ const PasswordStrengthIndicator = ({ password }: { password: string }) => {
 | :--- | :--- | :--- | :--- |
 | **1** | Fraca | #E11B48 | Menos de 6 caracteres |
 | **2** | Média | #F59E0B | 6+ caracteres OU letras + números |
-| **3** | Forte | #064E3B | 8+ caracteres + letras + números |
+| **3** | Forte | #2563EB | 8+ caracteres + letras + números |
 | **4** | Muito Forte | #10B981 | 10+ caracteres + letras + números + símbolos |
 
 ---
