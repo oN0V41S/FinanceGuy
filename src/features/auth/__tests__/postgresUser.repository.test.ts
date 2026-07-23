@@ -22,7 +22,7 @@ describe("PostgresUserRepository", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     repository = new PostgresUserRepository();
-    mockPrismaUser = prisma.user as jest.Mocked<typeof prisma.user>;
+    mockPrismaUser = prisma.user as unknown as { findUnique: jest.Mock; create: jest.Mock };
   });
 
   describe("findByEmail", () => {
@@ -170,6 +170,7 @@ describe("PostgresUserRepository", () => {
         nickname: "john",
         email: "john@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       const hashedPassword = "hashed_password_123";
@@ -213,6 +214,7 @@ describe("PostgresUserRepository", () => {
         nickname: "jane",
         email: "jane@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       const mockCreatedUser = {
@@ -254,6 +256,7 @@ describe("PostgresUserRepository", () => {
         nickname: "verified",
         email: "verified@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       const emailVerified = new Date("2024-01-01");
@@ -282,6 +285,7 @@ describe("PostgresUserRepository", () => {
         nickname: "nick",
         email: "nick@test.com",
         password: "Password123!",
+        confirmPassword: "Password123!",
       };
 
       const mockCreatedUser = {
@@ -318,6 +322,7 @@ describe("PostgresUserRepository", () => {
         nickname: "bcrypt",
         email: "bcrypt@test.com",
         password: "MySecureP@ss1",
+        confirmPassword: "MySecureP@ss1",
       };
 
       // Simulando o hash que o bcrypt geraria
@@ -355,6 +360,7 @@ describe("PostgresUserRepository", () => {
         nickname: "nohash",
         email: "nohash@test.com",
         password: "OriginalPass123!",
+        confirmPassword: "OriginalPass123!",
       };
 
       const mockCreatedUser = {

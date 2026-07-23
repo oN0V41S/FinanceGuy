@@ -61,7 +61,7 @@ describe('AuthService', () => {
     // Assert: Verifica se os métodos corretos foram chamados e o resultado está correto
     expect(mockUserRepo.findByEmail).toHaveBeenCalledWith('new@test.com');
     expect(mockUserRepo.create).toHaveBeenCalled();
-    expect(result.email).toBe('new@test.com');
-    expect(result.id).toBe('2');
+    expect(result!.email).toBe('new@test.com');
+    expect(result!.id).toBe('2');
   });
 });

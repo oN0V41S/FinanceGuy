@@ -22,7 +22,7 @@ describe("POST /api/auth/login", () => {
 
   it("deve retornar 200, os dados do usuário e o cookie de autenticação em caso de sucesso", async () => {
     // Arrange
-    const mockUser = { id: "1", email: "test@test.com", nickname: "tester" };
+    const mockUser = { id: "1", name: "Test User", email: "test@test.com", nickname: "tester" };
     const mockToken = "mock-jwt-token";
     mockedAuthService.login.mockResolvedValue({ ...mockUser, token: mockToken });
 

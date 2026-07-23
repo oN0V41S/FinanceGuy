@@ -188,8 +188,8 @@ describe('useDashboardData', () => {
 
       // Act - render with fortnight=all
       const { result, rerender } = renderHook(
-        ({ fortnight }) => useDashboardData('1', '2025', fortnight),
-        { initialProps: { fortnight: 'all' as const } }
+        ({ fortnight }: { fortnight: 'all' | 'first' | 'second' }) => useDashboardData('1', '2025', fortnight),
+        { initialProps: { fortnight: 'all' } }
       );
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       expect(mockFetch).toHaveBeenCalledTimes(1);

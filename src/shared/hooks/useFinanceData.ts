@@ -64,8 +64,6 @@ const useFinanceData = () => {
                 value: String(Math.abs(transaction.value)),
                 date: transaction.date, // Fixed dueDate to date
                 paid: transaction.paid ?? false, // Ensure 'paid' is handled
-                created_at: transaction.created_at,
-                updated_at: transaction.updated_at
             });
         } else {
             setEditingTransaction(null);
@@ -215,7 +213,7 @@ const useFinanceData = () => {
     
     const sortedTransactions = useMemo(() => {
         // Ordena transações por data (mais recente primeiro)
-        return [...filteredTransactions].sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
+        return [...filteredTransactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }, [filteredTransactions]);
     
     return {

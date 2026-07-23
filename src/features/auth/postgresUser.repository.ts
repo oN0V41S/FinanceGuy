@@ -1,5 +1,5 @@
 import { IUserRepository, UserRecord } from "./IUser.repository";
-import { RegisterInput } from "./validations";
+import type { RegisterInput } from "@/features/auth/schemas/auth.schema";
 import { prisma } from "@/lib/prisma";
 
 export class PostgresUserRepository implements IUserRepository {

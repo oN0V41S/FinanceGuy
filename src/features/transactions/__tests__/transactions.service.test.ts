@@ -1,7 +1,7 @@
 // src/features/transactions/__tests__/transactions.service.test.ts
 import { TransactionService } from '../transactions.service';
 import { ITransactionRepository } from '../ITransaction.repository';
-import { IUserRepository } from '../../../lib/repositories/IUser.repository'; // This path will be updated again when auth is refactored
+import { IUserRepository } from '@/features/auth/IUser.repository';
 
 describe('TransactionService', () => {
   let service: TransactionService;
