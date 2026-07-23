@@ -14,7 +14,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
 
     return (
         <div
-            className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 overflow-y-auto bg-background/80 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={onClose}
         >
             <div
@@ -23,7 +23,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
             >
                 <div className="p-6">
                     <div className="flex justify-between items-center pb-3 border-b border-outline-variant">
-                        <h3 className="text-xl font-sans font-semibold text-on-surface">{title}</h3>
+                        <h3 className="text-xl font-display font-semibold text-on-surface">{title}</h3>
                         <button
                             onClick={onClose}
                             aria-label="Fechar"
