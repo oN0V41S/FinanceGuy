@@ -32,8 +32,11 @@ export class PostgresTransactionRepository implements ITransactionRepository {
     }));
   }
 
-  async getById(id: string): Promise<Transaction | null> {
-    const transaction = await prisma.transaction.findUnique({ where: { id } });
+  async getById(id: string, userId?: string): Promise<Transaction | null> {
+    const where: any = { id };
+    if (userId) where.userId = userId;
+
+    const transaction = await prisma.transaction.findFirst({ where });
     if (!transaction) return null;
     const { userId: _u, ...rest } = transaction;
 

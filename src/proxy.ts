@@ -11,6 +11,34 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const pathname = nextUrl.pathname;
 
+  // Verifica se a rota atual é uma API route
+  const isApiRoute = pathname.startsWith("/api/");
+
+  // Para API routes: injeta x-user-id e permite acesso
+  if (isApiRoute) {
+    // Rotas de autenticação do NextAuth precisam ser acessíveis sem token
+    if (pathname.startsWith("/api/auth/")) {
+      return NextResponse.next();
+    }
+
+    // Se não está logado, retorna 401
+    if (!isLoggedIn) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+
+    // Injeta o userId no header x-user-id para as API routes
+    const userId = req.auth?.user?.id;
+    if (userId) {
+      const response = NextResponse.next();
+      response.headers.set("x-user-id", userId);
+      return response;
+    }
+
+    return NextResponse.json({ error: "Usuário não identificado" }, { status: 401 });
+  }
+
+  // Para rotas de páginas: lógica de redirecionamento existente
+  
   // Verifica se a rota atual é uma rota pública (exata)
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
   
@@ -31,17 +59,16 @@ export default auth((req) => {
 });
 
 // Configuração de quais rotas o middleware deve atuar
-// Exclui rotas de API e server actions
+// Inclui API routes para injetar x-user-id
 export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - api routes (API endpoints)
      * - _next/static (static files)
      * - _next/image (image optimization)
      * - favicon.ico (favicon)
      * - server actions (Next.js server actions)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\..*$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\..*$).*)",
   ],
 };

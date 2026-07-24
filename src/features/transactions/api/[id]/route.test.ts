@@ -3,13 +3,13 @@
  */
 import { PUT, DELETE } from './route';
 import { NextRequest } from 'next/server';
-import { transactionRepository } from '@/core/container';
+import { transactionService } from '@/core/container';
 
 // Mock the container
 jest.mock('@/core/container', () => ({
-  transactionRepository: {
-    update: jest.fn(),
-    delete: jest.fn(),
+  transactionService: {
+    updateTransaction: jest.fn(),
+    deleteTransaction: jest.fn(),
   },
 }));
 
@@ -40,19 +40,39 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
   // PUT Method Tests
   // ============================================
 
+  function mockZodError() {
+    const zodError = new Error('Validation failed');
+    zodError.name = 'ZodError';
+    (zodError as any).issues = [{ message: 'Invalid value' }];
+    (zodError as any).errors = [{ message: 'Invalid value' }];
+    (transactionService.updateTransaction as jest.Mock).mockRejectedValue(zodError);
+  }
+
+  function mockNotFoundError() {
+    (transactionService.updateTransaction as jest.Mock).mockRejectedValue(
+      new Error('Transação não encontrada.')
+    );
+  }
+
+  function mockDeleteNotFoundError() {
+    (transactionService.deleteTransaction as jest.Mock).mockRejectedValue(
+      new Error('Transação não encontrada.')
+    );
+  }
+
   describe('PUT /api/transactions/[id]', () => {
     describe('Successful Updates', () => {
       it('should update transaction with valid partial data', async () => {
         const updateData = { description: 'Updated Description', paid: true };
         const updatedTransaction = { ...mockTransaction, ...updateData };
 
-        (transactionRepository.update as jest.Mock).mockResolvedValue(updatedTransaction);
+        (transactionService.updateTransaction as jest.Mock).mockResolvedValue(updatedTransaction);
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(updateData),
           }
         );
@@ -65,7 +85,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         const data = await response.json();
         expect(data.data.description).toBe('Updated Description');
         expect(data.data.paid).toBe(true);
-        expect(transactionRepository.update).toHaveBeenCalledWith(
+        expect(transactionService.updateTransaction).toHaveBeenCalledWith(
           mockTransactionId,
           expect.objectContaining({
             description: 'Updated Description',
@@ -86,13 +106,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         };
         const updatedTransaction = { ...mockTransaction, ...updateData };
 
-        (transactionRepository.update as jest.Mock).mockResolvedValue(updatedTransaction);
+        (transactionService.updateTransaction as jest.Mock).mockResolvedValue(updatedTransaction);
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(updateData),
           }
         );
@@ -112,13 +132,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         const updateData = { value: 200.75 };
         const updatedTransaction = { ...mockTransaction, value: 200.75 };
 
-        (transactionRepository.update as jest.Mock).mockResolvedValue(updatedTransaction);
+        (transactionService.updateTransaction as jest.Mock).mockResolvedValue(updatedTransaction);
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(updateData),
           }
         );
@@ -135,13 +155,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       it('should allow empty update object', async () => {
         const updatedTransaction = { ...mockTransaction };
 
-        (transactionRepository.update as jest.Mock).mockResolvedValue(updatedTransaction);
+        (transactionService.updateTransaction as jest.Mock).mockResolvedValue(updatedTransaction);
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify({}),
           }
         );
@@ -157,12 +177,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
     describe('Validation Errors (400)', () => {
       it('should return 400 for invalid type', async () => {
         const invalidData = { type: 'transfer' };
+        mockZodError();
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(invalidData),
           }
         );
@@ -179,12 +200,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
       it('should return 400 for negative value', async () => {
         const invalidData = { value: -100 };
+        mockZodError();
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(invalidData),
           }
         );
@@ -200,12 +222,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
       it('should return 400 for zero value', async () => {
         const invalidData = { value: 0 };
+        mockZodError();
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(invalidData),
           }
         );
@@ -221,12 +244,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
       it('should return 400 for invalid date format', async () => {
         const invalidData = { date: '21/01/2026' };
+        mockZodError();
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(invalidData),
           }
         );
@@ -242,12 +266,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
       it('should return 400 for invalid category', async () => {
         const invalidData = { category: 'InvalidCategory' };
+        mockZodError();
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(invalidData),
           }
         );
@@ -263,12 +288,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
       it('should return 400 for empty description', async () => {
         const invalidData = { description: '' };
+        mockZodError();
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(invalidData),
           }
         );
@@ -287,7 +313,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: 'invalid json',
           }
         );
@@ -306,14 +332,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
     describe('Not Found Errors (404)', () => {
       it('should return 404 when transaction not found', async () => {
         const updateData = { description: 'Updated Description' };
-
-        (transactionRepository.update as jest.Mock).mockResolvedValue(null);
+        mockNotFoundError();
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(updateData),
           }
         );
@@ -324,7 +349,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
         expect(response.status).toBe(404);
         const data = await response.json();
-        expect(data.error).toBe('Transação não encontrada');
+        expect(data.error).toBe('Transação não encontrada.');
       });
     });
 
@@ -332,7 +357,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       it('should return 500 when repository throws error', async () => {
         const updateData = { description: 'Updated Description' };
 
-        (transactionRepository.update as jest.Mock).mockRejectedValue(
+        (transactionService.updateTransaction as jest.Mock).mockRejectedValue(
           new Error('Database connection failed')
         );
 
@@ -340,7 +365,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(updateData),
           }
         );
@@ -357,13 +382,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       it('should return 500 for non-Zod, non-nullish errors', async () => {
         const updateData = { description: 'Updated Description' };
 
-        (transactionRepository.update as jest.Mock).mockRejectedValue('Unexpected error');
+        (transactionService.updateTransaction as jest.Mock).mockRejectedValue('Unexpected error');
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
             body: JSON.stringify(updateData),
           }
         );
@@ -384,13 +409,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
   describe('DELETE /api/transactions/[id]', () => {
     describe('Successful Deletion', () => {
       it('should delete transaction successfully', async () => {
-        (transactionRepository.delete as jest.Mock).mockResolvedValue(true);
+        (transactionService.deleteTransaction as jest.Mock).mockResolvedValue(true);
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
           }
         );
 
@@ -403,16 +428,17 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         expect(data.success).toBe(true);
         expect(data.message).toBe('Transação deletada');
         expect(data.id).toBe(mockTransactionId);
-        expect(transactionRepository.delete).toHaveBeenCalledWith(mockTransactionId);
+        expect(transactionService.deleteTransaction).toHaveBeenCalledWith(mockTransactionId);
       });
 
       it('should return correct response structure', async () => {
-        (transactionRepository.delete as jest.Mock).mockResolvedValue(true);
+        (transactionService.deleteTransaction as jest.Mock).mockResolvedValue(true);
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'DELETE',
+            headers: { 'x-user-id': userId },
           }
         );
 
@@ -430,12 +456,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
     describe('Not Found Errors (404)', () => {
       it('should return 404 when transaction not found', async () => {
-        (transactionRepository.delete as jest.Mock).mockResolvedValue(false);
+        mockDeleteNotFoundError();
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'DELETE',
+            headers: { 'x-user-id': userId },
           }
         );
 
@@ -445,17 +472,18 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
         expect(response.status).toBe(404);
         const data = await response.json();
-        expect(data.error).toBe('Transação não encontrada');
+        expect(data.error).toBe('Transação não encontrada.');
       });
 
       it('should return 404 for non-existent UUID format', async () => {
-        (transactionRepository.delete as jest.Mock).mockResolvedValue(false);
+        mockDeleteNotFoundError();
 
         const fakeId = 'non-existent-id';
         const request = new NextRequest(
           `http://localhost/api/transactions/${fakeId}`,
           {
             method: 'DELETE',
+            headers: { 'x-user-id': userId },
           }
         );
 
@@ -469,7 +497,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
     describe('Server Errors (500)', () => {
       it('should return 500 when repository throws error', async () => {
-        (transactionRepository.delete as jest.Mock).mockRejectedValue(
+        (transactionService.deleteTransaction as jest.Mock).mockRejectedValue(
           new Error('Database connection failed')
         );
 
@@ -477,6 +505,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'DELETE',
+            headers: { 'x-user-id': userId },
           }
         );
 
@@ -490,12 +519,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       });
 
       it('should return 500 for non-Error exceptions', async () => {
-        (transactionRepository.delete as jest.Mock).mockRejectedValue('Unexpected string error');
+        (transactionService.deleteTransaction as jest.Mock).mockRejectedValue('Unexpected string error');
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'DELETE',
+            headers: { 'x-user-id': userId },
           }
         );
 
@@ -507,12 +537,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       });
 
       it('should return 500 for null errors', async () => {
-        (transactionRepository.delete as jest.Mock).mockRejectedValue(null);
+        (transactionService.deleteTransaction as jest.Mock).mockRejectedValue(null);
 
         const request = new NextRequest(
           `http://localhost/api/transactions/${mockTransactionId}`,
           {
             method: 'DELETE',
+            headers: { 'x-user-id': userId },
           }
         );
 
@@ -532,15 +563,13 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
   describe('Edge Cases', () => {
     it('should handle very long description', async () => {
       const longDescription = 'A'.repeat(500);
-      const updatedTransaction = { ...mockTransaction, description: longDescription };
-
-      (transactionRepository.update as jest.Mock).mockResolvedValue(updatedTransaction);
+      mockZodError();
 
       const request = new NextRequest(
         `http://localhost/api/transactions/${mockTransactionId}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
           body: JSON.stringify({ description: longDescription }),
         }
       );
@@ -556,7 +585,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       const largeValue = 999999999999;
       const updateData = { value: largeValue };
 
-      (transactionRepository.update as jest.Mock).mockResolvedValue({
+      (transactionService.updateTransaction as jest.Mock).mockResolvedValue({
         ...mockTransaction,
         value: largeValue,
       });
@@ -565,7 +594,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         `http://localhost/api/transactions/${mockTransactionId}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
           body: JSON.stringify(updateData),
         }
       );
@@ -581,7 +610,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       const decimalValue = 99.99;
       const updateData = { value: decimalValue };
 
-      (transactionRepository.update as jest.Mock).mockResolvedValue({
+      (transactionService.updateTransaction as jest.Mock).mockResolvedValue({
         ...mockTransaction,
         value: decimalValue,
       });
@@ -590,7 +619,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         `http://localhost/api/transactions/${mockTransactionId}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
           body: JSON.stringify(updateData),
         }
       );
@@ -607,7 +636,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
     it('should handle boolean paid field correctly', async () => {
       const updateData = { paid: true, is_recurring: true };
 
-      (transactionRepository.update as jest.Mock).mockResolvedValue({
+      (transactionService.updateTransaction as jest.Mock).mockResolvedValue({
         ...mockTransaction,
         ...updateData,
       });
@@ -616,7 +645,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         `http://localhost/api/transactions/${mockTransactionId}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
           body: JSON.stringify(updateData),
         }
       );
@@ -635,7 +664,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       const specialChars = 'Café & Açúcar <script>alert("test")</script>';
       const updateData = { description: specialChars };
 
-      (transactionRepository.update as jest.Mock).mockResolvedValue({
+      (transactionService.updateTransaction as jest.Mock).mockResolvedValue({
         ...mockTransaction,
         description: specialChars,
       });
@@ -644,7 +673,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         `http://localhost/api/transactions/${mockTransactionId}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
           body: JSON.stringify(updateData),
         }
       );
@@ -662,7 +691,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       const futureDate = '2030-12-31';
       const updateData = { date: futureDate };
 
-      (transactionRepository.update as jest.Mock).mockResolvedValue({
+      (transactionService.updateTransaction as jest.Mock).mockResolvedValue({
         ...mockTransaction,
         date: futureDate,
       });
@@ -671,7 +700,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         `http://localhost/api/transactions/${mockTransactionId}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
           body: JSON.stringify(updateData),
         }
       );
@@ -690,6 +719,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         `http://localhost/api/transactions/${mockTransactionId}`,
         {
           method: 'PUT',
+          headers: { 'x-user-id': userId },
           body: JSON.stringify(updateData),
         }
       );
@@ -706,7 +736,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       const updateData = { description: 'Concurrent Update' };
       const updatedTransaction = { ...mockTransaction, ...updateData };
 
-      (transactionRepository.update as jest.Mock)
+      (transactionService.updateTransaction as jest.Mock)
         .mockResolvedValueOnce(updatedTransaction)
         .mockResolvedValueOnce({ ...updatedTransaction, description: 'Second Update' });
 
@@ -714,7 +744,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         `http://localhost/api/transactions/${mockTransactionId}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
           body: JSON.stringify(updateData),
         }
       );
@@ -723,7 +753,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         `http://localhost/api/transactions/${mockTransactionId}`,
         {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
           body: JSON.stringify({ description: 'Second Update' }),
         }
       );
@@ -735,7 +765,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
       expect(response1.status).toBe(200);
       expect(response2.status).toBe(200);
-      expect(transactionRepository.update).toHaveBeenCalledTimes(2);
+      expect(transactionService.updateTransaction).toHaveBeenCalledTimes(2);
     });
   });
 });

@@ -1,50 +1,168 @@
-import React from 'react';
-import { Transaction } from '@/types/finance'; // Importa de types
-import { formatCurrency, formatDate } from '@/shared/utils'; // Importa de utils
-import { Edit2, Trash2 } from 'lucide-react';
+'use client';
 
-interface Props {
-    sortedTransactions: Transaction[];
-    openModal: (transaction: Transaction) => void;
-    handleDeleteRequest: (id: string) => void;
+import React from 'react';
+import { Transaction } from '@/types/finance';
+import { formatCurrency, formatDate } from '@/shared/utils';
+import { Edit2, Trash2, Check, X } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+
+interface TransactionsTableProps {
+  transactions: Transaction[];
+  isLoading: boolean;
+  onEdit: (transaction: Transaction) => void;
+  onDelete: (id: string) => void;
 }
 
-const TransactionsTable: React.FC<Props> = ({ sortedTransactions, openModal, handleDeleteRequest }) => {
-    return (
-        <div className="bg-white rounded-xl shadow overflow-hidden">
-            <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="text-left py-4 px-6 font-semibold text-gray-600">Descrição</th>
-                            <th className="text-left py-4 px-6 font-semibold text-gray-600">Data</th>
-                            <th className="text-left py-4 px-6 font-semibold text-gray-600">Categoria</th>
-                            <th className="text-right py-4 px-6 font-semibold text-gray-600">Valor</th>
-                            <th className="text-center py-4 px-6 font-semibold text-gray-600">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sortedTransactions.length === 0 ? (
-                            <tr><td colSpan={5} className="py-16 text-center text-gray-500">Nenhuma transação encontrada para o período selecionado.</td></tr>
-                        ) : (
-                            sortedTransactions.map(t => (
-                                <tr key={t.id} className="border-b border-gray-200 hover:bg-gray-50/50">
-                                    <td className="py-4 px-6"><p className="font-medium text-gray-800">{t.description}</p><p className="text-xs text-gray-500">{t.responsible}</p></td>
-                                    <td className="py-4 px-6 text-gray-600">{formatDate(t.date)}</td>
-                                    <td className="py-4 px-6"><span className="bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs">{t.category}</span></td>
-                                    <td className={`py-4 px-6 text-right font-semibold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(t.value)}</td>
-                                    <td className="py-4 px-6"><div className="flex items-center justify-center gap-3">
-                                        <button onClick={() => openModal(t)} className="text-gray-400 hover:text-indigo-600" title="Editar"><Edit2 className="h-4 w-4" /></button>
-                                        <button onClick={() => handleDeleteRequest(t.id)} className="text-gray-400 hover:text-red-600" title="Excluir"><Trash2 className="h-4 w-4" /></button>
-                                    </div></td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-            </div>
+function SkeletonRow() {
+  return (
+    <tr className="border-b border-outline-variant/20">
+      <td className="py-4 px-6">
+        <div className="flex flex-col gap-2">
+          <div className="h-4 w-3/4 animate-pulse rounded-md bg-muted" />
+          <div className="h-3 w-1/3 animate-pulse rounded-md bg-muted" />
         </div>
-    );
+      </td>
+      <td className="py-4 px-6">
+        <div className="h-4 w-20 animate-pulse rounded-md bg-muted" />
+      </td>
+      <td className="py-4 px-6">
+        <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
+      </td>
+      <td className="py-4 px-6">
+        <div className="h-4 w-16 animate-pulse rounded-md bg-muted" />
+      </td>
+      <td className="py-4 px-6">
+        <div className="ml-auto h-4 w-24 animate-pulse rounded-md bg-muted" />
+      </td>
+      <td className="py-4 px-6">
+        <div className="flex items-center justify-center gap-3">
+          <div className="size-8 animate-pulse rounded-md bg-muted" />
+          <div className="size-8 animate-pulse rounded-md bg-muted" />
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+const TransactionsTable: React.FC<TransactionsTableProps> = ({
+  transactions,
+  isLoading,
+  onEdit,
+  onDelete,
+}) => {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-outline-variant/30 bg-card">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-outline-variant/20 bg-muted/50">
+            <th className="px-6 py-4 text-left font-medium text-on-surface-variant">
+              Descrição
+            </th>
+            <th className="px-6 py-4 text-left font-medium text-on-surface-variant">
+              Data
+            </th>
+            <th className="px-6 py-4 text-left font-medium text-on-surface-variant">
+              Categoria
+            </th>
+            <th className="px-6 py-4 text-center font-medium text-on-surface-variant">
+              Status
+            </th>
+            <th className="px-6 py-4 text-right font-medium text-on-surface-variant">
+              Valor
+            </th>
+            <th className="px-6 py-4 text-center font-medium text-on-surface-variant">
+              Ações
+            </th>
+          </tr>
+        </thead>
+        <tbody data-testid={isLoading ? 'table-loading' : undefined}>
+          {isLoading
+            ? Array.from({ length: 5 }).map((_, index) => (
+                <SkeletonRow key={`skeleton-${index}`} />
+              ))
+            : transactions.length === 0
+              ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    data-testid="table-empty"
+                    className="px-6 py-16 text-center text-on-surface-variant"
+                  >
+                    Nenhuma transação encontrada para o período selecionado.
+                  </td>
+                </tr>
+              )
+              : (
+                transactions.map((transaction) => (
+                  <tr
+                    key={transaction.id}
+                    data-testid="table-row"
+                    className="border-b border-outline-variant/20 transition-colors hover:bg-muted/50"
+                  >
+                    <td className="px-6 py-4">
+                      <p className="font-medium text-on-surface">
+                        {transaction.description}
+                      </p>
+                      <p className="text-xs text-on-surface-variant">
+                        {transaction.responsible}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4 text-on-surface">
+                      {formatDate(transaction.date)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant="secondary">{transaction.category}</Badge>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {transaction.paid ? (
+                        <Badge variant="default" className="bg-finance-income text-white">
+                          <Check className="w-3 h-3 mr-1" />
+                          Pago
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-on-surface-variant">
+                          <X className="w-3 h-3 mr-1" />
+                          Pendente
+                        </Badge>
+                      )}
+                    </td>
+                    <td
+                      className={`px-6 py-4 text-right font-semibold ${
+                        transaction.type === 'income'
+                          ? 'text-finance-income'
+                          : 'text-finance-expense'
+                      }`}
+                    >
+                      {formatCurrency(transaction.value)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Editar transação"
+                          onClick={() => onEdit(transaction)}
+                        >
+                          <Edit2 className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Excluir transação"
+                          onClick={() => onDelete(transaction.id)}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+        </tbody>
+      </table>
+    </div>
+  );
 };
 
 export default TransactionsTable;

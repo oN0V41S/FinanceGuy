@@ -12,10 +12,14 @@ export class TransactionService {
     return this.transactionRepository.getAll(filters);
   }
 
-  // Adicione um método para buscar transações por ID, se necessário para o GET
   async getTransactionById(id: string, userId: string) {
-    // Garanta que apenas o proprietário da transação possa acessá-la
-    return this.transactionRepository.getById(id);
+    const transaction = await this.transactionRepository.getById(id, userId);
+
+    if (!transaction) {
+      throw new Error('Transação não encontrada.');
+    }
+
+    return transaction;
   }
 
 
@@ -83,7 +87,7 @@ export class TransactionService {
     const updated = await this.transactionRepository.update(id, validatedData);
     
     if (!updated) {
-      throw new Error('Falha ao atualizar: Transação não encontrada.');
+      throw new Error('Transação não encontrada.');
     }
     
     return updated;
@@ -93,7 +97,7 @@ export class TransactionService {
     const success = await this.transactionRepository.delete(id);
     
     if (!success) {
-      throw new Error('Falha ao deletar: Transação não encontrada.');
+      throw new Error('Transação não encontrada.');
     }
     
     return true;

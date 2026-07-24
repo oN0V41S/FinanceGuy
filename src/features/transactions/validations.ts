@@ -25,7 +25,7 @@ export const TransactionSchema = z.object({
         'Data deve estar em (YYYY-MM-DD)'
     ),
     category: CategoryEnum,
-    responsible: z.string().min(1, 'Responsael é Obrigatório').max(100),
+    responsible: z.string().min(1, 'Responsável é Obrigatório').max(100),
     installment_number: z.number().positive().optional(),
     total_installments: z.number().positive().optional(),
     is_recurring: z.boolean().optional().default(false),
@@ -35,8 +35,8 @@ export const TransactionSchema = z.object({
     updated_at: z.date().optional()
 });
 
-// Schema for Crate (without id)
-export const CreateTransactionSchema = TransactionSchema.omit({id: true});
+// Schema for Create (without id, created_at, updated_at)
+export const CreateTransactionSchema = TransactionSchema.omit({ id: true, created_at: true, updated_at: true });
 
 // Schema for Update (all optional)
 export const UpdateTransactionSchema = TransactionSchema.partial();
