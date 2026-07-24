@@ -11,27 +11,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { FortnightValue } from '@/features/dashboard/components/FortnightFilter';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const PERIOD_OPTIONS = [
+const QUINZENAL_OPTIONS = [
   { value: 'month', label: 'Por Mês' },
-  { value: 'fortnight', label: 'Por Quinzena' },
+  { value: 'first', label: '1ª Quinzena' },
+  { value: 'second', label: '2ª Quinzena' },
 ] as const;
 
 const PAID_OPTIONS = [
   { value: 'all', label: 'Todas' },
   { value: 'paid', label: 'Pagas' },
   { value: 'unpaid', label: 'Não Pagas' },
-] as const;
-
-const FORTNIGHT_OPTIONS = [
-  { value: 'all', label: 'Mês inteiro' },
-  { value: 'first', label: 'Dia 1 ao 15' },
-  { value: 'second', label: 'Dia 16 ao 31' },
 ] as const;
 
 const MONTHS = [
@@ -54,14 +48,12 @@ const MONTHS = [
 // ---------------------------------------------------------------------------
 
 interface FilterControlsProps {
-  filterPeriod: 'month' | 'fortnight';
-  onFilterPeriodChange: (value: 'month' | 'fortnight') => void;
+  quinzenalFilter: 'month' | 'first' | 'second';
+  onQuinzenalFilterChange: (value: 'month' | 'first' | 'second') => void;
   selectedYear: string;
   onYearChange: (value: string) => void;
   selectedMonth: string;
   onMonthChange: (value: string) => void;
-  selectedFortnight: FortnightValue;
-  onFortnightChange: (value: FortnightValue) => void;
   paidFilter: 'all' | 'paid' | 'unpaid';
   onPaidFilterChange: (value: 'all' | 'paid' | 'unpaid') => void;
 }
@@ -71,14 +63,12 @@ interface FilterControlsProps {
 // ---------------------------------------------------------------------------
 
 const FilterControls: React.FC<FilterControlsProps> = ({
-  filterPeriod,
-  onFilterPeriodChange,
+  quinzenalFilter,
+  onQuinzenalFilterChange,
   selectedYear,
   onYearChange,
   selectedMonth,
   onMonthChange,
-  selectedFortnight,
-  onFortnightChange,
   paidFilter,
   onPaidFilterChange,
 }) => {
@@ -89,11 +79,11 @@ const FilterControls: React.FC<FilterControlsProps> = ({
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
           <Filter className="h-5 w-5 text-muted-foreground" />
-          <div data-testid="select-period">
+          <div data-testid="select-quinzenal">
             <Select
-              value={filterPeriod}
+              value={quinzenalFilter}
               onValueChange={(value) => {
-                if (value !== null) onFilterPeriodChange(value as 'month' | 'fortnight');
+                if (value !== null) onQuinzenalFilterChange(value as 'month' | 'first' | 'second');
               }}
             >
               <SelectTrigger
@@ -106,12 +96,12 @@ const FilterControls: React.FC<FilterControlsProps> = ({
                 )}
                 aria-label="Filtrar por período"
               >
-                <SelectValue placeholder="Período">
-                  {(v) => PERIOD_OPTIONS.find((o) => o.value === v)?.label || 'Período'}
+                <SelectValue placeholder="Filtrar por período">
+                  {(v) => QUINZENAL_OPTIONS.find((o) => o.value === v)?.label || 'Filtrar por período'}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
-                {PERIOD_OPTIONS.map((opt) => (
+                {QUINZENAL_OPTIONS.map((opt) => (
                   <SelectItem
                     key={opt.value}
                     value={opt.value}
@@ -161,114 +151,73 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           </Select>
         </div>
 
-        {(filterPeriod === 'month' || filterPeriod === 'fortnight') && (
-          <>
-            <div data-testid="select-year">
-              <Select
-                value={selectedYear}
-                onValueChange={(value) => {
-                  if (value !== null) onYearChange(value);
-                }}
-              >
-                <SelectTrigger
-                  className={cn(
-                    'w-[110px] h-9',
-                    'bg-surface-container-low border-outline-variant',
-                    'hover:bg-surface-container transition-colors',
-                    'text-on-surface text-sm font-medium',
-                    'focus:ring-2 focus:ring-primary/30'
-                  )}
-                  aria-label="Selecionar ano"
-                >
-                  <SelectValue placeholder="Ano" />
-                </SelectTrigger>
-                <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
-                  {yearOptions.map((year) => (
-                    <SelectItem
-                      key={year}
-                      value={String(year)}
-                      className="text-on-surface focus:bg-surface-container-low focus:text-on-surface data-[selected]:bg-primary/10 data-[selected]:text-primary"
-                    >
-                      {year}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div data-testid="select-month">
-              <Select
-                value={selectedMonth}
-                onValueChange={(value) => {
-                  if (value !== null) onMonthChange(value);
-                }}
-              >
-                <SelectTrigger
-                  className={cn(
-                    'w-[155px] h-9',
-                    'bg-surface-container-low border-outline-variant',
-                    'hover:bg-surface-container transition-colors',
-                    'text-on-surface text-sm font-medium',
-                    'focus:ring-2 focus:ring-primary/30'
-                  )}
-                  aria-label="Selecionar mês"
-                >
-                  <SelectValue placeholder="Mês">
-                    {(v) => MONTHS.find((m) => m.value === v)?.label || 'Mês'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
-                  {MONTHS.map((month) => (
-                    <SelectItem
-                      key={month.value}
-                      value={month.value}
-                      className="text-on-surface focus:bg-surface-container-low focus:text-on-surface data-[selected]:bg-primary/10 data-[selected]:text-primary"
-                    >
-                      {month.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </>
-        )}
-
-        {filterPeriod === 'fortnight' && (
-          <div data-testid="select-fortnight">
-            <Select
-              value={selectedFortnight}
-              onValueChange={(value) => {
-                if (value !== null) onFortnightChange(value as FortnightValue);
-              }}
+        <div data-testid="select-year">
+          <Select
+            value={selectedYear}
+            onValueChange={(value) => {
+              if (value !== null) onYearChange(value);
+            }}
+          >
+            <SelectTrigger
+              className={cn(
+                'w-[110px] h-9',
+                'bg-surface-container-low border-outline-variant',
+                'hover:bg-surface-container transition-colors',
+                'text-on-surface text-sm font-medium',
+                'focus:ring-2 focus:ring-primary/30'
+              )}
+              aria-label="Selecionar ano"
             >
-              <SelectTrigger
-                className={cn(
-                  'w-[155px] h-9',
-                  'bg-surface-container-low border-outline-variant',
-                  'hover:bg-surface-container transition-colors',
-                  'text-on-surface text-sm font-medium',
-                  'focus:ring-2 focus:ring-primary/30'
-                )}
-                aria-label="Selecionar quinzena"
-              >
-                <SelectValue placeholder="Quinzena">
-                  {(v) => FORTNIGHT_OPTIONS.find((o) => o.value === v)?.label || 'Quinzena'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
-                {FORTNIGHT_OPTIONS.map((opt) => (
-                  <SelectItem
-                    key={opt.value}
-                    value={opt.value}
-                    className="text-on-surface focus:bg-surface-container-low focus:text-on-surface data-[selected]:bg-primary/10 data-[selected]:text-primary"
-                  >
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+              <SelectValue placeholder="Ano" />
+            </SelectTrigger>
+            <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
+              {yearOptions.map((year) => (
+                <SelectItem
+                  key={year}
+                  value={String(year)}
+                  className="text-on-surface focus:bg-surface-container-low focus:text-on-surface data-[selected]:bg-primary/10 data-[selected]:text-primary"
+                >
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div data-testid="select-month">
+          <Select
+            value={selectedMonth}
+            onValueChange={(value) => {
+              if (value !== null) onMonthChange(value);
+            }}
+          >
+            <SelectTrigger
+              className={cn(
+                'w-[155px] h-9',
+                'bg-surface-container-low border-outline-variant',
+                'hover:bg-surface-container transition-colors',
+                'text-on-surface text-sm font-medium',
+                'focus:ring-2 focus:ring-primary/30'
+              )}
+              aria-label="Selecionar mês"
+            >
+              <SelectValue placeholder="Mês">
+                {(v) => MONTHS.find((m) => m.value === v)?.label || 'Mês'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
+              {MONTHS.map((month) => (
+                <SelectItem
+                  key={month.value}
+                  value={month.value}
+                  className="text-on-surface focus:bg-surface-container-low focus:text-on-surface data-[selected]:bg-primary/10 data-[selected]:text-primary"
+                >
+                  {month.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
     </div>
   );

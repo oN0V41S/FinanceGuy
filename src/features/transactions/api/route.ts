@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
+    const paidParam = searchParams.get('paid');
     const filters = {
       userId, // Filtro obrigatório para segurança
       type: searchParams.get('type') || undefined,
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
       responsible: searchParams.get('responsible') || undefined,
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
+      paid: paidParam !== null ? paidParam === 'true' : undefined,
     };
 
     const transactions = await transactionService.getAllTransactions(filters);

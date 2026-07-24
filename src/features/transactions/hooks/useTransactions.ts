@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Transaction, FinancialSummary } from '@/features/transactions/validations';
-import type { FortnightValue } from '@/features/dashboard/components/FortnightFilter';
 import type { TransactionFormData } from '@/features/transactions/types';
 
 export interface UseTransactionsReturn {
@@ -10,14 +9,12 @@ export interface UseTransactionsReturn {
   summary: FinancialSummary;
   isLoading: boolean;
   error: string | null;
-  filterPeriod: 'month' | 'fortnight';
-  setFilterPeriod: (period: 'month' | 'fortnight') => void;
+  quinzenalFilter: 'month' | 'first' | 'second';
+  setQuinzenalFilter: (value: 'month' | 'first' | 'second') => void;
   selectedYear: string;
   setSelectedYear: (year: string) => void;
   selectedMonth: string;
   setSelectedMonth: (month: string) => void;
-  selectedFortnight: FortnightValue;
-  setSelectedFortnight: (fortnight: FortnightValue) => void;
   paidFilter: 'all' | 'paid' | 'unpaid';
   setPaidFilter: (filter: 'all' | 'paid' | 'unpaid') => void;
   refresh: () => void;
@@ -29,6 +26,10 @@ export interface UseTransactionsReturn {
   openCreateModal: () => void;
   openEditModal: (transaction: Transaction) => void;
   closeModal: () => void;
+  isConfirmModalOpen: boolean;
+  openConfirmModal: (id: string) => void;
+  closeConfirmModal: () => void;
+  confirmDeleteTransaction: () => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -52,15 +53,10 @@ function getCurrentDateFields() {
   };
 }
 
-function determineCurrentFortnight(day: number): FortnightValue {
-  return day >= 15 ? 'second' : 'first';
-}
-
 function buildTransactionsUrl(
-  filterPeriod: 'month' | 'fortnight',
+  quinzenalFilter: 'month' | 'first' | 'second',
   year: string,
   month: string,
-  fortnight: FortnightValue,
   paidFilter: 'all' | 'paid' | 'unpaid',
 ): string {
   const params = new URLSearchParams();
@@ -72,19 +68,13 @@ function buildTransactionsUrl(
   let startDate: string;
   let endDate: string;
 
-  let effectiveFortnight = fortnight;
-  if (filterPeriod === 'fortnight' && fortnight === 'all') {
-    effectiveFortnight = determineCurrentFortnight(new Date().getDate());
-  }
-
-  if (filterPeriod === 'fortnight' && effectiveFortnight === 'first') {
+  if (quinzenalFilter === 'first') {
     startDate = `${year}-${pad(month)}-01`;
     endDate = `${year}-${pad(month)}-15`;
-  } else if (filterPeriod === 'fortnight' && effectiveFortnight === 'second') {
+  } else if (quinzenalFilter === 'second') {
     startDate = `${year}-${pad(month)}-16`;
     endDate = `${year}-${pad(month)}-${pad(lastDay)}`;
   } else {
-    // month
     startDate = `${year}-${pad(month)}-01`;
     endDate = `${year}-${pad(month)}-${pad(lastDay)}`;
   }
@@ -116,28 +106,24 @@ export default function useTransactions(): UseTransactionsReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [filterPeriod, setFilterPeriodState] = useState<'month' | 'fortnight'>('month');
+  const [quinzenalFilter, setQuinzenalFilterState] = useState<'month' | 'first' | 'second'>('month');
   const [selectedYear, setSelectedYearState] = useState(initialYear);
   const [selectedMonth, setSelectedMonthState] = useState(initialMonth);
-  const [selectedFortnight, setSelectedFortnightState] = useState<FortnightValue>('all');
   const [paidFilter, setPaidFilterState] = useState<'all' | 'paid' | 'unpaid'>('all');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
+  const [confirmModalLoading, setConfirmModalLoading] = useState(false);
+
   const [refreshKey, setRefreshKey] = useState(0);
 
   // ---- Filter setters ----
 
-  const setFilterPeriod = useCallback((value: 'month' | 'fortnight') => {
-    setFilterPeriodState(value);
-    // Reset/auto-set fortnight in the same render to prevent extra fetches
-    if (value === 'fortnight') {
-      const day = new Date().getDate();
-      setSelectedFortnightState(determineCurrentFortnight(day));
-    } else {
-      setSelectedFortnightState('all');
-    }
+  const setQuinzenalFilter = useCallback((value: 'month' | 'first' | 'second') => {
+    setQuinzenalFilterState(value);
   }, []);
 
   const setSelectedYear = useCallback((value: string) => {
@@ -146,10 +132,6 @@ export default function useTransactions(): UseTransactionsReturn {
 
   const setSelectedMonth = useCallback((value: string) => {
     setSelectedMonthState(value);
-  }, []);
-
-  const setSelectedFortnight = useCallback((value: FortnightValue) => {
-    setSelectedFortnightState(value);
   }, []);
 
   const setPaidFilter = useCallback((value: 'all' | 'paid' | 'unpaid') => {
@@ -167,10 +149,9 @@ export default function useTransactions(): UseTransactionsReturn {
 
       try {
         const url = buildTransactionsUrl(
-          filterPeriod,
+          quinzenalFilter,
           selectedYear,
           selectedMonth,
-          selectedFortnight,
           paidFilter,
         );
 
@@ -209,7 +190,7 @@ export default function useTransactions(): UseTransactionsReturn {
     return () => {
       cancelled = true;
     };
-  }, [filterPeriod, selectedYear, selectedMonth, selectedFortnight, paidFilter, refreshKey]);
+  }, [quinzenalFilter, selectedYear, selectedMonth, paidFilter, refreshKey]);
 
   // ---- Refresh ----
 
@@ -288,19 +269,38 @@ export default function useTransactions(): UseTransactionsReturn {
     setEditingTransaction(null);
   }, []);
 
+  const openConfirmModal = useCallback((id: string) => {
+    setDeletingTransactionId(id);
+    setIsConfirmModalOpen(true);
+  }, []);
+
+  const closeConfirmModal = useCallback(() => {
+    setIsConfirmModalOpen(false);
+    setDeletingTransactionId(null);
+  }, []);
+
+  const confirmDeleteTransaction = useCallback(async () => {
+    if (!deletingTransactionId) return;
+    setConfirmModalLoading(true);
+    try {
+      await deleteTransaction(deletingTransactionId);
+      closeConfirmModal();
+    } finally {
+      setConfirmModalLoading(false);
+    }
+  }, [deletingTransactionId, deleteTransaction, closeConfirmModal]);
+
   return {
     transactions,
     summary,
     isLoading,
     error,
-    filterPeriod,
-    setFilterPeriod,
+    quinzenalFilter,
+    setQuinzenalFilter,
     selectedYear,
     setSelectedYear,
     selectedMonth,
     setSelectedMonth,
-    selectedFortnight,
-    setSelectedFortnight,
     paidFilter,
     setPaidFilter,
     refresh,
@@ -312,5 +312,9 @@ export default function useTransactions(): UseTransactionsReturn {
     openCreateModal,
     openEditModal,
     closeModal,
+    isConfirmModalOpen,
+    openConfirmModal,
+    closeConfirmModal,
+    confirmDeleteTransaction,
   };
 }

@@ -2,7 +2,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import useTransactions from '../useTransactions';
 import type { Transaction } from '@/features/transactions/validations';
 import type { TransactionFormData } from '@/features/transactions/types';
-import type { FortnightValue } from '@/features/dashboard/components/FortnightFilter';
+
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -148,7 +148,7 @@ describe('useTransactions', () => {
       expect(result.current.transactions).toEqual(mockTransactions);
       expect(result.current.summary).toEqual(mockSummary);
       expect(result.current.error).toBeNull();
-      expect(result.current.filterPeriod).toBe('month');
+      expect(result.current.quinzenalFilter).toBe('month');
       expect(result.current.selectedMonth).toBeDefined();
       expect(result.current.selectedYear).toBeDefined();
       // Modal deve começar fechado
@@ -189,7 +189,7 @@ describe('useTransactions', () => {
   });
 
   describe('Green path — filtros', () => {
-    it('deve iniciar com filterPeriod="month" e mês/year atuais', async () => {
+    it('deve iniciar com quinzenalFilter="month" e mês/year atuais', async () => {
       useFakeDate(2026, 5, 10); // 2026-06-10
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
 
@@ -197,12 +197,12 @@ describe('useTransactions', () => {
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      expect(result.current.filterPeriod).toBe('month');
+      expect(result.current.quinzenalFilter).toBe('month');
       expect(result.current.selectedMonth).toBe('06');
       expect(result.current.selectedYear).toBe('2026');
     });
 
-    it('setFilterPeriod("fortnight") deve disparar fetch com datas da quinzena', async () => {
+    it('setQuinzenalFilter("first") deve disparar fetch com datas 1-15', async () => {
       useFakeDate(2026, 0, 15); // Janeiro
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
 
@@ -210,17 +210,16 @@ describe('useTransactions', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
-      // Act — mudar para "fortnight" (deve usar a quinzena atual = second, já que dia 15)
       act(() => {
-        result.current.setFilterPeriod('fortnight');
+        result.current.setQuinzenalFilter('first');
       });
 
       await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
-      expect(result.current.filterPeriod).toBe('fortnight');
+      expect(result.current.quinzenalFilter).toBe('first');
 
       const lastCallUrl = mockFetch.mock.calls[1][0] as string;
-      expect(lastCallUrl).toContain('startDate=2026-01-16');
-      expect(lastCallUrl).toContain('endDate=2026-01-31');
+      expect(lastCallUrl).toContain('startDate=2026-01-01');
+      expect(lastCallUrl).toContain('endDate=2026-01-15');
     });
 
     it('mudar selectedMonth deve disparar novo fetch', async () => {
@@ -261,7 +260,7 @@ describe('useTransactions', () => {
       expect(lastCallUrl).toContain('startDate=2027-01-01');
     });
 
-    it('mudar selectedFortnight deve disparar novo fetch', async () => {
+    it('mudar quinzenalFilter para "second" deve disparar fetch com datas 16-31', async () => {
       useFakeDate(2026, 0, 15);
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
 
@@ -269,13 +268,16 @@ describe('useTransactions', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
-      // Act — mudar quinzena
       act(() => {
-        result.current.setSelectedFortnight('first');
+        result.current.setQuinzenalFilter('second');
       });
 
       await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
-      expect(result.current.selectedFortnight).toBe('first');
+      expect(result.current.quinzenalFilter).toBe('second');
+
+      const lastCallUrl = mockFetch.mock.calls[1][0] as string;
+      expect(lastCallUrl).toContain('startDate=2026-01-16');
+      expect(lastCallUrl).toContain('endDate=2026-01-31');
     });
   });
 
@@ -593,7 +595,7 @@ describe('useTransactions', () => {
   // =========================================================================
 
   describe('Edge cases — filtros', () => {
-    it('filterPeriod="fortnight" com selectedFortnight="first" deve usar 1-15', async () => {
+    it('quinzenalFilter="first" deve usar 1-15', async () => {
       useFakeDate(2026, 0, 15);
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
 
@@ -601,8 +603,7 @@ describe('useTransactions', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       act(() => {
-        result.current.setFilterPeriod('fortnight');
-        result.current.setSelectedFortnight('first');
+        result.current.setQuinzenalFilter('first');
       });
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -612,7 +613,7 @@ describe('useTransactions', () => {
       expect(lastCallUrl).toContain('endDate=2026-01-15');
     });
 
-    it('filterPeriod="fortnight" com selectedFortnight="second" deve usar 16-31', async () => {
+    it('quinzenalFilter="second" deve usar 16-31', async () => {
       useFakeDate(2026, 0, 15);
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
 
@@ -620,8 +621,7 @@ describe('useTransactions', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       act(() => {
-        result.current.setFilterPeriod('fortnight');
-        result.current.setSelectedFortnight('second');
+        result.current.setQuinzenalFilter('second');
       });
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -631,14 +631,13 @@ describe('useTransactions', () => {
       expect(lastCallUrl).toContain('endDate=2026-01-31');
     });
 
-    it('filterPeriod="fortnight" em fevereiro ano bissexto deve usar 16-29', async () => {
+    it('quinzenalFilter="second" em fevereiro ano bissexto deve usar 16-29', async () => {
       useFakeDate(2024, 1, 20); // Fevereiro de 2024 (bissexto)
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
 
       const { result } = renderHook(() => useTransactions());
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      // Mudar para fevereiro e quinzena
       act(() => {
         result.current.setSelectedMonth('02');
         result.current.setSelectedYear('2024');
@@ -646,27 +645,25 @@ describe('useTransactions', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       act(() => {
-        result.current.setFilterPeriod('fortnight');
-        result.current.setSelectedFortnight('second');
+        result.current.setQuinzenalFilter('second');
       });
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      const lastCallUrl = mockFetch.mock.calls[1][0] as string;
+      const lastCallUrl = mockFetch.mock.calls[mockFetch.mock.calls.length - 1][0] as string;
       expect(lastCallUrl).toContain('startDate=2024-02-16');
       expect(lastCallUrl).toContain('endDate=2024-02-29');
     });
 
-    it('mudar filterPeriod para "fortnight" e voltar para "month" reativa datas mensais', async () => {
-      useFakeDate(2026, 0, 14); // day 14 → first fortnight
+    it('alternar entre quinzenalFilter values altera datas corretamente', async () => {
+      useFakeDate(2026, 0, 14);
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
 
       const { result } = renderHook(() => useTransactions());
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       expect(mockFetch).toHaveBeenCalledTimes(1);
 
-      // Vai para "fortnight"
-      act(() => { result.current.setFilterPeriod('fortnight'); });
+      act(() => { result.current.setQuinzenalFilter('first'); });
       await waitFor(() => {
         const calls = mockFetch.mock.calls;
         const lastCall = calls[calls.length - 1];
@@ -675,8 +672,7 @@ describe('useTransactions', () => {
         expect(url).toContain('endDate=2026-01-15');
       });
 
-      // Volta para "month"
-      act(() => { result.current.setFilterPeriod('month'); });
+      act(() => { result.current.setQuinzenalFilter('month'); });
       await waitFor(() => {
         const calls = mockFetch.mock.calls;
         const lastCall = calls[calls.length - 1];
@@ -727,35 +723,29 @@ describe('useTransactions', () => {
     });
   });
 
-  describe('Edge cases — reset de filtros', () => {
-    it('setFilterPeriod("month") deve resetar selectedFortnight para "all"', async () => {
+  describe('Edge cases — alternar filtro quinzenal', () => {
+    it('setQuinzenalFilter("first") e voltar para "month" funciona corretamente', async () => {
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
 
       const { result } = renderHook(() => useTransactions());
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      // Ir para fortnight
-      act(() => { result.current.setFilterPeriod('fortnight'); });
+      act(() => { result.current.setQuinzenalFilter('first'); });
       await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(result.current.quinzenalFilter).toBe('first');
 
-      // Voltar para month
-      act(() => { result.current.setFilterPeriod('month'); });
-
-      expect(result.current.selectedFortnight).toBe('all');
+      act(() => { result.current.setQuinzenalFilter('month'); });
+      expect(result.current.quinzenalFilter).toBe('month');
     });
 
-    it('setFilterPeriod("all") deve resetar selectedFortnight para "all"', async () => {
+    it('setQuinzenalFilter("second") funciona corretamente', async () => {
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
 
       const { result } = renderHook(() => useTransactions());
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-      act(() => { result.current.setFilterPeriod('fortnight'); });
-      await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-      act(() => { result.current.setFilterPeriod('all'); });
-
-      expect(result.current.selectedFortnight).toBe('all');
+      act(() => { result.current.setQuinzenalFilter('second'); });
+      expect(result.current.quinzenalFilter).toBe('second');
     });
   });
 

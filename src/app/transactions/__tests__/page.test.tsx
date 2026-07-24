@@ -13,14 +13,12 @@ const mockUseTransactions = {
   summary: { income: 0, expense: 0, balance: 0 },
   isLoading: false,
   error: null,
-  filterPeriod: 'month' as const,
-  setFilterPeriod: jest.fn(),
+  quinzenalFilter: 'month' as const,
+  setQuinzenalFilter: jest.fn(),
   selectedYear: '2026',
   setSelectedYear: jest.fn(),
   selectedMonth: '01',
   setSelectedMonth: jest.fn(),
-  selectedFortnight: 'all',
-  setSelectedFortnight: jest.fn(),
   refresh: jest.fn(),
   createTransaction: jest.fn(),
   updateTransaction: jest.fn(),
@@ -106,34 +104,30 @@ jest.mock('@/features/dashboard/components/EmptyState', () => ({
 jest.mock('@/features/transactions/components/FilterControls', () => ({
   __esModule: true,
   default: ({
-    filterPeriod,
-    onFilterPeriodChange,
+    quinzenalFilter,
+    onQuinzenalFilterChange,
     selectedYear,
     onYearChange,
     selectedMonth,
     onMonthChange,
-    selectedFortnight,
-    onFortnightChange,
   }: {
-    filterPeriod: string;
-    onFilterPeriodChange: (v: string) => void;
+    quinzenalFilter: string;
+    onQuinzenalFilterChange: (v: string) => void;
     selectedYear: string;
     onYearChange: (v: string) => void;
     selectedMonth: string;
     onMonthChange: (v: string) => void;
-    selectedFortnight: string;
-    onFortnightChange: (v: string) => void;
   }) => (
     <div data-testid="filter-controls">
       <select
-        data-testid="filter-period"
-        value={filterPeriod}
-        onChange={(e) => onFilterPeriodChange(e.target.value)}
-        aria-label="Período"
+        data-testid="filter-quinzenal"
+        value={quinzenalFilter}
+        onChange={(e) => onQuinzenalFilterChange(e.target.value)}
+        aria-label="Filtrar por período"
       >
-        <option value="all">Todos</option>
         <option value="month">Por Mês</option>
-        <option value="fortnight">Por Quinzena</option>
+        <option value="first">1ª Quinzena</option>
+        <option value="second">2ª Quinzena</option>
       </select>
       <select
         data-testid="filter-year"
@@ -150,16 +144,6 @@ jest.mock('@/features/transactions/components/FilterControls', () => ({
         aria-label="Mês"
       >
         <option value="01">Janeiro</option>
-      </select>
-      <select
-        data-testid="filter-fortnight"
-        value={selectedFortnight}
-        onChange={(e) => onFortnightChange(e.target.value)}
-        aria-label="Quinzena"
-      >
-        <option value="all">Ambas</option>
-        <option value="first">1ª Quinzena</option>
-        <option value="second">2ª Quinzena</option>
       </select>
     </div>
   ),
@@ -795,31 +779,29 @@ describe('TransactionsPage Integration', () => {
   describe('Filtros — interações', () => {
     it('FilterControls recebe valores corretos do hook', () => {
       Object.assign(mockUseTransactions, {
-        filterPeriod: 'month',
+        quinzenalFilter: 'month',
         selectedYear: '2026',
         selectedMonth: '01',
-        selectedFortnight: 'all',
       });
 
       render(<TransactionsPage />);
 
-      expect(screen.getByTestId('filter-period')).toHaveValue('month');
+      expect(screen.getByTestId('filter-quinzenal')).toHaveValue('month');
       expect(screen.getByTestId('filter-year')).toHaveValue('2026');
       expect(screen.getByTestId('filter-month')).toHaveValue('01');
-      expect(screen.getByTestId('filter-fortnight')).toHaveValue('all');
     });
 
-    it('mudar período de filtro chama setFilterPeriod', async () => {
+    it('mudar filtro quinzenal chama setQuinzenalFilter', async () => {
       const user = userEvent.setup();
       render(<TransactionsPage />);
 
       await user.selectOptions(
-        screen.getByTestId('filter-period'),
-        'fortnight',
+        screen.getByTestId('filter-quinzenal'),
+        'first',
       );
 
-      expect(mockUseTransactions.setFilterPeriod).toHaveBeenCalledWith(
-        'fortnight',
+      expect(mockUseTransactions.setQuinzenalFilter).toHaveBeenCalledWith(
+        'first',
       );
     });
 
@@ -839,20 +821,6 @@ describe('TransactionsPage Integration', () => {
       await user.selectOptions(screen.getByTestId('filter-month'), '01');
 
       expect(mockUseTransactions.setSelectedMonth).toHaveBeenCalledWith('01');
-    });
-
-    it('mudar quinzena chama setSelectedFortnight', async () => {
-      const user = userEvent.setup();
-      render(<TransactionsPage />);
-
-      await user.selectOptions(
-        screen.getByTestId('filter-fortnight'),
-        'first',
-      );
-
-      expect(mockUseTransactions.setSelectedFortnight).toHaveBeenCalledWith(
-        'first',
-      );
     });
   });
 

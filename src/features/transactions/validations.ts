@@ -16,7 +16,7 @@ export const CategoryEnum = z.enum([
 
 // Complete Schema
 export const TransactionSchema = z.object({
-    id: z.string().uuid('ID deve ser um UUID válido'),
+    id: z.string().min(1, 'ID deve ser uma string não vazia'),
     type: TransactionTypeEnum,
     description: z.string().min(1, 'Descrição é obrigatória').max(255),
     value: z.number().positive('Valor deve ser positivo'),
@@ -29,7 +29,7 @@ export const TransactionSchema = z.object({
     installment_number: z.number().positive().optional(),
     total_installments: z.number().positive().optional(),
     is_recurring: z.boolean().optional().default(false),
-    parent_transaction_id: z.string().uuid().optional().nullable(),
+    parent_transaction_id: z.string().optional().nullable(),
     paid: z.boolean().optional().default(false),
     created_at: z.date().optional(),
     updated_at: z.date().optional()

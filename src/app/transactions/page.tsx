@@ -12,6 +12,7 @@ import { LazyLoad } from '@/shared/components/LazyLoad';
 import FilterControls from '@/features/transactions/components/FilterControls';
 import TransactionsTable from '@/features/transactions/components/TransactionsTable';
 import TransactionModal from '@/features/transactions/components/TransactionModal';
+import ConfirmDeleteModal from '@/features/transactions/components/ConfirmDeleteModal';
 import useTransactions from '@/features/transactions/hooks/useTransactions';
 import type { TransactionFormData } from '@/features/transactions/types';
 import { cn } from '@/lib/utils';
@@ -32,14 +33,12 @@ export default function TransactionsPage() {
     summary,
     isLoading,
     error,
-    filterPeriod,
-    setFilterPeriod,
+    quinzenalFilter,
+    setQuinzenalFilter,
     selectedYear,
     setSelectedYear,
     selectedMonth,
     setSelectedMonth,
-    selectedFortnight,
-    setSelectedFortnight,
     paidFilter,
     setPaidFilter,
     refresh,
@@ -51,6 +50,10 @@ export default function TransactionsPage() {
     openCreateModal,
     openEditModal,
     closeModal,
+    isConfirmModalOpen,
+    openConfirmModal,
+    closeConfirmModal,
+    confirmDeleteTransaction,
   } = useTransactions();
 
   const isActive = (href: string) => {
@@ -63,14 +66,19 @@ export default function TransactionsPage() {
   };
 
   const handleDeleteRequest = (id: string) => {
-    deleteTransaction(id);
+    openConfirmModal(id);
   };
 
   const handleSubmit = async (data: TransactionFormData) => {
-    if (editingTransaction) {
-      await updateTransaction(editingTransaction.id, data);
-    } else {
-      await createTransaction(data);
+    try {
+      if (editingTransaction) {
+        await updateTransaction(editingTransaction.id, data);
+      } else {
+        await createTransaction(data);
+      }
+      closeModal();
+    } catch (error) {
+      throw error;
     }
   };
 
@@ -220,14 +228,12 @@ export default function TransactionsPage() {
               </h1>
               <div className="flex items-center gap-2">
                 <FilterControls
-                  filterPeriod={filterPeriod}
-                  onFilterPeriodChange={setFilterPeriod}
+                  quinzenalFilter={quinzenalFilter}
+                  onQuinzenalFilterChange={setQuinzenalFilter}
                   selectedYear={selectedYear}
                   onYearChange={setSelectedYear}
                   selectedMonth={selectedMonth}
                   onMonthChange={setSelectedMonth}
-                  selectedFortnight={selectedFortnight}
-                  onFortnightChange={setSelectedFortnight}
                   paidFilter={paidFilter}
                   onPaidFilterChange={setPaidFilter}
                 />
@@ -302,6 +308,13 @@ export default function TransactionsPage() {
         onClose={closeModal}
         transaction={editingTransaction}
         onSave={handleSubmit}
+      />
+
+      {/* Confirm Delete Modal */}
+      <ConfirmDeleteModal
+        isOpen={isConfirmModalOpen}
+        onClose={closeConfirmModal}
+        onConfirm={confirmDeleteTransaction}
       />
     </div>
   );

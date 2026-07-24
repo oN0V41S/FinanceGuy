@@ -9,6 +9,7 @@ export class PostgresTransactionRepository implements ITransactionRepository {
     if (filters?.type) where.type = filters.type;
     if (filters?.category) where.category = filters.category;
     if (filters?.responsible) where.responsible = filters.responsible;
+    if (filters?.paid !== undefined) where.paid = filters.paid;
     if (filters?.startDate || filters?.endDate) {
       where.date = {};
       if (filters.startDate) where.date.gte = new Date(filters.startDate);
