@@ -44,3 +44,10 @@ next-env.d.ts
 # continue Variables
 config.json.env
 .MonthFilter.tsx.kate-swp
+
+# playwright artifacts
+.playwright-mcp/
+
+# dev screenshots and logs
+*.png
+network-requests.txt
