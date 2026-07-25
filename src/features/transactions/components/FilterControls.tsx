@@ -23,7 +23,7 @@ const QUINZENAL_OPTIONS = [
 ] as const;
 
 const PAID_OPTIONS = [
-  { value: 'all', label: 'Todas' },
+  { value: 'all', label: 'Pagas/Não Pagas' },
   { value: 'paid', label: 'Pagas' },
   { value: 'unpaid', label: 'Não Pagas' },
 ] as const;
@@ -76,47 +76,50 @@ const FilterControls: React.FC<FilterControlsProps> = ({
 
   return (
     <div className="bg-muted/50 p-4">
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
+      <div className="grid grid-cols-2 gap-3 md:flex md:flex-wrap md:items-center md:gap-4">
+        {/* Filter icon — hidden on mobile */}
+        <div className="hidden md:flex md:items-center md:gap-2">
           <Filter className="h-5 w-5 text-muted-foreground" />
-          <div data-testid="select-quinzenal">
-            <Select
-              value={quinzenalFilter}
-              onValueChange={(value) => {
-                if (value !== null) onQuinzenalFilterChange(value as 'month' | 'first' | 'second');
-              }}
-            >
-              <SelectTrigger
-                className={cn(
-                  'w-[155px] h-9',
-                  'bg-surface-container-low border-outline-variant',
-                  'hover:bg-surface-container transition-colors',
-                  'text-on-surface text-sm font-medium',
-                  'focus:ring-2 focus:ring-primary/30'
-                )}
-                aria-label="Filtrar por período"
-              >
-                <SelectValue placeholder="Filtrar por período">
-                  {(v) => QUINZENAL_OPTIONS.find((o) => o.value === v)?.label || 'Filtrar por período'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
-                {QUINZENAL_OPTIONS.map((opt) => (
-                  <SelectItem
-                    key={opt.value}
-                    value={opt.value}
-                    className="text-on-surface focus:bg-surface-container-low focus:text-on-surface data-[selected]:bg-primary/10 data-[selected]:text-primary"
-                  >
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
-        {/* Paid filter */}
-        <div data-testid="select-paid">
+        {/* Quinzenal filter (col 1 on mobile) */}
+        <div data-testid="select-quinzenal" className="w-full md:w-auto">
+          <Select
+            value={quinzenalFilter}
+            onValueChange={(value) => {
+              if (value !== null) onQuinzenalFilterChange(value as 'month' | 'first' | 'second');
+            }}
+          >
+            <SelectTrigger
+              className={cn(
+                'w-full md:w-[155px] h-9',
+                'bg-surface-container-low border-outline-variant',
+                'hover:bg-surface-container transition-colors',
+                'text-on-surface text-sm font-medium',
+                'focus:ring-2 focus:ring-primary/30'
+              )}
+              aria-label="Filtrar por período"
+            >
+              <SelectValue placeholder="Filtrar por período">
+                {(v) => QUINZENAL_OPTIONS.find((o) => o.value === v)?.label || 'Filtrar por período'}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
+              {QUINZENAL_OPTIONS.map((opt) => (
+                <SelectItem
+                  key={opt.value}
+                  value={opt.value}
+                  className="text-on-surface focus:bg-surface-container-low focus:text-on-surface data-[selected]:bg-primary/10 data-[selected]:text-primary"
+                >
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Paid filter (col 2 on mobile) */}
+        <div data-testid="select-paid" className="w-full md:w-auto">
           <Select
             value={paidFilter}
             onValueChange={(value) => {
@@ -125,7 +128,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           >
             <SelectTrigger
               className={cn(
-                'w-[130px] h-9',
+                'w-full md:w-[160px] h-9',
                 'bg-surface-container-low border-outline-variant',
                 'hover:bg-surface-container transition-colors',
                 'text-on-surface text-sm font-medium',
@@ -133,7 +136,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
               )}
               aria-label="Filtrar por pagamento"
             >
-              <SelectValue placeholder="Pagamento">
+              <SelectValue placeholder="Filtrar por status">
                 {(v) => PAID_OPTIONS.find((o) => o.value === v)?.label || 'Pagamento'}
               </SelectValue>
             </SelectTrigger>
@@ -151,7 +154,8 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           </Select>
         </div>
 
-        <div data-testid="select-year">
+        {/* Year filter (col 1 on mobile) */}
+        <div data-testid="select-year" className="w-full md:w-auto">
           <Select
             value={selectedYear}
             onValueChange={(value) => {
@@ -160,7 +164,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           >
             <SelectTrigger
               className={cn(
-                'w-[110px] h-9',
+                'w-full md:w-[110px] h-9',
                 'bg-surface-container-low border-outline-variant',
                 'hover:bg-surface-container transition-colors',
                 'text-on-surface text-sm font-medium',
@@ -184,7 +188,8 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           </Select>
         </div>
 
-        <div data-testid="select-month">
+        {/* Month filter (col 2 on mobile) */}
+        <div data-testid="select-month" className="w-full md:w-auto">
           <Select
             value={selectedMonth}
             onValueChange={(value) => {
@@ -193,7 +198,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           >
             <SelectTrigger
               className={cn(
-                'w-[155px] h-9',
+                'w-full md:w-[155px] h-9',
                 'bg-surface-container-low border-outline-variant',
                 'hover:bg-surface-container transition-colors',
                 'text-on-surface text-sm font-medium',

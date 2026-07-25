@@ -10,7 +10,7 @@ import { SummaryCard } from '@/features/dashboard/components/SummaryCard';
 import { EmptyState } from '@/features/dashboard/components/EmptyState';
 import { LazyLoad } from '@/shared/components/LazyLoad';
 import FilterControls from '@/features/transactions/components/FilterControls';
-import TransactionsTable from '@/features/transactions/components/TransactionsTable';
+import CardTransaction from '@/features/transactions/components/CardTransaction';
 import TransactionModal from '@/features/transactions/components/TransactionModal';
 import ConfirmDeleteModal from '@/features/transactions/components/ConfirmDeleteModal';
 import useTransactions from '@/features/transactions/hooks/useTransactions';
@@ -221,33 +221,47 @@ export default function TransactionsPage() {
               </div>
             )}
 
-            {/* Page Title + Filters + New Transaction Button */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            {/* Page Title — no desktop button here (moved below) */}
+            <div className="flex items-center justify-between mb-4">
               <h1 className="text-2xl font-semibold text-on-surface font-sans">
                 Transações
               </h1>
-              <div className="flex items-center gap-2">
-                <FilterControls
-                  quinzenalFilter={quinzenalFilter}
-                  onQuinzenalFilterChange={setQuinzenalFilter}
-                  selectedYear={selectedYear}
-                  onYearChange={setSelectedYear}
-                  selectedMonth={selectedMonth}
-                  onMonthChange={setSelectedMonth}
-                  paidFilter={paidFilter}
-                  onPaidFilterChange={setPaidFilter}
-                />
-                <button
-                  type="button"
-                  data-testid="btn-new-transaction"
-                  onClick={openCreateModal}
-                  className="h-12 px-4 rounded-xl bg-brand-primary hover:bg-brand-primary/90 text-white font-medium transition-colors flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  Nova Transação
-                </button>
-              </div>
+              {/* Desktop button — visible on sm+ only */}
+              <button
+                type="button"
+                data-testid="btn-new-transaction-desktop"
+                onClick={openCreateModal}
+                className="hidden sm:flex h-12 px-4 rounded-xl bg-brand-primary hover:bg-brand-primary/90 text-white font-medium transition-colors items-center gap-2"
+              >
+                <Plus className="w-5 h-5" data-testid="icon-plus" />
+                Nova Transação
+              </button>
             </div>
+
+            {/* Filters */}
+            <div className="mb-4">
+              <FilterControls
+                quinzenalFilter={quinzenalFilter}
+                onQuinzenalFilterChange={setQuinzenalFilter}
+                selectedYear={selectedYear}
+                onYearChange={setSelectedYear}
+                selectedMonth={selectedMonth}
+                onMonthChange={setSelectedMonth}
+                paidFilter={paidFilter}
+                onPaidFilterChange={setPaidFilter}
+              />
+            </div>
+
+            {/* Mobile button — below filters, visible on mobile only */}
+            <button
+              type="button"
+              data-testid="btn-new-transaction-mobile"
+              onClick={openCreateModal}
+              className="sm:hidden w-full h-12 px-4 rounded-xl bg-brand-primary hover:bg-brand-primary/90 text-white font-medium transition-colors flex items-center justify-center gap-2 mb-6"
+            >
+              <Plus className="w-5 h-5" data-testid="icon-plus" />
+              Nova Transação
+            </button>
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -271,12 +285,12 @@ export default function TransactionsPage() {
               />
             </div>
 
-            {/* Transactions Table / Empty State */}
+            {/* Transactions Cards / Empty State */}
             <LazyLoad isReady={!isLoading} message="Carregando transações...">
               {!error && transactions.length === 0 ? (
                 <EmptyState />
               ) : transactions.length > 0 ? (
-                <TransactionsTable
+                <CardTransaction
                   transactions={transactions}
                   isLoading={isLoading}
                   onEdit={handleOpenModal}
@@ -296,7 +310,7 @@ export default function TransactionsPage() {
         className="md:hidden fixed bottom-20 right-4 z-30 w-14 h-14 rounded-full bg-brand-primary hover:bg-brand-primary/90 text-white shadow-lg flex items-center justify-center transition-colors"
         aria-label="Adicionar transação"
       >
-        <Plus className="w-6 h-6" />
+        <Plus className="w-6 h-6" data-testid="icon-plus" />
       </button>
 
       {/* Mobile Navigation Bar */}

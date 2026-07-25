@@ -36,6 +36,31 @@ jest.mock('@/features/transactions/hooks/useTransactions', () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// Mock lucide-react icons
+// ---------------------------------------------------------------------------
+jest.mock('lucide-react', () => {
+  const Plus = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-plus" {...props} />
+  );
+  const Wallet = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-wallet" {...props} />
+  );
+  const ArrowLeftRight = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-arrow-left-right" {...props} />
+  );
+  const X = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-x" {...props} />
+  );
+  const LayoutDashboard = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-layout-dashboard" {...props} />
+  );
+  const Settings = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-settings" {...props} />
+  );
+  return { Plus, Wallet, ArrowLeftRight, X, LayoutDashboard, Settings };
+});
+
+// ---------------------------------------------------------------------------
 // Mock next/navigation
 // ---------------------------------------------------------------------------
 jest.mock('next/navigation', () => ({
@@ -149,7 +174,7 @@ jest.mock('@/features/transactions/components/FilterControls', () => ({
   ),
 }));
 
-jest.mock('@/features/transactions/components/TransactionsTable', () => ({
+jest.mock('@/features/transactions/components/CardTransaction', () => ({
   __esModule: true,
   default: ({
     transactions,
@@ -345,7 +370,7 @@ describe('TransactionsPage Integration', () => {
     it('renderiza botão "Nova Transação" no desktop', () => {
       render(<TransactionsPage />);
       expect(
-        screen.getByRole('button', { name: 'Nova Transação' }),
+        screen.getByTestId('btn-new-transaction-desktop'),
       ).toBeInTheDocument();
     });
 
@@ -354,6 +379,80 @@ describe('TransactionsPage Integration', () => {
       const fab = screen.getByTestId('fab-add-transaction');
       expect(fab).toBeInTheDocument();
       expect(fab).toHaveClass('md:hidden');
+    });
+  });
+
+  // =========================================================================
+  // Mobile Layout — Botão "Nova Transação" em duas variantes
+  // =========================================================================
+  describe('Mobile layout — botão Nova Transação', () => {
+    it('deve ter botão "Nova Transação" mobile com classe sm:hidden (abaixo dos filtros)', () => {
+      render(<TransactionsPage />);
+
+      const mobileBtn = screen.getByTestId('btn-new-transaction-mobile');
+      expect(mobileBtn).toBeInTheDocument();
+      expect(mobileBtn).toHaveTextContent('Nova Transação');
+      // Mobile: aparece apenas em telas pequenas (sm:hidden = hidden em sm+)
+      expect(mobileBtn.className).toContain('sm:hidden');
+    });
+
+    it('deve ter botão "Nova Transação" desktop com classe hidden sm:flex (ao lado do título)', () => {
+      render(<TransactionsPage />);
+
+      const desktopBtn = screen.getByTestId('btn-new-transaction-desktop');
+      expect(desktopBtn).toBeInTheDocument();
+      expect(desktopBtn).toHaveTextContent('Nova Transação');
+      // Desktop: escondido no mobile, flex em sm+
+      expect(desktopBtn.className).toContain('hidden');
+      expect(desktopBtn.className).toContain('sm:flex');
+    });
+
+    it('botão mobile deve conter ícone Plus', () => {
+      render(<TransactionsPage />);
+
+      const mobileBtn = screen.getByTestId('btn-new-transaction-mobile');
+      // Verificar que o ícone Plus está dentro do botão
+      const plusIcon = mobileBtn.querySelector('[data-testid="icon-plus"]');
+      expect(plusIcon).toBeInTheDocument();
+    });
+
+    it('botão desktop deve conter ícone Plus', () => {
+      render(<TransactionsPage />);
+
+      const desktopBtn = screen.getByTestId('btn-new-transaction-desktop');
+      const plusIcon = desktopBtn.querySelector('[data-testid="icon-plus"]');
+      expect(plusIcon).toBeInTheDocument();
+    });
+
+    it('botão mobile deve chamar openCreateModal ao clicar', () => {
+      render(<TransactionsPage />);
+
+      const mobileBtn = screen.getByTestId('btn-new-transaction-mobile');
+      mobileBtn.click();
+
+      expect(mockUseTransactions.openCreateModal).toHaveBeenCalledTimes(1);
+    });
+
+    it('botão desktop deve chamar openCreateModal ao clicar', () => {
+      render(<TransactionsPage />);
+
+      const desktopBtn = screen.getByTestId('btn-new-transaction-desktop');
+      desktopBtn.click();
+
+      expect(mockUseTransactions.openCreateModal).toHaveBeenCalledTimes(1);
+    });
+
+    it('botão mobile fica ABAIXO dos filtros na ordem do DOM', () => {
+      const { container } = render(<TransactionsPage />);
+
+      // Verificar que o botão mobile vem DEPOIS do container de filtros
+      const filterControls = screen.getByTestId('filter-controls');
+      const mobileBtn = screen.getByTestId('btn-new-transaction-mobile');
+
+      const filterIndex = Array.from(container.querySelectorAll('*')).indexOf(filterControls);
+      const btnIndex = Array.from(container.querySelectorAll('*')).indexOf(mobileBtn);
+
+      expect(btnIndex).toBeGreaterThan(filterIndex);
     });
   });
 
@@ -558,12 +657,12 @@ describe('TransactionsPage Integration', () => {
   // Modal — criação e edição
   // =========================================================================
   describe('Modal — criação e edição', () => {
-    it('botão "Nova Transação" chama openCreateModal', async () => {
+    it('botão "Nova Transação" desktop chama openCreateModal', async () => {
       const user = userEvent.setup();
       render(<TransactionsPage />);
 
       await user.click(
-        screen.getByRole('button', { name: 'Nova Transação' }),
+        screen.getByTestId('btn-new-transaction-desktop'),
       );
 
       expect(mockUseTransactions.openCreateModal).toHaveBeenCalledTimes(1);
