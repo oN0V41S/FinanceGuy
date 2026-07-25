@@ -7,6 +7,15 @@ import { Edit2, Trash2, Check, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 
 interface TransactionsTableProps {
@@ -18,32 +27,32 @@ interface TransactionsTableProps {
 
 function SkeletonRow() {
   return (
-    <tr className="border-b border-outline-variant/20">
-      <td className="py-4 px-6">
+    <TableRow>
+      <TableCell className="py-4 px-6">
         <div className="flex flex-col gap-2">
-          <div className="h-4 w-3/4 animate-pulse rounded-md bg-muted" />
-          <div className="h-3 w-1/3 animate-pulse rounded-md bg-muted" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-1/3" />
         </div>
-      </td>
-      <td className="py-4 px-6">
-        <div className="h-4 w-20 animate-pulse rounded-md bg-muted" />
-      </td>
-      <td className="py-4 px-6">
-        <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
-      </td>
-      <td className="py-4 px-6">
-        <div className="h-4 w-16 animate-pulse rounded-md bg-muted" />
-      </td>
-      <td className="py-4 px-6">
-        <div className="ml-auto h-4 w-24 animate-pulse rounded-md bg-muted" />
-      </td>
-      <td className="py-4 px-6">
+      </TableCell>
+      <TableCell className="py-4 px-6">
+        <Skeleton className="h-4 w-20" />
+      </TableCell>
+      <TableCell className="py-4 px-6">
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </TableCell>
+      <TableCell className="py-4 px-6">
+        <Skeleton className="h-4 w-16" />
+      </TableCell>
+      <TableCell className="py-4 px-6">
+        <Skeleton className="ml-auto h-4 w-24" />
+      </TableCell>
+      <TableCell className="py-4 px-6">
         <div className="flex items-center justify-center gap-3">
-          <div className="size-8 animate-pulse rounded-md bg-muted" />
-          <div className="size-8 animate-pulse rounded-md bg-muted" />
+          <Skeleton className="size-8" />
+          <Skeleton className="size-8" />
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -68,123 +77,120 @@ const TransactionsTable: React.FC<TransactionsTableProps> = ({
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-outline-variant/20 bg-muted/50">
-                <th className="px-6 py-4 text-left font-medium text-on-surface-variant">
-                  Descrição
-                </th>
-                <th className="px-6 py-4 text-left font-medium text-on-surface-variant">
-                  Data
-                </th>
-                <th className="px-6 py-4 text-left font-medium text-on-surface-variant">
-                  Categoria
-                </th>
-                <th className="px-6 py-4 text-center font-medium text-on-surface-variant">
-                  Status
-                </th>
-                <th className="px-6 py-4 text-right font-medium text-on-surface-variant">
-                  Valor
-                </th>
-                <th className="px-6 py-4 text-center font-medium text-on-surface-variant">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody data-testid={isLoading ? 'table-loading' : undefined}>
-              {isLoading
-                ? Array.from({ length: 5 }).map((_, index) => (
-                    <SkeletonRow key={`skeleton-${index}`} />
-                  ))
-                : transactions.length === 0
-                  ? (
-                    <tr>
-                      <td
-                        colSpan={6}
-                        data-testid="table-empty"
-                        className="px-6 py-16 text-center text-on-surface-variant"
-                      >
-                        Nenhuma transação encontrada para o período selecionado.
-                      </td>
-                    </tr>
-                  )
-                  : (
-                    transactions.map((transaction) => (
-                      <tr
-                        key={transaction.id}
-                        data-testid="table-row"
-                        className="border-b border-outline-variant/20 transition-colors hover:bg-muted/50"
-                      >
-                        <td className="px-6 py-4">
-                          <p className="font-medium text-on-surface">
-                            {transaction.description}
-                          </p>
-                          <p className="text-xs text-on-surface-variant">
-                            {transaction.responsible}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4 text-on-surface">
-                          {formatDate(transaction.date)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <Badge
-                            className={cn(
-                              'rounded-full font-medium',
-                              CATEGORY_COLORS[transaction.category] || CATEGORY_COLORS.Outros,
-                            )}
-                          >
-                            {transaction.category}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {transaction.paid ? (
-                            <Badge className="bg-finance-income text-white rounded-full">
-                              <Check className="w-3 h-3 mr-1" />
-                              Pago
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full">
-                              <X className="w-3 h-3 mr-1" />
-                              Pendente
-                            </Badge>
+        <Table className='border-separate border-spacing-y-2 bg-[var(--background)]'>
+          <TableHeader>
+            <TableRow className='bg-blue-700'>
+              <TableHead className='rounded-l-[var(--radius)]'>
+                Descrição
+              </TableHead>
+              <TableHead>
+                Data
+              </TableHead>
+              <TableHead>
+                Categoria
+              </TableHead>
+              <TableHead>
+                Status
+              </TableHead>
+              <TableHead>
+                Valor
+              </TableHead>
+              <TableHead className='rounded-r-[var(--radius)]'>
+                Ações
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody data-testid={isLoading ? 'table-loading' : undefined}>
+            {isLoading
+              ? Array.from({ length: 5 }).map((_, index) => (
+                  <SkeletonRow key={`skeleton-${index}`} />
+                ))
+              : transactions.length === 0
+                ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      data-testid="table-empty"
+                      className="px-6 py-16 text-center text-on-surface-variant"
+                    >
+                      Nenhuma transação encontrada para o período selecionado.
+                    </TableCell>
+                  </TableRow>
+                )
+                : (
+                  transactions.map((transaction) => (
+                    <TableRow
+                      key={transaction.id}
+                      data-testid="table-row"
+                    >
+                      <TableCell className="px-6 py-4 rounded-l-[var(--radius)]">
+                        <p className="font-medium text-on-surface">
+                          {transaction.description}
+                        </p>
+                        <p className="text-xs text-on-surface-variant">
+                          {transaction.responsible}
+                        </p>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-on-surface">
+                        {formatDate(transaction.date)}
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <Badge
+                          className={cn(
+                            'rounded-full font-medium',
+                            CATEGORY_COLORS[transaction.category] || CATEGORY_COLORS.Outros,
                           )}
-                        </td>
-                        <td
-                          className={`px-6 py-4 text-right font-semibold ${
-                            transaction.type === 'income'
-                              ? 'text-finance-income'
-                              : 'text-finance-expense'
-                          }`}
                         >
-                          {formatCurrency(transaction.value)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Editar transação"
-                              onClick={() => onEdit(transaction)}
-                            >
-                              <Edit2 className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              aria-label="Excluir transação"
-                              onClick={() => onDelete(transaction.id)}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-            </tbody>
-          </table>
-        </div>
+                          {transaction.category}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-center">
+                        {transaction.paid ? (
+                          <Badge className="bg-finance-income text-white rounded-full">
+                            <Check className="w-3 h-3 mr-1" />
+                            Pago
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full">
+                            <X className="w-3 h-3 mr-1" />
+                            Pendente
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell
+                        className={`px-6 py-4 font-semibold ${
+                          transaction.type === 'income'
+                            ? 'text-finance-income'
+                            : 'text-finance-expense'
+                        }`}
+                      >
+                        {formatCurrency(transaction.value)}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 rounded-r-[var(--radius)]">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Editar transação"
+                            onClick={() => onEdit(transaction)}
+                          >
+                            <Edit2 className="size-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Excluir transação"
+                            onClick={() => onDelete(transaction.id)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

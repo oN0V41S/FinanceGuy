@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import Modal from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
 import type { Transaction, TransactionFormData } from '@/features/transactions/types';
 import { CategoryEnum } from '@/features/transactions/validations';
 import { z } from 'zod';
@@ -117,7 +117,13 @@ export default function TransactionModal({
       const testId = target.getAttribute('data-testid');
       if (testId && testId.startsWith('select-item-')) {
         const value = testId.replace('select-item-', '');
-        setCategory(value);
+        
+        // Handle both category and type selects
+        if (value === 'income' || value === 'expense') {
+          setType(value as 'income' | 'expense');
+        } else {
+          setCategory(value);
+        }
       }
     },
     [],
@@ -187,78 +193,53 @@ export default function TransactionModal({
       onClose={onClose}
       title={transaction ? 'Editar Transação' : 'Nova Transação'}
     >
-      <div className="space-y-4">
+      <div className="space-y-3">
         {/* Submit error banner */}
         {submitError && (
-          <div
-            role="alert"
-            data-testid="modal-error"
-            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
-          >
-            {submitError}
-          </div>
+          <Alert variant="destructive" data-testid="modal-error">
+            <AlertDescription>{submitError}</AlertDescription>
+          </Alert>
         )}
-
-        {/* ---- Type toggle ---- */}
-        <div>
-          <Label>Tipo</Label>
-          <div className="mt-1 flex gap-2">
-            <Button
-              type="button"
-              variant={type === 'income' ? 'default' : 'outline'}
-              onClick={() => setType('income')}
-            >
-              Receita
-            </Button>
-            <Button
-              type="button"
-              variant={type === 'expense' ? 'default' : 'outline'}
-              onClick={() => setType('expense')}
-            >
-              Despesa
-            </Button>
-          </div>
-        </div>
 
         {/* ---- Description ---- */}
         <div>
+          <Label htmlFor="description">Descrição</Label>
           <Input
             id="description"
-            aria-label="Descrição"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Ex: Supermercado"
           />
           {errors.description && (
-            <p className="mt-1 text-sm text-red-500">{errors.description}</p>
+            <p className="text-finance-expense text-sm mt-1" role="alert">{errors.description}</p>
           )}
         </div>
 
         {/* ---- Value & Date ---- */}
         <div className="grid grid-cols-2 gap-4">
           <div>
+            <Label htmlFor="value">Valor</Label>
             <Input
               id="value"
-              aria-label="Valor"
               inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="R$ 0,00"
             />
             {errors.value && (
-              <p className="mt-1 text-sm text-red-500">{errors.value}</p>
+              <p className="text-finance-expense text-sm mt-1" role="alert">{errors.value}</p>
             )}
           </div>
           <div>
+            <Label htmlFor="date">Data</Label>
             <Input
               id="date"
-              aria-label="Data"
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
             />
             {errors.date && (
-              <p className="mt-1 text-sm text-red-500">{errors.date}</p>
+              <p className="text-finance-expense text-sm mt-1" role="alert">{errors.date}</p>
             )}
           </div>
         </div>
@@ -268,22 +249,17 @@ export default function TransactionModal({
           <Label>Categoria</Label>
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger
-              className={cn(
-                'w-full h-9',
-                'bg-surface-container-low border-outline-variant',
-                'hover:bg-surface-container transition-colors',
-                'text-on-surface text-sm font-medium',
-                'focus:ring-2 focus:ring-primary/30'
-              )}
+              className="w-full h-9"
+              variant="finance"
             >
               <SelectValue placeholder="Selecione uma categoria" />
             </SelectTrigger>
-            <SelectContent className="bg-surface-container ring-1 ring-outline-variant">
+            <SelectContent variant="finance">
               {categoryOptions.map((cat) => (
                 <SelectItem
                   key={cat}
                   value={cat}
-                  className="text-on-surface focus:bg-surface-container-low focus:text-on-surface data-[selected]:bg-primary/10 data-[selected]:text-primary"
+                  variant="finance"
                 >
                   {cat}
                 </SelectItem>
@@ -291,21 +267,41 @@ export default function TransactionModal({
             </SelectContent>
           </Select>
           {errors.category && (
-            <p className="mt-1 text-sm text-red-500">{errors.category}</p>
+            <p className="text-finance-expense text-sm mt-1" role="alert">{errors.category}</p>
           )}
         </div>
 
         {/* ---- Responsible ---- */}
         <div>
+          <Label htmlFor="responsible">Responsável</Label>
           <Input
             id="responsible"
-            aria-label="Responsável"
             value={responsible}
             onChange={(e) => setResponsible(e.target.value)}
             placeholder="Nome do responsável"
           />
           {errors.responsible && (
-            <p className="mt-1 text-sm text-red-500">{errors.responsible}</p>
+            <p className="text-finance-expense text-sm mt-1" role="alert">{errors.responsible}</p>
+          )}
+        </div>
+
+        {/* ---- Type dropdown ---- */}
+        <div onClick={handleSelectContainerClick}>
+          <Label>Tipo</Label>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger
+              className="w-full h-9"
+              variant="finance"
+            >
+              <SelectValue placeholder="Selecione o tipo" />
+            </SelectTrigger>
+            <SelectContent variant="finance">
+              <SelectItem value="expense" variant="finance" data-testid="select-item-expense">Despesa</SelectItem>
+              <SelectItem value="income" variant="finance" data-testid="select-item-income">Receita</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.type && (
+            <p className="text-finance-expense text-sm mt-1" role="alert">{errors.type}</p>
           )}
         </div>
 
@@ -317,6 +313,7 @@ export default function TransactionModal({
             checked={paid}
             onChange={setPaid}
             aria-label="Marcar como pago"
+            colorScheme="paid"
           />
         </div>
 

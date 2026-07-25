@@ -21,7 +21,8 @@
     "test:ci": "jest --ci --coverage --maxWorkers=2",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "init-pr": "ts-node src/scripts/init-pr.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",

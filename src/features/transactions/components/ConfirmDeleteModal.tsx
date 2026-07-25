@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import Modal from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 
@@ -44,12 +45,9 @@ export default function ConfirmDeleteModal({
     <Modal isOpen={isOpen} onClose={onClose} title={title}>
       <div className="space-y-4">
         {error && (
-          <div
-            role="alert"
-            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
-          >
-            {error}
-          </div>
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
         <p className="text-sm text-on-surface-variant">

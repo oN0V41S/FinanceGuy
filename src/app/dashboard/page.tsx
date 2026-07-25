@@ -7,12 +7,11 @@ import { Wallet, LayoutDashboard, ArrowLeftRight, Settings, X } from 'lucide-rea
 import { HeaderLayout } from '@/features/dashboard/components/HeaderLayout';
 import { MobileNavBar } from '@/features/dashboard/components/MobileNavBar';
 import { SummaryCard } from '@/features/dashboard/components/SummaryCard';
-import { RecentTransactions } from '@/features/dashboard/components/RecentTransactions';
 import { MonthFilter } from '@/features/dashboard/components/MonthFilter';
 import { FortnightFilter } from '@/features/dashboard/components/FortnightFilter';
 import type { FortnightValue } from '@/features/dashboard/components/FortnightFilter';
-import { EmptyState } from '@/features/dashboard/components/EmptyState';
 import { LazyLoad } from '@/shared/components/LazyLoad';
+import { buttonVariants } from '@/components/ui/button';
 import { useDashboardData } from '@/features/dashboard/hooks/useDashboardData';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +30,7 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(String(now.getFullYear()));
   const [selectedFortnight, setSelectedFortnight] = useState<FortnightValue>('all');
 
-  const { recentTransactions, summary, isLoading, error, refresh } =
+  const { summary, isLoading, error } =
     useDashboardData(selectedMonth, selectedYear, selectedFortnight);
 
   const isActive = (href: string) => {
@@ -179,14 +178,15 @@ export default function DashboardPage() {
               </div>
             </LazyLoad>
 
-            {/* Recent Transactions — lazy loaded */}
-            <LazyLoad isReady={!isLoading} message="Carregando transações recentes...">
-              {recentTransactions.length === 0 ? (
-                <EmptyState />
-              ) : (
-                <RecentTransactions transactions={recentTransactions} isLoading={isLoading} />
-              )}
-            </LazyLoad>
+            {/* Link to full transactions page */}
+            <div className="flex justify-center">
+              <Link
+                href="/transactions"
+                className={buttonVariants({ variant: "outline", size: "lg" })}
+              >
+                Ver todas as transações
+              </Link>
+            </div>
           </div>
         </main>
       </div>

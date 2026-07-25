@@ -1,7 +1,8 @@
 ---
 name: security-secret-auditor
-description: Audita segurança do código: secrets expostos, SQL injection, CVEs e dados financeiros. Use when auditando segurança, verificando secrets, ou antes de deploy.
+description: Audita segurança do código FinanceGuy: secrets expostos, SQL injection, CVEs e dados financeiros. Use when auditando segurança, verificando secrets ou antes de deploy.
 mode: subagent
+color: error
 ---
 
 # Sub-Agent: security-secret-auditor
@@ -56,8 +57,8 @@ grep -r "sk-" --include="*.ts" --include="*.tsx"
 grep -r "password.*=" --include="*.ts"
 
 # Audit de dependências
-npm audit
-npm audit fix
+pnpm audit
+pnpm audit fix
 ```
 
 ## Áreas Críticas para Dados Financeiros

@@ -73,15 +73,17 @@ jest.mock('@/components/ui/label', () => ({
 }));
 
 jest.mock('@/components/ui/select', () => {
+  // Contexto compartilhado entre Select e SelectItem
+  const SelectContext = React.createContext<{
+    value: string;
+    onValueChange: (value: string) => void;
+  } | null>(null);
+
   const Select = ({ value, onValueChange, children, ...props }: any) => {
-    // Guarda a callback para usar nos itens
     const ctx = React.useMemo(
       () => ({ value, onValueChange }),
       [value, onValueChange],
     );
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Ctx = React.createContext as any;
-    const SelectContext = Ctx();
     return (
       <SelectContext.Provider value={ctx}>
         <div data-testid="select-root" data-value={value}>
@@ -102,10 +104,6 @@ jest.mock('@/components/ui/select', () => {
     <div data-testid="select-content">{children}</div>
   );
   const SelectItem = ({ value, children, ...props }: any) => {
-    // Consome o contexto para acessar onValueChange
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const Ctx = React.createContext as any;
-    const SelectContext = Ctx();
     const ctx = React.useContext(SelectContext);
     return (
       <div
@@ -207,22 +205,22 @@ describe('TransactionModal — Modo Create', () => {
     expect(responsibleInput.value).toBe('');
   });
 
-  it('deve exibir toggle type com valor padrão expense', () => {
+  it('deve exibir tipo como Select com valor padrão expense', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
-    // Deve ter dois botões de toggle: Receita e Despesa
-    const incomeButton = screen.getByRole('button', { name: /receita/i });
-    const expenseButton = screen.getByRole('button', { name: /despesa/i });
-
-    expect(incomeButton).toBeInTheDocument();
-    expect(expenseButton).toBeInTheDocument();
+    // Agora Tipo é um Select dropdown, não botões toggle
+    const selects = screen.getAllByTestId('select-root');
+    expect(selects.length).toBeGreaterThanOrEqual(2);
+    // Verificar que as opções existem
+    expect(screen.getByTestId('select-item-income')).toHaveTextContent(/receita/i);
+    expect(screen.getByTestId('select-item-expense')).toHaveTextContent(/despesa/i);
   });
 
-  it('deve exibir select de categoria com opções do CategoryEnum', () => {
+  it('deve exibir selects de categoria e tipo com opções', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
-    // O select root deve estar presente
-    expect(screen.getByTestId('select-root')).toBeInTheDocument();
+    // Agora existem DOIS selects: categoria e tipo
+    expect(screen.getAllByTestId('select-root').length).toBe(2);
   });
 
   it('deve exibir toggle de paid', () => {
@@ -270,9 +268,10 @@ describe('TransactionModal — Modo Edit', () => {
   it('deve exibir o type correto da transação (expense)', () => {
     render(<TransactionModal {...defaultProps} transaction={mockTransaction} />);
 
-    // O toggle de expense deve estar ativo
-    const expenseButton = screen.getByRole('button', { name: /despesa/i });
-    expect(expenseButton).toBeInTheDocument();
+    // O Select de tipo deve ter o valor 'expense'
+    const selects = screen.getAllByTestId('select-root');
+    const typeSelect = selects[1]; // segundo select é o de tipo
+    expect(typeSelect).toHaveAttribute('data-value', 'expense');
   });
 });
 
@@ -295,9 +294,9 @@ describe('TransactionModal — Interações', () => {
       responsible: 'João',
     });
 
-    // Clicar em type income
-    const incomeButton = screen.getByRole('button', { name: /receita/i });
-    fireEvent.click(incomeButton);
+    // Selecionar type income via Select
+    const incomeItem = screen.getByTestId('select-item-income');
+    fireEvent.click(incomeItem);
 
     // Selecionar categoria
     const categoryItem = screen.getByTestId('select-item-Alimentação');
@@ -330,9 +329,9 @@ describe('TransactionModal — Interações', () => {
       responsible: 'Ana',
     });
 
-    // Clicar em income
-    const incomeButton = screen.getByRole('button', { name: /receita/i });
-    fireEvent.click(incomeButton);
+    // Selecionar type income via Select
+    const incomeItem = screen.getByTestId('select-item-income');
+    fireEvent.click(incomeItem);
 
     // Selecionar categoria Salário
     const categoryItem = screen.getByTestId('select-item-Salário');
@@ -378,25 +377,32 @@ describe('TransactionModal — Interações', () => {
   });
 
   // -----------------------------------------------------------------------
-  // G-T10: Alternância entre type income/expense
+  // G-T10: Alternância entre type income/expense via Select
   // -----------------------------------------------------------------------
-  it('deve alternar type para income ao clicar em Receita', () => {
+  it('deve alternar type para income ao selecionar Receita no dropdown', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
-    const incomeButton = screen.getByRole('button', { name: /receita/i });
-    fireEvent.click(incomeButton);
+    // Clicar no item income do Select
+    const incomeItem = screen.getByTestId('select-item-income');
+    fireEvent.click(incomeItem);
 
-    // Após clicar, income deve estar ativo (testamos pelo data-active ou classe)
-    expect(incomeButton).toBeInTheDocument();
+    // O Select de tipo deve ter income como valor
+    const selects = screen.getAllByTestId('select-root');
+    const typeSelect = selects[1]; // segundo select é o de tipo
+    // O select de tipo deve ter data-value='income'
+    expect(typeSelect).toHaveAttribute('data-value', 'income');
   });
 
-  it('deve alternar type para expense ao clicar em Despesa', () => {
+  it('deve alternar type para expense ao selecionar Despesa no dropdown', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
-    const expenseButton = screen.getByRole('button', { name: /despesa/i });
-    fireEvent.click(expenseButton);
+    // Clicar no item expense do Select
+    const expenseItem = screen.getByTestId('select-item-expense');
+    fireEvent.click(expenseItem);
 
-    expect(expenseButton).toBeInTheDocument();
+    const selects = screen.getAllByTestId('select-root');
+    const typeSelect = selects[1]; // segundo select é o de tipo
+    expect(typeSelect).toHaveAttribute('data-value', 'expense');
   });
 
   // -----------------------------------------------------------------------
@@ -488,12 +494,16 @@ describe('TransactionModal — Estados', () => {
   });
 
   // -----------------------------------------------------------------------
-  // G-T11: Select de categoria com todas as opções
+  // G-T11: Selects de categoria e tipo com placeholders
   // -----------------------------------------------------------------------
-  it('deve exibir select de categoria com placeholder', () => {
+  it('deve exibir selects de categoria e tipo com placeholders', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
-    expect(screen.getByTestId('select-root')).toBeInTheDocument();
+    // Agora existem dois selects: categoria + tipo
+    const selects = screen.getAllByTestId('select-root');
+    expect(selects).toHaveLength(2);
+    // Ambos os placeholders devem estar presentes
+    expect(screen.getAllByTestId('select-value').length).toBe(2);
   });
 });
 
@@ -515,8 +525,9 @@ describe('TransactionModal — Validação (Red Paths)', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      // Deve exibir mensagem de erro para descrição vazia
-      expect(screen.getByText(/descrição/i)).toBeInTheDocument();
+      // Agora há Label + mensagem de erro, então usamos getAllByText
+      const matches = screen.getAllByText(/descrição/i);
+      expect(matches.length).toBeGreaterThanOrEqual(2);
     });
 
     expect(mockOnSave).not.toHaveBeenCalled();
@@ -532,7 +543,8 @@ describe('TransactionModal — Validação (Red Paths)', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByText(/responsável|responsavel/i)).toBeInTheDocument();
+      const matches = screen.getAllByText(/responsável|responsavel/i);
+      expect(matches.length).toBeGreaterThanOrEqual(2);
     });
 
     expect(mockOnSave).not.toHaveBeenCalled();
@@ -547,7 +559,8 @@ describe('TransactionModal — Validação (Red Paths)', () => {
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(screen.getByText(/data/i)).toBeInTheDocument();
+      const matches = screen.getAllByText(/data/i);
+      expect(matches.length).toBeGreaterThanOrEqual(2);
     });
 
     expect(mockOnSave).not.toHaveBeenCalled();
@@ -852,5 +865,202 @@ describe('TransactionModal — Edge Cases', () => {
     // Se não houver transação, date pode vir vazio ou com valor padrão
     // Aceitamos ambos os comportamentos
     expect(dateInput).toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// Refactored Layout Tests
+// ===========================================================================
+// These tests validate the component after the layout refactor:
+//   1. Labels added to ALL fields (Description, Value, Date, Responsible)
+//   2. Type changed from toggle buttons → Select dropdown
+//   3. Type moved from top to after Responsible
+//   4. Layout compacted (space-y-3 instead of space-y-4)
+//   5. Paid toggle colored green (paid) / red (unpaid)
+// ===========================================================================
+
+describe('TransactionModal — Labels em Todos os Campos', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('deve exibir label "Descrição" para o campo de descrição', () => {
+    render(<TransactionModal {...defaultProps} />);
+    const label = screen.getByTestId('label-description');
+    expect(label).toBeInTheDocument();
+    expect(label).toHaveTextContent(/descrição/i);
+  });
+
+  it('deve exibir label "Valor" para o campo de valor', () => {
+    render(<TransactionModal {...defaultProps} />);
+    const label = screen.getByTestId('label-value');
+    expect(label).toBeInTheDocument();
+    expect(label).toHaveTextContent(/^valor$/i);
+  });
+
+  it('deve exibir label "Data" para o campo de data', () => {
+    render(<TransactionModal {...defaultProps} />);
+    const label = screen.getByTestId('label-date');
+    expect(label).toBeInTheDocument();
+    expect(label).toHaveTextContent(/^data$/i);
+  });
+
+  it('deve exibir label "Responsável" para o campo de responsável', () => {
+    render(<TransactionModal {...defaultProps} />);
+    const label = screen.getByTestId('label-responsible');
+    expect(label).toBeInTheDocument();
+    expect(label).toHaveTextContent(/responsável/i);
+  });
+});
+
+describe('TransactionModal — Tipo como Select', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('deve usar Select dropdown para Tipo ao invés de botões toggle', () => {
+    render(<TransactionModal {...defaultProps} />);
+    // Agora existem DOIS componentes Select: categoria + tipo
+    const selects = screen.getAllByTestId('select-root');
+    expect(selects).toHaveLength(2);
+  });
+
+  it('deve exibir as opções "Receita" e "Despesa" no Select de Tipo', () => {
+    render(<TransactionModal {...defaultProps} />);
+    expect(screen.getByTestId('select-item-income')).toHaveTextContent(/receita/i);
+    expect(screen.getByTestId('select-item-expense')).toHaveTextContent(/despesa/i);
+  });
+
+  it('não deve renderizar botões toggle para Receita/Despesa (type agora é Select)', () => {
+    render(<TransactionModal {...defaultProps} />);
+    // Não deve haver botões com texto exato "Receita" ou "Despesa"
+    // (botões de toggle de tipo foram substituídos pelo Select)
+    const incomeButtons = screen.queryAllByRole('button', { name: /^receita$/i });
+    const expenseButtons = screen.queryAllByRole('button', { name: /^despesa$/i });
+    expect(incomeButtons).toHaveLength(0);
+    expect(expenseButtons).toHaveLength(0);
+  });
+});
+
+describe('TransactionModal — Ordem dos Campos', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('deve posicionar o campo Tipo APÓS o campo Responsável na ordem do formulário', () => {
+    const { container } = render(<TransactionModal {...defaultProps} />);
+    const html = container.textContent || '';
+    const respIndex = html.indexOf('Responsável');
+    const typeIndex = html.indexOf('Tipo');
+    // Responsável deve aparecer antes de Tipo no texto do formulário
+    expect(respIndex).toBeLessThan(typeIndex);
+  });
+
+  it('deve posicionar o campo Categoria antes do campo Tipo', () => {
+    const { container } = render(<TransactionModal {...defaultProps} />);
+    const html = container.textContent || '';
+    const catIndex = html.indexOf('Categoria');
+    const typeIndex = html.indexOf('Tipo');
+    expect(catIndex).toBeLessThan(typeIndex);
+  });
+
+  it('deve posicionar o campo Descrição antes do campo Valor', () => {
+    const { container } = render(<TransactionModal {...defaultProps} />);
+    const html = container.textContent || '';
+    const descIndex = html.indexOf('Descrição');
+    const valIndex = html.indexOf('Valor');
+    expect(descIndex).toBeLessThan(valIndex);
+  });
+
+  it('deve posicionar o campo Valor antes do campo Data (mesma linha no grid)', () => {
+    const { container } = render(<TransactionModal {...defaultProps} />);
+    const html = container.textContent || '';
+    const valIndex = html.indexOf('Valor');
+    const dateIndex = html.indexOf('Data');
+    expect(valIndex).toBeLessThan(dateIndex);
+  });
+
+  it('deve posicionar Pago após Tipo na ordem do formulário', () => {
+    const { container } = render(<TransactionModal {...defaultProps} />);
+    const html = container.textContent || '';
+    const typeIndex = html.indexOf('Tipo');
+    const paidIndex = html.indexOf('Pago');
+    expect(typeIndex).toBeLessThan(paidIndex);
+  });
+});
+
+describe('TransactionModal — Layout Compacto', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('deve usar espaçamento reduzido space-y-3 (layout compacto)', () => {
+    render(<TransactionModal {...defaultProps} />);
+    const modalContent = screen.getByTestId('modal-content');
+    const formDiv = modalContent.firstElementChild;
+    expect(formDiv?.className).toContain('space-y-3');
+  });
+
+  it('não deve usar o espaçamento anterior space-y-4', () => {
+    render(<TransactionModal {...defaultProps} />);
+    const modalContent = screen.getByTestId('modal-content');
+    const formDiv = modalContent.firstElementChild;
+    expect(formDiv?.className).not.toContain('space-y-4');
+  });
+});
+
+describe('TransactionModal — Cores do Toggle Pago', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('deve aplicar classe de cor verde (finance-income) ao toggle quando marcado como pago', () => {
+    render(<TransactionModal {...defaultProps} transaction={mockTransaction} />);
+    const paidToggle = screen.getByRole('switch', { name: /marcar como pago/i });
+    expect(paidToggle).toHaveAttribute('aria-checked', 'true');
+    // O className do botão deve conter a classe de cor verde para pago
+    expect(paidToggle.className).toContain('finance-income');
+  });
+
+  it('deve aplicar classe de cor vermelha (finance-expense) ao toggle quando NÃO marcado como pago', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+    const paidToggle = screen.getByRole('switch', { name: /marcar como pago/i });
+    expect(paidToggle).toHaveAttribute('aria-checked', 'false');
+    // O className do botão deve conter a classe de cor vermelha para não pago
+    expect(paidToggle.className).toContain('finance-expense');
+  });
+
+  it('deve alternar a cor do toggle ao alternar o estado paid', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+    const paidToggle = screen.getByRole('switch', { name: /marcar como pago/i });
+
+    // Estado inicial: não pago → vermelho
+    expect(paidToggle).toHaveAttribute('aria-checked', 'false');
+    expect(paidToggle.className).toContain('finance-expense');
+
+    // Clicar para marcar como pago → verde
+    fireEvent.click(paidToggle);
+    expect(paidToggle).toHaveAttribute('aria-checked', 'true');
+    expect(paidToggle.className).toContain('finance-income');
+
+    // Clicar novamente para desmarcar → vermelho
+    fireEvent.click(paidToggle);
+    expect(paidToggle).toHaveAttribute('aria-checked', 'false');
+    expect(paidToggle.className).toContain('finance-expense');
+  });
+
+  it('deve mostrar cor verde no toggle ao editar transação já paga', () => {
+    render(<TransactionModal {...defaultProps} transaction={mockTransaction} />);
+    const paidToggle = screen.getByRole('switch', { name: /marcar como pago/i });
+    expect(paidToggle).toHaveAttribute('aria-checked', 'true');
+    expect(paidToggle.className).toContain('finance-income');
+  });
+
+  it('deve mostrar cor vermelha no toggle ao criar transação não paga (padrão)', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+    const paidToggle = screen.getByRole('switch', { name: /marcar como pago/i });
+    // Por padrão, nova transação começa como não paga
+    expect(paidToggle).toHaveAttribute('aria-checked', 'false');
+    expect(paidToggle.className).toContain('finance-expense');
   });
 });

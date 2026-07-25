@@ -10,6 +10,7 @@ export interface ToggleProps {
   'aria-label'?: string;
   className?: string;
   icon?: React.ReactNode;
+  colorScheme?: 'default' | 'paid';
 }
 
 export function Toggle({
@@ -19,6 +20,7 @@ export function Toggle({
   disabled = false,
   className,
   icon,
+  colorScheme = 'default',
   ...props
 }: ToggleProps) {
   const handleChange = (next: boolean) => {
@@ -26,6 +28,10 @@ export function Toggle({
     onChange?.(next);
     onCheckedChange?.(next);
   };
+
+  const bgColor = colorScheme === 'paid'
+    ? checked ? 'bg-finance-income' : 'bg-finance-expense'
+    : checked ? 'bg-primary' : 'bg-surface-container-low';
 
   return (
     <button
@@ -38,7 +44,7 @@ export function Toggle({
       onClick={() => handleChange(!checked)}
       className={cn(
         'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-50',
-        checked ? 'bg-primary' : 'bg-surface-container-low',
+        bgColor,
         className
       )}
     >
