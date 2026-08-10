@@ -1,14 +1,19 @@
 ---
 name: frontend
-description: Cria componentes React/shadcn-ui do FinanceGuy seguindo docs/VISUAL_IDENTITY.md. Use when criando UI, componentes, telas, formulários, tabelas ou modais. ADOTAR TDD: escrever testes antes de implementar qualquer componente novo. Suporte obrigatório a dark/light theme e mobile responsivo.
+description: Cria componentes React/shadcn-ui seguindo docs/ui-guidelines.md. Use quando criando UI, componentes, telas, formulários, tabelas ou modais. ADOTAR TDD: escrever testes antes de implementar qualquer componente novo. Suporte obrigatório a dark/light theme e mobile responsivo.
 mode: subagent
 color: info
 ---
 
 # Sub-Agent: frontend
 
+## Fluxo de Trabalho (OBRIGATÓRIO)
+1. **Auditar contexto**: Ler `.opencode/AUDIT.md` para roteamento.
+2. **Consultar Docs**: Ler `docs/ui-guidelines.md` e `docs/VISUAL_IDENTITY.md` ANTES de qualquer implementação.
+3. **Processo**: Seguir rigorosamente Spec-first + TDD.
+
 ## Visão Geral do Problema
-Criar interfaces de usuário modernas e acessíveis para o aplicativo de controle financeiro "FinanceGuy", seguindo os padrões de design definidos em `docs/VISUAL_IDENTITY.md` e utilizando componentes shadcn-ui.
+Criar interfaces de usuário modernas e acessíveis, seguindo os padrões de design definidos em `docs/ui-guidelines.md` e `docs/VISUAL_IDENTITY.md`, utilizando componentes shadcn-ui.
 
 ## Requisitos Funcionais
 - Criar componentes React para Dashboard, Tables, Forms e Modals
@@ -128,7 +133,7 @@ Com a Spec aprovada, escrever os testes unitários que cobrem todos os estados l
 
 ## Configurações Específicas
 
-### Cores do Projeto (AGENTS.md / Governança)
+### Cores do Projeto (docs/ui-guidelines.md / Governança)
 ```
 --brand-primary: #2563EB (Trust Blue)
 --brand-secondary: #8B5CF6 (Insight Violet)

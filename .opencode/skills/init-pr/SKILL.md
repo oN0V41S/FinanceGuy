@@ -5,7 +5,7 @@ description: Executa o pipeline de automação para preparação e validação d
 
 # Init-PR Pipeline Skill
 
-Esta skill automatiza o checklist obrigatório para submissão de código conforme definido em `AGENTS.md`.
+Esta skill automatiza o checklist obrigatório para submissão de código conforme definido em `.opencode/AGENTS.md` (Contratos) e `docs/git-workflow.md`.
 
 ## Quando usar
 - Sempre antes de abrir um PR para a branch `main`.

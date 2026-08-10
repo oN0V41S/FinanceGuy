@@ -5,4 +5,4 @@
 Formato de Saída:
 Resumo da documentação.
 Análise.
-Pontos para ajustar no arquivo AGENTS.md (contexto do projeto para o opencode).
+Pontos para ajustar (documentos em `docs/*.md`, `.opencode/AUDIT.md` e `.opencode/agents/*.md` — contexto do projeto para o opencode).

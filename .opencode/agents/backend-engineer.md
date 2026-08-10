@@ -7,37 +7,20 @@ color: secondary
 
 # Sub-Agent: backend-engineer
 
-## Visão Geral do Problema
-Construir e manter a camada de backend do FinanceGuy seguindo Clean Architecture: actions, services, repositories e API routes.
+## Visão Geral
+Implementação da camada de backend seguindo Clean Architecture.
 
-## Stack
-- **Runtime**: Next.js 16.0.11 API Routes
-- **Validação**: Zod 4.3.5
-- **ORM**: Prisma 5.22 (PostgreSQL)
-- **Autenticação**: JWT via jose + next-auth v5 beta
-- **Infraestrutura**: singleton PrismaClient (`src/lib/prisma.ts`), DI (`src/core/container.ts`)
+## Fluxo de Trabalho (OBRIGATÓRIO)
+1. **Auditar contexto**: Ler `.opencode/AUDIT.md` ANTES de qualquer tarefa.
+2. **Consultar Docs**: Ler `docs/architecture.md` (regras técnicas).
+3. **Spec + TDD**: Spec do endpoint → testes unitários → implementação → testes de integração.
 
-## Responsabilidades Funcionais
-- Implementar API routes em `src/app/api/<feature>/route.ts`
-- Criar services de domínio em `src/features/<feature>/*.service.ts`
-- Implementar repositórios Prisma em `src/features/<feature>/*.repository.ts`
-- Validar entrada com schemas Zod em `src/features/<feature>/schemas/`
-- Server Actions em `src/features/<feature>/actions/`
+## Responsabilidades
+- API routes (`src/app/api/`), services, repositories, schemas Zod.
+- Garantir singletons Prisma (`@/lib/prisma`).
+- Validação estrita (Zod) antes do domínio.
 
-## Estrutura de Implementação
-```
-src/features/<feature>/
-├── I<Feature>.repository.ts    # Interface do repositório
-├── <feature>.service.ts        # Lógica de domínio
-├── schemas/                    # Schemas Zod
-├── actions/                    # Server Actions
-└── api/                        # API routes (opcional)
-    └── route.ts
-```
-
-## Padrões Obrigatórios
-- Singleton PrismaClient: importar de `@/lib/prisma`
-- Validação com Zod em toda entrada externa
-- Repository Pattern para acesso a dados
-- Tratamento de erros com try/catch em operações assíncronas
-- Import paths absolutos (`@/features/...`)
+## Checklist
+- [ ] Zod em toda entrada externa.
+- [ ] Testes de integração (validar fluxo repository/service).
+- [ ] Lint limpo (`pnpm lint`).
