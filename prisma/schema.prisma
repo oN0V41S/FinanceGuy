@@ -10,7 +10,8 @@ generator client {
 model Transaction {
   id                   String   @id @default(cuid())
   type                 String   // 'income' | 'expense'
-  description          String   @db.VarChar(255)
+  title                String?  @db.VarChar(100)
+  description          String?  @db.VarChar(255)
   value                Decimal  @db.Decimal(12, 2)
   date                 DateTime @db.Date
   category             String
@@ -19,9 +20,11 @@ model Transaction {
   total_installments   Int?
   is_recurring         Boolean  @default(false)
   parent_transaction_id String?
+  parent_transaction     Transaction? @relation("Recurring", fields: [parent_transaction_id], references: [id])
   paid                 Boolean  @default(false)
   userId               String
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children               Transaction[] @relation("Recurring")
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
 

@@ -10,6 +10,8 @@ jest.mock('@/core/container', () => ({
   transactionService: {
     updateTransaction: jest.fn(),
     deleteTransaction: jest.fn(),
+    deleteFutureTransactions: jest.fn(),
+    updateFutureTransactions: jest.fn(),
   },
 }));
 
@@ -402,6 +404,34 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
     });
   });
 
+  describe('PUT /api/transactions/[id]?scope=future', () => {
+    it('should update selected and future installments when scope=future', async () => {
+      const updateData = { value: 500 };
+      (transactionService.updateFutureTransactions as jest.Mock).mockResolvedValue(2);
+
+      const request = new NextRequest(
+        `http://localhost/api/transactions/${mockTransactionId}?scope=future`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'x-user-id': userId },
+          body: JSON.stringify(updateData),
+        }
+      );
+
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: mockTransactionId }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(transactionService.updateFutureTransactions).toHaveBeenCalledWith(
+        mockTransactionId,
+        userId,
+        expect.objectContaining({ value: 500 })
+      );
+      expect(transactionService.updateTransaction).not.toHaveBeenCalled();
+    });
+  });
+
   // ============================================
   // DELETE Method Tests
   // ============================================
@@ -553,6 +583,51 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
 
         expect(response.status).toBe(500);
       });
+    });
+  });
+
+  describe('DELETE /api/transactions/[id]?scope=future', () => {
+    it('should delete selected and future installments and return count', async () => {
+      (transactionService.deleteFutureTransactions as jest.Mock).mockResolvedValue(2);
+
+      const request = new NextRequest(
+        `http://localhost/api/transactions/${mockTransactionId}?scope=future`,
+        {
+          method: 'DELETE',
+          headers: { 'x-user-id': userId },
+        }
+      );
+
+      const response = await DELETE(request, {
+        params: Promise.resolve({ id: mockTransactionId }),
+      });
+
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.success).toBe(true);
+      expect(data.count).toBe(2);
+      expect(transactionService.deleteFutureTransactions).toHaveBeenCalledWith(mockTransactionId, userId);
+      expect(transactionService.deleteTransaction).not.toHaveBeenCalled();
+    });
+
+    it('should NOT use deleteFutureTransactions when scope is not future', async () => {
+      (transactionService.deleteTransaction as jest.Mock).mockResolvedValue(true);
+
+      const request = new NextRequest(
+        `http://localhost/api/transactions/${mockTransactionId}`,
+        {
+          method: 'DELETE',
+          headers: { 'x-user-id': userId },
+        }
+      );
+
+      const response = await DELETE(request, {
+        params: Promise.resolve({ id: mockTransactionId }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(transactionService.deleteTransaction).toHaveBeenCalledWith(mockTransactionId);
+      expect(transactionService.deleteFutureTransactions).not.toHaveBeenCalled();
     });
   });
 

@@ -5,6 +5,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import TransactionModal from '../TransactionModal';
+import { CategoryEnum } from '../../validations';
 
 // ---------------------------------------------------------------------------
 // Mocks — UI components do shadcn-ui
@@ -128,10 +129,11 @@ const mockOnClose = jest.fn();
 const mockTransaction = {
   id: '1',
   type: 'expense' as const,
+  title: 'Aluguel Apartamento',
   description: 'Aluguel',
   value: 1500,
   date: '2026-01-01',
-  category: 'Casa',
+  category: CategoryEnum.enum.Casa,
   responsible: 'João',
   paid: true,
   is_recurring: false,
@@ -157,12 +159,27 @@ function getFormElements() {
   return { descriptionInput, valueInput, dateInput, responsibleInput };
 }
 
+function getTitleInput(): HTMLInputElement {
+  return screen.getByTestId('input-title') as HTMLInputElement;
+}
+
 function fillFormFields({
+  title,
   description = 'Nova despesa',
   value = '250.00',
   date = '2026-03-15',
   responsible = 'Maria',
+}: {
+  title?: string;
+  description?: string;
+  value?: string;
+  date?: string;
+  responsible?: string;
 } = {}) {
+  // Title só é preenchido quando explicitamente passado (campo novo — Issue #13)
+  if (title !== undefined) {
+    fireEvent.change(getTitleInput(), { target: { value: title } });
+  }
   const { descriptionInput, valueInput, dateInput, responsibleInput } = getFormElements();
   fireEvent.change(descriptionInput, { target: { value: description } });
   fireEvent.change(valueInput, { target: { value } });
@@ -231,6 +248,79 @@ describe('TransactionModal — Modo Create', () => {
     expect(paidToggle).toBeInTheDocument();
     expect(paidToggle).toHaveAttribute('aria-checked', 'false');
   });
+
+  // -----------------------------------------------------------------------
+  // Issue #13: campo Título (opcional, máx 100 chars)
+  // -----------------------------------------------------------------------
+  it('deve exibir o campo Título no modo Create (vazio)', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    const titleInput = getTitleInput();
+    expect(titleInput).toBeInTheDocument();
+    expect(titleInput.value).toBe('');
+  });
+
+  it('deve exibir label "Título" para o campo de título', () => {
+    render(<TransactionModal {...defaultProps} />);
+
+    const label = screen.getByTestId('label-title');
+    expect(label).toBeInTheDocument();
+    expect(label).toHaveTextContent(/título|titulo/i);
+  });
+
+  it('deve limitar o campo Título a 100 caracteres (maxLength)', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    const titleInput = getTitleInput();
+    expect(titleInput).toHaveAttribute('maxLength', '100');
+  });
+
+  it('deve permitir submissão sem título (título é opcional)', async () => {
+    mockOnSave.mockResolvedValue(undefined);
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    // Preencher todos os campos obrigatórios, deixando o título vazio
+    fillFormFields({ description: 'Mercado' });
+
+    // Selecionar categoria (necessária para validação)
+    const categoryItem = screen.getByTestId('select-item-Alimentação');
+    fireEvent.click(categoryItem);
+
+    const submitButton = screen.getByTestId('submit-button');
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('deve enviar o title no payload ao submeter', async () => {
+    mockOnSave.mockResolvedValue(undefined);
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields({
+      title: 'Mercado do mês',
+      description: 'Compras do mês',
+      value: '450.75',
+      date: '2026-03-20',
+      responsible: 'João',
+    });
+
+    // Selecionar categoria (necessária para validação)
+    const categoryItem = screen.getByTestId('select-item-Alimentação');
+    fireEvent.click(categoryItem);
+
+    const submitButton = screen.getByTestId('submit-button');
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Mercado do mês',
+        }),
+      );
+    });
+  });
 });
 
 describe('TransactionModal — Modo Edit', () => {
@@ -272,6 +362,16 @@ describe('TransactionModal — Modo Edit', () => {
     const selects = screen.getAllByTestId('select-root');
     const typeSelect = selects[1]; // segundo select é o de tipo
     expect(typeSelect).toHaveAttribute('data-value', 'expense');
+  });
+
+  // -----------------------------------------------------------------------
+  // Issue #13: modo Edit pré-preenche o campo Título
+  // -----------------------------------------------------------------------
+  it('deve preencher o campo Título com o valor da transação no modo Edit', () => {
+    render(<TransactionModal {...defaultProps} transaction={mockTransaction} />);
+
+    const titleInput = getTitleInput();
+    expect(titleInput.value).toBe('Aluguel Apartamento');
   });
 });
 
@@ -349,22 +449,19 @@ describe('TransactionModal — Interações', () => {
           date: '2026-04-01',
           responsible: 'Ana',
           type: 'income',
-          category: 'Salário',
+          category: CategoryEnum.enum.Salário,
         }),
       );
     });
   });
 
   // -----------------------------------------------------------------------
-  // G-T7: Botão "Cancelar" chama onClose
+  // G-T7 (atualizado): botão Cancelar removido — apenas o X do modal fecha
   // -----------------------------------------------------------------------
-  it('deve chamar onClose ao clicar em Cancelar', () => {
+  it('não deve exibir botão Cancelar (fechamento via X do modal)', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
-    const cancelButton = screen.getByRole('button', { name: /cancelar/i });
-    fireEvent.click(cancelButton);
-
-    expect(mockOnClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /cancelar/i })).not.toBeInTheDocument();
   });
 
   it('deve fechar ao clicar no botão X do modal', () => {
@@ -513,25 +610,34 @@ describe('TransactionModal — Validação (Red Paths)', () => {
   });
 
   // -----------------------------------------------------------------------
-  // R-T3: Campos obrigatórios vazios
+  // Issue #13: description NÃO é mais obrigatória — submissão sem descrição
+  // deve ser VÁLIDA (regra antiga: descrição vazia → erro de validação)
   // -----------------------------------------------------------------------
-  it('deve exibir erro de validação quando descrição está vazia', async () => {
+  it('deve permitir submissão sem descrição (descrição agora é opcional)', async () => {
+    mockOnSave.mockResolvedValue(undefined);
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
-    // Preencher apenas campos não-descrição
+    // Preencher TODOS os campos obrigatórios exceto a descrição
     fillFormFields({ description: '' });
+
+    // Selecionar categoria (necessária para validação)
+    const categoryItem = screen.getByTestId('select-item-Alimentação');
+    fireEvent.click(categoryItem);
 
     const submitButton = screen.getByTestId('submit-button');
     fireEvent.click(submitButton);
 
     await waitFor(() => {
-      // Agora há Label + mensagem de erro, então usamos getAllByText
-      const matches = screen.getAllByText(/descrição/i);
-      expect(matches.length).toBeGreaterThanOrEqual(2);
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
     });
 
-    expect(mockOnSave).not.toHaveBeenCalled();
+    // Nenhum erro de validação deve ser exibido
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  // -----------------------------------------------------------------------
+  // R-T3: Campos obrigatórios vazios (responsible continua obrigatório)
+  // -----------------------------------------------------------------------
 
   it('deve exibir erro de validação quando responsible está vazio', async () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
@@ -598,6 +704,26 @@ describe('TransactionModal — Validação (Red Paths)', () => {
     await waitFor(() => {
       expect(
         screen.getByText(/positivo|zero|inválido|válido/i),
+      ).toBeInTheDocument();
+    });
+
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  // -----------------------------------------------------------------------
+  // Issue #13: título com limite de 100 caracteres
+  // -----------------------------------------------------------------------
+  it('deve exibir erro de validação para título acima de 100 caracteres', async () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields({ title: 'T'.repeat(101) });
+
+    const submitButton = screen.getByTestId('submit-button');
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/100|máximo|longa|caracteres/i),
       ).toBeInTheDocument();
     });
 
@@ -672,6 +798,67 @@ describe('TransactionModal — Validação (Red Paths)', () => {
   });
 });
 
+describe('TransactionModal — Validação Contínua (botão Salvar)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('deve desabilitar o botão Salvar quando o formulário está inválido (categoria não selecionada)', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields();
+
+    const submitButton = screen.getByTestId('submit-button');
+    expect(submitButton).toBeDisabled();
+  });
+
+  it('deve desabilitar o botão Salvar no primeiro render do modo Create (form vazio)', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    expect(screen.getByTestId('submit-button')).toBeDisabled();
+  });
+
+  it('deve habilitar o botão Salvar quando o formulário é válido', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields();
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    expect(screen.getByTestId('submit-button')).toBeEnabled();
+  });
+
+  it('deve exibir erro de categoria "Este campo não deve estar vazio." quando categoria não selecionada', async () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields();
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Este campo não deve estar vazio',
+      );
+    });
+
+    // Não deve exibir a mensagem padrão do Zod enum
+    expect(screen.queryByText(/invalid enum value/i)).not.toBeInTheDocument();
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  it('deve desaparecer o erro de categoria após selecionar uma categoria válida', async () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Este campo não deve estar vazio',
+    );
+
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+  });
+});
+
 describe('TransactionModal — Edição', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -701,29 +888,41 @@ describe('TransactionModal — Edição', () => {
     });
   });
 
-  it('deve manter valores originais para campos não alterados na edição', async () => {
-    mockOnSave.mockResolvedValue(undefined);
-
+  it('deve manter o botão Salvar desabilitado quando nada é alterado na edição', () => {
     render(<TransactionModal {...defaultProps} transaction={mockTransaction} />);
 
-    // Submeter sem alterar nada
-    const submitButton = screen.getByTestId('submit-button');
-    fireEvent.click(submitButton);
+    expect(screen.getByTestId('submit-button')).toBeDisabled();
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
 
-    await waitFor(() => {
-      expect(mockOnSave).toHaveBeenCalledWith(
-        expect.objectContaining({
-          description: 'Aluguel',
-          responsible: 'João',
-        }),
-      );
+  it('deve habilitar o botão Salvar após alterar um campo e re-desabilitar ao reverter', () => {
+    render(<TransactionModal {...defaultProps} transaction={mockTransaction} />);
+
+    const submitButton = screen.getByTestId('submit-button');
+    expect(submitButton).toBeDisabled();
+
+    // Alterar a descrição → habilita
+    fireEvent.change(screen.getByTestId('input-description'), {
+      target: { value: 'Aluguel atualizado' },
     });
+    expect(submitButton).toBeEnabled();
+
+    // Reverter para o valor original → desabilita novamente
+    fireEvent.change(screen.getByTestId('input-description'), {
+      target: { value: 'Aluguel' },
+    });
+    expect(submitButton).toBeDisabled();
   });
 
   it('deve manter o mesmo id na edição', async () => {
     mockOnSave.mockResolvedValue(undefined);
 
     render(<TransactionModal {...defaultProps} transaction={mockTransaction} />);
+
+    // Alterar um campo para habilitar o botão (dirty tracking)
+    fireEvent.change(screen.getByTestId('input-description'), {
+      target: { value: 'Aluguel editado' },
+    });
 
     const submitButton = screen.getByTestId('submit-button');
     fireEvent.click(submitButton);
@@ -1062,5 +1261,568 @@ describe('TransactionModal — Cores do Toggle Pago', () => {
     // Por padrão, nova transação começa como não paga
     expect(paidToggle).toHaveAttribute('aria-checked', 'false');
     expect(paidToggle.className).toContain('finance-expense');
+  });
+});
+
+// ===========================================================================
+// Recorrência (Issue #12) — toggle "Aplicar a todas as parcelas futuras"
+// Regra de negócio: apenas transações recorrentes em EDIÇÃO exibem o toggle,
+// e apenas quando onSaveFuture é fornecido. O histórico nunca é alterado.
+// ===========================================================================
+
+describe('TransactionModal — Recorrência (Issue #12)', () => {
+  const mockOnSaveFuture = jest.fn();
+
+  const recurringByInstallments = {
+    ...mockTransaction,
+    id: 'r-1',
+    total_installments: 3,
+    installment_number: 2,
+  };
+
+  const recurringByFlag = {
+    ...mockTransaction,
+    id: 'r-2',
+    is_recurring: true,
+  };
+
+  const recurringByParent = {
+    ...mockTransaction,
+    id: 'r-3',
+    parent_transaction_id: 'parent-001',
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // -----------------------------------------------------------------------
+  // Green Path — toggle aparece para transações recorrentes com onSaveFuture
+  // -----------------------------------------------------------------------
+
+  it('deve exibir o toggle "Aplicar a todas as parcelas futuras" para transação com is_recurring true e onSaveFuture', () => {
+    render(
+      <TransactionModal
+        {...defaultProps}
+        transaction={recurringByFlag}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    const toggle = screen.getByRole('switch', {
+      name: /aplicar a todas as parcelas futuras/i,
+    });
+    expect(toggle).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('deve exibir o toggle para transação com total_installments maior que 1 e onSaveFuture', () => {
+    render(
+      <TransactionModal
+        {...defaultProps}
+        transaction={recurringByInstallments}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    expect(
+      screen.getByRole('switch', {
+        name: /aplicar a todas as parcelas futuras/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('deve exibir o toggle para transação com parent_transaction_id preenchido e onSaveFuture', () => {
+    render(
+      <TransactionModal
+        {...defaultProps}
+        transaction={recurringByParent}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    expect(
+      screen.getByRole('switch', {
+        name: /aplicar a todas as parcelas futuras/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Red Path — toggle NÃO aparece
+  // -----------------------------------------------------------------------
+
+  it('não deve exibir o toggle para transação NÃO recorrente mesmo com onSaveFuture', () => {
+    render(
+      <TransactionModal
+        {...defaultProps}
+        transaction={mockTransaction}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('switch', {
+        name: /aplicar a todas as parcelas futuras/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('não deve exibir o toggle para transação recorrente quando onSaveFuture não é fornecido', () => {
+    render(
+      <TransactionModal {...defaultProps} transaction={recurringByFlag} />,
+    );
+
+    expect(
+      screen.queryByRole('switch', {
+        name: /aplicar a todas as parcelas futuras/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('não deve exibir o toggle em modo Create (sem transação)', () => {
+    render(
+      <TransactionModal
+        {...defaultProps}
+        transaction={null}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('switch', {
+        name: /aplicar a todas as parcelas futuras/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Comportamento do submit com o toggle
+  // -----------------------------------------------------------------------
+
+  it('deve chamar onSaveFuture (e não onSave) com payload incluindo title quando o toggle está marcado', async () => {
+    mockOnSave.mockResolvedValue(undefined);
+    mockOnSaveFuture.mockResolvedValue(undefined);
+
+    render(
+      <TransactionModal
+        {...defaultProps}
+        transaction={recurringByFlag}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole('switch', {
+        name: /aplicar a todas as parcelas futuras/i,
+      }),
+    );
+    // Alterar um campo para habilitar o botão (dirty tracking)
+    fireEvent.change(screen.getByTestId('input-value'), {
+      target: { value: '1600.00' },
+    });
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(mockOnSaveFuture).toHaveBeenCalledTimes(1);
+      expect(mockOnSaveFuture).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'r-2',
+          title: 'Aluguel Apartamento',
+          description: 'Aluguel',
+        }),
+      );
+      expect(mockOnSave).not.toHaveBeenCalled();
+    });
+  });
+
+  it('deve chamar onSave (e não onSaveFuture) quando o toggle está desmarcado', async () => {
+    mockOnSave.mockResolvedValue(undefined);
+    mockOnSaveFuture.mockResolvedValue(undefined);
+
+    render(
+      <TransactionModal
+        {...defaultProps}
+        transaction={recurringByInstallments}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    // Alterar um campo para habilitar o botão (dirty tracking)
+    fireEvent.change(screen.getByTestId('input-value'), {
+      target: { value: '1600.00' },
+    });
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledTimes(1);
+      expect(mockOnSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'r-1',
+        }),
+      );
+      expect(mockOnSaveFuture).not.toHaveBeenCalled();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Reset do toggle ao fechar/reabrir o modal
+  // -----------------------------------------------------------------------
+
+  it('deve resetar o toggle para false ao fechar e reabrir o modal em edição recorrente', () => {
+    const { rerender } = render(
+      <TransactionModal
+        {...defaultProps}
+        transaction={recurringByFlag}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    const toggle = screen.getByRole('switch', {
+      name: /aplicar a todas as parcelas futuras/i,
+    });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    // Fechar o modal
+    rerender(
+      <TransactionModal
+        {...defaultProps}
+        isOpen={false}
+        transaction={recurringByFlag}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+    expect(screen.queryByTestId('modal-root')).not.toBeInTheDocument();
+
+    // Reabrir o modal — o toggle deve voltar a false
+    rerender(
+      <TransactionModal
+        {...defaultProps}
+        isOpen={true}
+        transaction={recurringByFlag}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    const reopenedToggle = screen.getByRole('switch', {
+      name: /aplicar a todas as parcelas futuras/i,
+    });
+    expect(reopenedToggle).toHaveAttribute('aria-checked', 'false');
+  });
+});
+
+// ===========================================================================
+// Recorrência na CRIAÇÃO (parcelada) — Toggle "Transação recorrente (parcelada)"
+// Requisitos aprovados pelo PO:
+//   1. No modo CRIAR (transaction null/undefined) deve existir o toggle
+//      "Transação recorrente (parcelada)".
+//   2. Toggle ATIVO → campo "Número de parcelas" (input number) aparece.
+//      Toggle DESATIVADO → campo NÃO aparece.
+//   3. Submit recorrente → onSave recebe is_recurring: true e
+//      total_installments como NUMBER (≥ 2).
+//   4. Submit não recorrente → onSave recebe is_recurring: false e SEM
+//      total_installments (ou undefined).
+//   5. Validações pt-BR com role="alert" e classe text-finance-expense.
+//   6. Modo EDIÇÃO não exibe este toggle nem o campo de parcelas.
+//   7. Reset: fechar e reabrir o modal em modo Create volta o toggle a false
+//      e o campo de parcelas some.
+// ===========================================================================
+
+describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
+  const mockOnSaveFuture = jest.fn();
+
+  const recurringEditTransaction = {
+    ...mockTransaction,
+    id: 'r-edit',
+    is_recurring: true,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // -----------------------------------------------------------------------
+  // Green Path — toggle visível no modo Create
+  // -----------------------------------------------------------------------
+
+  it('deve exibir o toggle "Transação recorrente (parcelada)" no modo Create', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    const toggle = screen.getByRole('switch', {
+      name: /transação recorrente.*parcelada/i,
+    });
+    expect(toggle).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+  });
+
+  it('deve exibir o texto visível "Transação recorrente (parcelada)" no modo Create', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    expect(
+      screen.getByText(/transação recorrente.*parcelada/i),
+    ).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Green Path — campo "Número de parcelas" condicional
+  // -----------------------------------------------------------------------
+
+  it('não deve exibir o campo "Número de parcelas" quando o toggle está desativado', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    expect(screen.queryByLabelText(/número de parcelas/i)).not.toBeInTheDocument();
+  });
+
+  it('deve exibir o campo "Número de parcelas" como input number ao ativar o toggle', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fireEvent.click(
+      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+    );
+
+    const installmentsInput = screen.getByLabelText(
+      /número de parcelas/i,
+    ) as HTMLInputElement;
+    expect(installmentsInput).toBeInTheDocument();
+    expect(installmentsInput).toHaveAttribute('type', 'number');
+  });
+
+  it('deve ocultar o campo "Número de parcelas" ao desativar o toggle', () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    const toggle = screen.getByRole('switch', {
+      name: /transação recorrente.*parcelada/i,
+    });
+
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText(/número de parcelas/i)).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByLabelText(/número de parcelas/i)).not.toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Green Path — payload de submissão
+  // -----------------------------------------------------------------------
+
+  it('deve enviar is_recurring true e total_installments (number) ao submeter com recorrência ativa', async () => {
+    mockOnSave.mockResolvedValue(undefined);
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields({ description: 'Compra parcelada' });
+
+    // Selecionar categoria (necessária para validação)
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    // Ativar recorrência e preencher o número de parcelas
+    fireEvent.click(
+      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+    );
+    fireEvent.change(screen.getByLabelText(/número de parcelas/i), {
+      target: { value: '3' },
+    });
+
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          is_recurring: true,
+          total_installments: 3,
+        }),
+      );
+    });
+
+    const payload = mockOnSave.mock.calls[0][0];
+    // total_installments deve ser NUMBER (não string)
+    expect(typeof payload.total_installments).toBe('number');
+  });
+
+  it('deve enviar is_recurring false e sem total_installments ao submeter sem recorrência', async () => {
+    mockOnSave.mockResolvedValue(undefined);
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields({ description: 'Pagamento único' });
+
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          is_recurring: false,
+        }),
+      );
+    });
+
+    const payload = mockOnSave.mock.calls[0][0];
+    expect(payload).not.toHaveProperty('total_installments');
+  });
+
+  // -----------------------------------------------------------------------
+  // Red Path — validação de parcelas (mensagens pt-BR, role="alert")
+  // -----------------------------------------------------------------------
+
+  it('deve exibir erro "Informe o número de parcelas" quando recorrência ativa e parcelas em branco', async () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields();
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    fireEvent.click(
+      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+    );
+
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        /informe o número de parcelas/i,
+      );
+    });
+
+    const alertEl = screen.getByRole('alert');
+    expect(alertEl.className).toContain('text-finance-expense');
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  it('deve exibir erro "Mínimo de 2 parcelas" para parcelas menor que 2', async () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields();
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    fireEvent.click(
+      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+    );
+    fireEvent.change(screen.getByLabelText(/número de parcelas/i), {
+      target: { value: '1' },
+    });
+
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        /mínimo de 2 parcelas/i,
+      );
+    });
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  it('deve exibir erro "Máximo de 48 parcelas" para parcelas maior que 48', async () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields();
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    fireEvent.click(
+      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+    );
+    fireEvent.change(screen.getByLabelText(/número de parcelas/i), {
+      target: { value: '49' },
+    });
+
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        /máximo de 48 parcelas/i,
+      );
+    });
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  it('deve exibir erro de validação quando o número de parcelas não é numérico', async () => {
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields();
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    fireEvent.click(
+      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+    );
+    // Nota: com <input type="number"> o valor 'abc' é sanitizado para '' no DOM,
+    // então o erro exibido pode ser "Informe o número de parcelas" ou
+    // "Número de parcelas inválido". O importante: NÃO submete e mostra alerta.
+    fireEvent.change(screen.getByLabelText(/número de parcelas/i), {
+      target: { value: 'abc' },
+    });
+
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('alert').textContent).toMatch(/parcelas/i);
+    expect(mockOnSave).not.toHaveBeenCalled();
+  });
+
+  // -----------------------------------------------------------------------
+  // Modo Edição — toggle de criação NÃO deve aparecer
+  // -----------------------------------------------------------------------
+
+  it('não deve exibir o toggle de recorrência de criação nem o campo de parcelas no modo Edição', () => {
+    render(
+      <TransactionModal
+        {...defaultProps}
+        transaction={recurringEditTransaction}
+        onSaveFuture={mockOnSaveFuture}
+      />,
+    );
+
+    // O toggle já existente de edição continua presente
+    expect(
+      screen.getByRole('switch', {
+        name: /aplicar a todas as parcelas futuras/i,
+      }),
+    ).toBeInTheDocument();
+
+    // O novo toggle de criação (parcelada) NÃO deve aparecer em edição
+    expect(
+      screen.queryByRole('switch', {
+        name: /transação recorrente.*parcelada/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/número de parcelas/i)).not.toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Reset — fechar e reabrir o modal em modo Create
+  // -----------------------------------------------------------------------
+
+  it('deve resetar o toggle de recorrência e ocultar o campo de parcelas ao fechar e reabrir o modal', () => {
+    const { rerender } = render(
+      <TransactionModal {...defaultProps} transaction={null} />,
+    );
+
+    const toggle = screen.getByRole('switch', {
+      name: /transação recorrente.*parcelada/i,
+    });
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByLabelText(/número de parcelas/i)).toBeInTheDocument();
+
+    // Fechar o modal
+    rerender(
+      <TransactionModal {...defaultProps} isOpen={false} transaction={null} />,
+    );
+    expect(screen.queryByTestId('modal-root')).not.toBeInTheDocument();
+
+    // Reabrir o modal — toggle deve voltar a false e o campo deve sumir
+    rerender(
+      <TransactionModal {...defaultProps} isOpen={true} transaction={null} />,
+    );
+
+    const reopenedToggle = screen.getByRole('switch', {
+      name: /transação recorrente.*parcelada/i,
+    });
+    expect(reopenedToggle).toHaveAttribute('aria-checked', 'false');
+    expect(screen.queryByLabelText(/número de parcelas/i)).not.toBeInTheDocument();
   });
 });

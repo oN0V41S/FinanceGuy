@@ -3,7 +3,6 @@
 import { Menu } from 'lucide-react';
 import { HeaderIconButton } from './HeaderIconButton';
 import { HeaderBrand } from './HeaderBrand';
-import { HeaderSearch } from './HeaderSearch';
 import { HeaderActions } from './HeaderActions';
 import { logoutAction } from '@/features/auth/actions/logoutAction';
 
@@ -32,10 +31,7 @@ export function HeaderLayout({ isDrawerOpen, onToggleDrawer }: HeaderLayoutProps
           <HeaderBrand />
         </div>
 
-        {/* Center - Search + Assistente IA (desktop only, truly centered) */}
-        <HeaderSearch />
-
-        {/* Right - Notificações + Perfil */}
+        {/* Right - Perfil */}
         <HeaderActions onLogout={handleLogout} />
       </div>
     </header>

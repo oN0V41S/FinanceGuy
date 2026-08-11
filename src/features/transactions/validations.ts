@@ -18,7 +18,8 @@ export const CategoryEnum = z.enum([
 export const TransactionSchema = z.object({
     id: z.string().min(1, 'ID deve ser uma string não vazia'),
     type: TransactionTypeEnum,
-    description: z.string().min(1, 'Descrição é obrigatória').max(255),
+    title: z.string().trim().max(100, 'Título muito longo (máximo 100 caracteres)').optional(),
+    description: z.string().max(255, 'Descrição muito longa (máximo 255 caracteres)').optional(),
     value: z.number().positive('Valor deve ser positivo'),
     date: z.string().refine(
         (val) => !isNaN(Date.parse(val)),

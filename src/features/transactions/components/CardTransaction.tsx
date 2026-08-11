@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Edit2, Trash2, Check, X } from 'lucide-react';
+import { Edit2, Trash2, Check, X, RefreshCw } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/shared/utils';
 import { cn } from '@/lib/utils';
 import type { Transaction } from '@/types/finance';
@@ -62,7 +62,12 @@ function CardTransaction({ transactions, isLoading, onEdit, onDelete }: CardTran
           <CardHeader>
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <CardTitle className="text-base">{tx.description}</CardTitle>
+                <CardTitle className="text-base truncate" title={tx.title || tx.description}>
+                  {tx.title || tx.description}
+                </CardTitle>
+                {tx.title && tx.description && (
+                  <CardDescription className="truncate">{tx.description}</CardDescription>
+                )}
                 <CardDescription>{tx.responsible}</CardDescription>
               </div>
               <span className="shrink-0 text-xs text-muted-foreground">{formatDate(tx.date)}</span>
@@ -70,9 +75,16 @@ function CardTransaction({ transactions, isLoading, onEdit, onDelete }: CardTran
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
-              <Badge className={cn(CATEGORY_COLORS[tx.category] || CATEGORY_COLORS.Outros, 'rounded-full')}>
-                {tx.category}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Badge className={cn(CATEGORY_COLORS[tx.category] || CATEGORY_COLORS.Outros, 'rounded-full')}>
+                  {tx.category}
+                </Badge>
+                {(tx.is_recurring || tx.total_installments || tx.parent_transaction_id) && (
+                  <Badge className="rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                    <RefreshCw className="size-3" /> Recorrente
+                  </Badge>
+                )}
+              </div>
               <span
                 data-testid="status-indicator"
                 className={cn(

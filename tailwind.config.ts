@@ -16,6 +16,9 @@ const config: Config = {
       colors: {
         background: 'var(--background)',
         foreground: 'var(--foreground)',
+        'on-primary': 'var(--on-primary)',
+        'on-surface': 'var(--on-surface)',
+        'on-surface-variant': 'var(--on-surface-variant)',
         surface: {
           DEFAULT: 'var(--surface)',
           bright: 'var(--surface-bright)',

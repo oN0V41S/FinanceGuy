@@ -23,11 +23,18 @@ const mockUseTransactions = {
   createTransaction: jest.fn(),
   updateTransaction: jest.fn(),
   deleteTransaction: jest.fn(),
+  deleteFutureTransactions: jest.fn(),
+  updateFutureTransactions: jest.fn(),
   isModalOpen: false,
   editingTransaction: null,
   openCreateModal: jest.fn(),
   openEditModal: jest.fn(),
   closeModal: jest.fn(),
+  isConfirmModalOpen: false,
+  deletingTransaction: null,
+  openConfirmModal: jest.fn(),
+  closeConfirmModal: jest.fn(),
+  confirmDeleteTransaction: jest.fn(),
 };
 
 jest.mock('@/features/transactions/hooks/useTransactions', () => ({
@@ -228,19 +235,21 @@ jest.mock('@/features/transactions/components/CardTransaction', () => ({
   ),
 }));
 
-jest.mock('@/features/transactions/components/TransactionModal', () => ({
-  __esModule: true,
-  default: ({
+jest.mock('@/features/transactions/components/TransactionModal', () => {
+  const TransactionModalMock = ({
     isOpen,
     onClose,
     transaction,
     onSave,
+    onSaveFuture,
   }: {
     isOpen: boolean;
     onClose: () => void;
     transaction: any;
     onSave: (data: any) => Promise<void>;
+    onSaveFuture?: (data: any) => Promise<void>;
   }) => {
+    const [applyFuture, setApplyFuture] = React.useState(false);
     if (!isOpen) return null;
     return (
       <div data-testid="transaction-modal" role="dialog" aria-modal="true">
@@ -250,11 +259,66 @@ jest.mock('@/features/transactions/components/TransactionModal', () => ({
         <button data-testid="modal-close" onClick={onClose}>
           Fechar
         </button>
+        <label>
+          <input
+            type="checkbox"
+            data-testid="modal-apply-future"
+            checked={applyFuture}
+            onChange={(e) => setApplyFuture(e.target.checked)}
+          />
+          Aplicar a todas as parcelas futuras
+        </label>
         <button
           data-testid="modal-submit"
-          onClick={() => onSave({ description: 'teste' })}
+          onClick={() => {
+            if (applyFuture && onSaveFuture) {
+              onSaveFuture({ description: 'teste' });
+            } else {
+              onSave({ description: 'teste' });
+            }
+          }}
         >
           Salvar
+        </button>
+      </div>
+    );
+  };
+  return { __esModule: true, default: TransactionModalMock };
+});
+
+jest.mock('@/features/transactions/components/ConfirmDeleteModal', () => ({
+  __esModule: true,
+  default: ({
+    isOpen,
+    onClose,
+    onConfirm,
+    isRecurring,
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: (scope: 'single' | 'future') => Promise<void>;
+    isRecurring?: boolean;
+  }) => {
+    if (!isOpen) return null;
+    return (
+      <div
+        data-testid="confirm-delete-modal"
+        data-is-recurring={String(isRecurring)}
+      >
+        <span data-testid="confirm-modal-recurring">
+          {isRecurring ? 'Recorrente' : 'Simples'}
+        </span>
+        <button
+          data-testid="confirm-delete-single"
+          onClick={() => onConfirm('single')}
+        >
+          Excluir apenas esta
+        </button>
+        <button
+          data-testid="confirm-delete-future"
+          onClick={() => onConfirm('future')}
+        >
+          Excluir esta e as futuras
         </button>
       </div>
     );
@@ -1057,5 +1121,177 @@ describe('TransactionsPage Integration', () => {
       expect(parent).toBe(expenseCard.parentNode);
       expect(parent).toBe(balanceCard.parentNode);
     });
+  });
+});
+
+// ===========================================================================
+// Recorrência (Issue #12) — deletar e editar "esta e futuras"
+// Fluxos validados na página:
+//   - excluir transação recorrente → ConfirmDeleteModal isRecurring=true
+//   - "Excluir esta e as futuras" → confirmDeleteTransaction('future')
+//   - editar recorrente com toggle → updateFutureTransactions
+// ===========================================================================
+
+describe('TransactionsPage Recorrência (Issue #12)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    Object.assign(mockUseTransactions, buildMock());
+  });
+
+  // -----------------------------------------------------------------------
+  // Abertura do ConfirmDeleteModal a partir do clique em excluir
+  // -----------------------------------------------------------------------
+
+  it('clique em excluir na tabela chama openConfirmModal com a transação', async () => {
+    const user = userEvent.setup();
+    Object.assign(mockUseTransactions, {
+      transactions: mockTransactions,
+    });
+
+    render(<TransactionsPage />);
+
+    await user.click(screen.getByTestId('delete-btn-tr-002'));
+
+    expect(mockUseTransactions.openConfirmModal).toHaveBeenCalledTimes(1);
+    expect(mockUseTransactions.openConfirmModal).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'tr-002' }),
+    );
+  });
+
+  // -----------------------------------------------------------------------
+  // Fluxo 1: excluir transação recorrente com escopo "future"
+  // -----------------------------------------------------------------------
+
+  it('excluir recorrente: ConfirmDeleteModal recebe isRecurring true e "Excluir esta e as futuras" chama confirmDeleteTransaction("future") e deleteFutureTransactions', async () => {
+    const user = userEvent.setup();
+    const confirmDelete = jest.fn(async (scope: 'single' | 'future') => {
+      const tx = mockUseTransactions.deletingTransaction as { id: string } | null;
+      if (scope === 'future' && tx) {
+        await mockUseTransactions.deleteFutureTransactions(tx.id);
+      } else if (scope === 'single' && tx) {
+        await mockUseTransactions.deleteTransaction(tx.id);
+      }
+    });
+    Object.assign(mockUseTransactions, {
+      transactions: mockTransactions,
+      isConfirmModalOpen: true,
+      deletingTransaction: mockTransactions[1], // tr-002 é recorrente
+      confirmDeleteTransaction: confirmDelete,
+    });
+
+    render(<TransactionsPage />);
+
+    // O modal de confirmação deve receber isRecurring=true
+    const modal = screen.getByTestId('confirm-delete-modal');
+    expect(modal).toHaveAttribute('data-is-recurring', 'true');
+    expect(screen.getByTestId('confirm-modal-recurring')).toHaveTextContent(
+      'Recorrente',
+    );
+
+    await user.click(screen.getByTestId('confirm-delete-future'));
+
+    expect(confirmDelete).toHaveBeenCalledWith('future');
+    expect(
+      mockUseTransactions.deleteFutureTransactions,
+    ).toHaveBeenCalledWith('tr-002');
+  });
+
+  it('excluir recorrente: "Excluir apenas esta" chama confirmDeleteTransaction("single") e deleteTransaction', async () => {
+    const user = userEvent.setup();
+    const confirmDelete = jest.fn(async (scope: 'single' | 'future') => {
+      const tx = mockUseTransactions.deletingTransaction as { id: string } | null;
+      if (scope === 'future' && tx) {
+        await mockUseTransactions.deleteFutureTransactions(tx.id);
+      } else if (scope === 'single' && tx) {
+        await mockUseTransactions.deleteTransaction(tx.id);
+      }
+    });
+    Object.assign(mockUseTransactions, {
+      transactions: mockTransactions,
+      isConfirmModalOpen: true,
+      deletingTransaction: mockTransactions[1],
+      confirmDeleteTransaction: confirmDelete,
+    });
+
+    render(<TransactionsPage />);
+
+    await user.click(screen.getByTestId('confirm-delete-single'));
+
+    expect(confirmDelete).toHaveBeenCalledWith('single');
+    expect(mockUseTransactions.deleteTransaction).toHaveBeenCalledWith(
+      'tr-002',
+    );
+    expect(
+      mockUseTransactions.deleteFutureTransactions,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('excluir transação simples: ConfirmDeleteModal recebe isRecurring false', () => {
+    Object.assign(mockUseTransactions, {
+      transactions: mockTransactions,
+      isConfirmModalOpen: true,
+      deletingTransaction: mockTransactions[0], // tr-001 não é recorrente
+    });
+
+    render(<TransactionsPage />);
+
+    const modal = screen.getByTestId('confirm-delete-modal');
+    expect(modal).toHaveAttribute('data-is-recurring', 'false');
+    expect(screen.getByTestId('confirm-modal-recurring')).toHaveTextContent(
+      'Simples',
+    );
+  });
+
+  // -----------------------------------------------------------------------
+  // Fluxo 2: editar transação recorrente propagando para as futuras
+  // -----------------------------------------------------------------------
+
+  it('editar recorrente com toggle marcado: salvar chama updateFutureTransactions (não updateTransaction)', async () => {
+    const user = userEvent.setup();
+    Object.assign(mockUseTransactions, {
+      isModalOpen: true,
+      editingTransaction: mockTransactions[1], // tr-002 é recorrente
+      updateTransaction: jest.fn().mockResolvedValue(undefined),
+      updateFutureTransactions: jest.fn().mockResolvedValue(undefined),
+    });
+
+    render(<TransactionsPage />);
+
+    await user.click(screen.getByTestId('modal-apply-future'));
+    await user.click(screen.getByTestId('modal-submit'));
+
+    expect(
+      mockUseTransactions.updateFutureTransactions,
+    ).toHaveBeenCalledTimes(1);
+    expect(
+      mockUseTransactions.updateFutureTransactions,
+    ).toHaveBeenCalledWith(
+      'tr-002',
+      expect.objectContaining({ description: 'teste' }),
+    );
+    expect(mockUseTransactions.updateTransaction).not.toHaveBeenCalled();
+  });
+
+  it('editar recorrente sem toggle: salvar chama updateTransaction (não updateFutureTransactions)', async () => {
+    const user = userEvent.setup();
+    Object.assign(mockUseTransactions, {
+      isModalOpen: true,
+      editingTransaction: mockTransactions[1],
+      updateTransaction: jest.fn().mockResolvedValue(undefined),
+      updateFutureTransactions: jest.fn().mockResolvedValue(undefined),
+    });
+
+    render(<TransactionsPage />);
+
+    await user.click(screen.getByTestId('modal-submit'));
+
+    expect(mockUseTransactions.updateTransaction).toHaveBeenCalledTimes(1);
+    expect(mockUseTransactions.updateTransaction).toHaveBeenCalledWith(
+      'tr-002',
+      expect.objectContaining({ description: 'teste' }),
+    );
+    expect(
+      mockUseTransactions.updateFutureTransactions,
+    ).not.toHaveBeenCalled();
   });
 });

@@ -13,6 +13,15 @@ export async function PUT(
     }
 
     const { id } = await params;
+    const scope = request.nextUrl.searchParams.get('scope');
+
+    // scope=future — "esta e futuras": atualiza a parcela selecionada e as seguintes.
+    if (scope === 'future') {
+      const body = await request.json();
+      const count = await transactionService.updateFutureTransactions(id, userId, body);
+      return NextResponse.json({ data: { updated: count } });
+    }
+
     const body = await request.json();
 
     const updated = await transactionService.updateTransaction(id, body);
@@ -53,6 +62,14 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    const scope = request.nextUrl.searchParams.get('scope');
+
+    // scope=future — "esta e futuras": deleta a parcela selecionada e as seguintes.
+    if (scope === 'future') {
+      const count = await transactionService.deleteFutureTransactions(id, userId);
+      return NextResponse.json({ success: true, count });
+    }
+
     await transactionService.deleteTransaction(id);
 
     return NextResponse.json({

@@ -401,6 +401,72 @@ describe('useTransactions', () => {
     });
   });
 
+  describe('Green path — operações em lote (scope=future)', () => {
+    it('deleteFutureTransactions(id) deve fazer DELETE com scope=future e depois refresh', async () => {
+      mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
+
+      const { result } = renderHook(() => useTransactions());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      mockFetch
+        .mockResolvedValueOnce(makeResponse({ success: true, count: 2 }, true, 200))
+        .mockResolvedValue(makeResponse(mockApiResponse));
+
+      await act(async () => {
+        await result.current.deleteFutureTransactions('3');
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('/api/transactions/3?scope=future'),
+        expect.objectContaining({
+          method: 'DELETE',
+        }),
+      );
+      // Terceira chamada deve ser o GET do refresh
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        3,
+        expect.stringContaining('/api/transactions'),
+        undefined,
+      );
+    });
+
+    it('updateFutureTransactions(id, data) deve fazer PUT com scope=future e depois refresh', async () => {
+      mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
+
+      const { result } = renderHook(() => useTransactions());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      mockFetch
+        .mockResolvedValueOnce(makeResponse({ success: true, count: 2 }, true, 200))
+        .mockResolvedValue(makeResponse(mockApiResponse));
+
+      await act(async () => {
+        await result.current.updateFutureTransactions('2', { description: 'Aluguel atualizado' });
+      });
+
+      expect(mockFetch).toHaveBeenCalledTimes(3);
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('/api/transactions/2?scope=future'),
+        expect.objectContaining({
+          method: 'PUT',
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+          body: expect.stringContaining('"description":"Aluguel atualizado"'),
+        }),
+      );
+      // Terceira chamada deve ser o GET do refresh
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        3,
+        expect.stringContaining('/api/transactions'),
+        undefined,
+      );
+    });
+  });
+
   describe('Green path — modal state', () => {
     it('openCreateModal() deve abrir modal sem transaction', async () => {
       mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
@@ -587,6 +653,30 @@ describe('useTransactions', () => {
       });
 
       expect(error).not.toBeNull();
+    });
+
+    it('deleteFutureTransactions deve propagar erro quando DELETE falha', async () => {
+      mockFetch.mockResolvedValue(makeResponse(mockApiResponse));
+
+      const { result } = renderHook(() => useTransactions());
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+      mockFetch.mockResolvedValue(makeResponse({ error: 'Transação não encontrada' }, false, 404));
+
+      let error: Error | null = null;
+      await act(async () => {
+        try {
+          await result.current.deleteFutureTransactions('inexistente');
+        } catch (err) {
+          error = err as Error;
+        }
+      });
+
+      expect(error).not.toBeNull();
+      expect((error as unknown as Error).message).toBe('Transação não encontrada');
+      // refresh NÃO deve ter sido chamado após erro
+      // Total: 1 (fetch inicial) + 1 (DELETE falho) = 2
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 

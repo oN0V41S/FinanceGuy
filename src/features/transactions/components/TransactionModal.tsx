@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import Modal from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
@@ -23,10 +23,14 @@ import { z } from 'zod';
 // ---------------------------------------------------------------------------
 const FormSchema = z.object({
   type: z.enum(['income', 'expense']),
+  title: z
+    .string()
+    .max(100, 'Título muito longo (máximo 100 caracteres)')
+    .optional(),
   description: z
     .string()
-    .min(1, 'Descrição é obrigatória')
-    .max(255, 'Descrição muito longa (máximo 255 caracteres)'),
+    .max(255, 'Descrição muito longa (máximo 255 caracteres)')
+    .optional(),
   value: z.string().refine(
     (val) => {
       if (val === '') return false;
@@ -36,12 +40,30 @@ const FormSchema = z.object({
     { message: 'Valor deve ser positivo' },
   ),
   date: z.string().min(1, 'Data é obrigatória'),
-  category: CategoryEnum,
+  category: z.string().refine(
+    (val) => CategoryEnum.safeParse(val).success,
+    { message: 'Este campo não deve estar vazio' },
+  ),
   responsible: z
     .string()
     .min(1, 'Responsável é obrigatório')
     .max(100, 'Responsável muito longo (máximo 100 caracteres)'),
   paid: z.boolean(),
+  isRecurring: z.boolean().optional(),
+  totalInstallments: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.isRecurring) {
+    const n = parseInt(data.totalInstallments ?? '', 10);
+    if (!data.totalInstallments || data.totalInstallments.trim() === '') {
+      ctx.addIssue({ code: 'custom', path: ['totalInstallments'], message: 'Informe o número de parcelas' });
+    } else if (Number.isNaN(n)) {
+      ctx.addIssue({ code: 'custom', path: ['totalInstallments'], message: 'Número de parcelas inválido' });
+    } else if (n < 2) {
+      ctx.addIssue({ code: 'custom', path: ['totalInstallments'], message: 'Mínimo de 2 parcelas' });
+    } else if (n > 48) {
+      ctx.addIssue({ code: 'custom', path: ['totalInstallments'], message: 'Máximo de 48 parcelas' });
+    }
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -51,6 +73,7 @@ interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: TransactionFormData) => Promise<void>;
+  onSaveFuture?: (data: TransactionFormData) => Promise<void>;
   transaction?: Transaction | null;
   isLoading?: boolean;
 }
@@ -64,19 +87,32 @@ export default function TransactionModal({
   isOpen,
   onClose,
   onSave,
+  onSaveFuture,
   transaction = null,
   isLoading = false,
 }: TransactionModalProps) {
   const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [category, setCategory] = useState('');
   const [responsible, setResponsible] = useState('');
   const [paid, setPaid] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [applyToFuture, setApplyToFuture] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [installments, setInstallments] = useState('');
+  const [formTouched, setFormTouched] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Uma transação é considerada recorrente quando pertence a uma série
+  // (parcela filha, recorrência marcada ou parcelamento em N vezes).
+  const isRecurringTransaction = Boolean(
+    transaction?.parent_transaction_id ||
+      transaction?.is_recurring ||
+      transaction?.total_installments,
+  );
 
   // -----------------------------------------------------------------------
   // Reset form when modal opens or transaction changes
@@ -86,7 +122,8 @@ export default function TransactionModal({
 
     if (transaction) {
       setType(transaction.type);
-      setDescription(transaction.description);
+      setTitle(transaction.title ?? '');
+      setDescription(transaction.description ?? '');
       setAmount(String(transaction.value));
       setDate(transaction.date);
       setCategory(transaction.category);
@@ -94,6 +131,7 @@ export default function TransactionModal({
       setPaid(transaction.paid ?? false);
     } else {
       setType('expense');
+      setTitle('');
       setDescription('');
       setAmount('');
       setDate('');
@@ -102,10 +140,80 @@ export default function TransactionModal({
       setPaid(false);
     }
 
-    setErrors({});
+    setApplyToFuture(false);
+    setIsRecurring(false);
+    setInstallments('');
+    setFormTouched(false);
     setSubmitError(null);
     setSubmitting(false);
   }, [isOpen, transaction]);
+
+  // -----------------------------------------------------------------------
+  // Derived form state (live validation)
+  // -----------------------------------------------------------------------
+  const buildFormData = useCallback(() => {
+    const data: Record<string, unknown> = {
+      type,
+      title,
+      description,
+      value: amount,
+      date,
+      category,
+      responsible,
+      paid,
+      isRecurring,
+      totalInstallments: installments,
+    };
+
+    // Include id when editing
+    if (transaction?.id) {
+      data.id = transaction.id;
+    }
+    return data;
+  }, [type, title, description, amount, date, category, responsible, paid, isRecurring, installments, transaction?.id]);
+
+  const markTouched = useCallback(() => setFormTouched(true), []);
+
+  const validation = useMemo(
+    () => FormSchema.safeParse(buildFormData()),
+    [buildFormData],
+  );
+  const isFormValid = validation.success;
+
+  const fieldErrors = useMemo(() => {
+    if (validation.success) return {} as Record<string, string>;
+    const map: Record<string, string> = {};
+    for (const issue of validation.error.issues) {
+      const field = issue.path[0] as string;
+      if (!map[field]) map[field] = issue.message;
+    }
+    return map;
+  }, [validation]);
+
+  // -----------------------------------------------------------------------
+  // Dirty tracking — em edição o botão Salvar só habilita após o usuário
+  // alterar algum campo; reverter ao estado inicial desabilita novamente.
+  // Em criação (sem transaction) o form já inicia vazio, então dirty = true.
+  // -----------------------------------------------------------------------
+  const currentValues = useMemo(
+    () => ({ type, title, description, amount, date, category, responsible, paid }),
+    [type, title, description, amount, date, category, responsible, paid],
+  );
+
+  const isDirty = useMemo(() => {
+    if (!transaction) return true;
+    const snapshot = {
+      type: transaction.type,
+      title: transaction.title ?? '',
+      description: transaction.description ?? '',
+      amount: String(transaction.value),
+      date: transaction.date,
+      category: transaction.category,
+      responsible: transaction.responsible,
+      paid: transaction.paid ?? false,
+    };
+    return JSON.stringify(snapshot) !== JSON.stringify(currentValues);
+  }, [transaction, currentValues]);
 
   // -----------------------------------------------------------------------
   // Click delegation for SelectItem (catches clicks from test mock where
@@ -117,7 +225,8 @@ export default function TransactionModal({
       const testId = target.getAttribute('data-testid');
       if (testId && testId.startsWith('select-item-')) {
         const value = testId.replace('select-item-', '');
-        
+        setFormTouched(true);
+
         // Handle both category and type selects
         if (value === 'income' || value === 'expense') {
           setType(value as 'income' | 'expense');
@@ -133,46 +242,30 @@ export default function TransactionModal({
   // Submit handler
   // -----------------------------------------------------------------------
   const handleSubmit = async () => {
-    const formData: Record<string, unknown> = {
-      type,
-      description,
-      value: amount,
-      date,
-      category,
-      responsible,
-      paid,
-    };
+    setFormTouched(true);
 
-    // Include id when editing
-    if (transaction?.id) {
-      formData.id = transaction.id;
-    }
+    const result = FormSchema.safeParse(buildFormData());
+    if (!result.success) return;
 
-    const result = FormSchema.safeParse(formData);
-
-    if (!result.success) {
-      const fieldErrors: Record<string, string> = {};
-      for (const err of result.error.issues) {
-        const field = err.path[0] as string;
-        if (!fieldErrors[field]) {
-          fieldErrors[field] = err.message;
-        }
-      }
-      setErrors(fieldErrors);
-      return;
-    }
-
-    setErrors({});
     setSubmitError(null);
     setSubmitting(true);
 
     try {
       // Convert value from string to number before sending to API
       const dataToSend = {
-        ...formData,
-        value: parseFloat(formData.value as string),
-      };
-      await onSave(dataToSend as unknown as TransactionFormData);
+        ...buildFormData(),
+        value: parseFloat(amount),
+        is_recurring: isRecurring,
+        ...(isRecurring ? { total_installments: parseInt(installments, 10) } : {}),
+      } as unknown as TransactionFormData;
+
+      // Transações recorrentes em edição podem propagar a alteração
+      // para todas as parcelas futuras (o histórico nunca é alterado).
+      if (applyToFuture && onSaveFuture && transaction) {
+        await onSaveFuture(dataToSend);
+      } else {
+        await onSave(dataToSend);
+      }
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : String(error);
@@ -201,17 +294,38 @@ export default function TransactionModal({
           </Alert>
         )}
 
+        {/* ---- Title ---- */}
+        <div>
+          <Label htmlFor="title">Título</Label>
+          <Input
+            id="title"
+            maxLength={100}
+            value={title}
+            onChange={(e) => {
+              markTouched();
+              setTitle(e.target.value);
+            }}
+            placeholder="Ex: Aluguel"
+          />
+          {formTouched && fieldErrors.title && (
+            <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.title}</p>
+          )}
+        </div>
+
         {/* ---- Description ---- */}
         <div>
           <Label htmlFor="description">Descrição</Label>
           <Input
             id="description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              markTouched();
+              setDescription(e.target.value);
+            }}
             placeholder="Ex: Supermercado"
           />
-          {errors.description && (
-            <p className="text-finance-expense text-sm mt-1" role="alert">{errors.description}</p>
+          {formTouched && fieldErrors.description && (
+            <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.description}</p>
           )}
         </div>
 
@@ -223,11 +337,14 @@ export default function TransactionModal({
               id="value"
               inputMode="decimal"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => {
+                markTouched();
+                setAmount(e.target.value);
+              }}
               placeholder="R$ 0,00"
             />
-            {errors.value && (
-              <p className="text-finance-expense text-sm mt-1" role="alert">{errors.value}</p>
+            {formTouched && fieldErrors.value && (
+              <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.value}</p>
             )}
           </div>
           <div>
@@ -236,10 +353,13 @@ export default function TransactionModal({
               id="date"
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => {
+                markTouched();
+                setDate(e.target.value);
+              }}
             />
-            {errors.date && (
-              <p className="text-finance-expense text-sm mt-1" role="alert">{errors.date}</p>
+            {formTouched && fieldErrors.date && (
+              <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.date}</p>
             )}
           </div>
         </div>
@@ -247,7 +367,10 @@ export default function TransactionModal({
         {/* ---- Category ---- */}
         <div onClick={handleSelectContainerClick}>
           <Label>Categoria</Label>
-          <Select value={category} onValueChange={setCategory}>
+          <Select value={category} onValueChange={(value) => {
+            markTouched();
+            setCategory(value ?? '');
+          }}>
             <SelectTrigger
               className="w-full h-9"
               variant="finance"
@@ -266,8 +389,8 @@ export default function TransactionModal({
               ))}
             </SelectContent>
           </Select>
-          {errors.category && (
-            <p className="text-finance-expense text-sm mt-1" role="alert">{errors.category}</p>
+          {formTouched && fieldErrors.category && (
+            <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.category}</p>
           )}
         </div>
 
@@ -277,31 +400,45 @@ export default function TransactionModal({
           <Input
             id="responsible"
             value={responsible}
-            onChange={(e) => setResponsible(e.target.value)}
+            onChange={(e) => {
+              markTouched();
+              setResponsible(e.target.value);
+            }}
             placeholder="Nome do responsável"
           />
-          {errors.responsible && (
-            <p className="text-finance-expense text-sm mt-1" role="alert">{errors.responsible}</p>
+          {formTouched && fieldErrors.responsible && (
+            <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.responsible}</p>
           )}
         </div>
 
         {/* ---- Type dropdown ---- */}
         <div onClick={handleSelectContainerClick}>
           <Label>Tipo</Label>
-          <Select value={type} onValueChange={setType}>
+          <Select value={type} onValueChange={(value) => {
+            markTouched();
+            setType(value as 'income' | 'expense');
+          }}>
             <SelectTrigger
               className="w-full h-9"
               variant="finance"
             >
-              <SelectValue placeholder="Selecione o tipo" />
+              <SelectValue placeholder="Selecione o tipo">
+                {(value: string) =>
+                  value === 'income'
+                    ? 'Receita'
+                    : value === 'expense'
+                      ? 'Despesa'
+                      : 'Selecione o tipo'
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent variant="finance">
               <SelectItem value="expense" variant="finance" data-testid="select-item-expense">Despesa</SelectItem>
               <SelectItem value="income" variant="finance" data-testid="select-item-income">Receita</SelectItem>
             </SelectContent>
           </Select>
-          {errors.type && (
-            <p className="text-finance-expense text-sm mt-1" role="alert">{errors.type}</p>
+          {formTouched && fieldErrors.type && (
+            <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.type}</p>
           )}
         </div>
 
@@ -311,27 +448,81 @@ export default function TransactionModal({
           <Toggle
             id="paid"
             checked={paid}
-            onChange={setPaid}
+            onChange={(next) => {
+              markTouched();
+              setPaid(next);
+            }}
             aria-label="Marcar como pago"
             colorScheme="paid"
           />
         </div>
 
-        {/* ---- Action buttons ---- */}
-        <div className="flex gap-3 pt-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            className="flex-1"
-          >
-            Cancelar
-          </Button>
+        {/* ---- Create recurring (installments) toggle (create mode only) ---- */}
+        {!transaction && (
+          <>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="is-recurring">Transação recorrente (parcelada)</Label>
+              <Toggle
+                id="is-recurring"
+                checked={isRecurring}
+                onChange={(next) => {
+                  markTouched();
+                  setIsRecurring(next);
+                }}
+                aria-label="Transação recorrente (parcelada)"
+                colorScheme="default"
+              />
+            </div>
+
+            {isRecurring && (
+              <div>
+                <Label htmlFor="installments">Número de parcelas</Label>
+                <Input
+                  id="installments"
+                  type="number"
+                  min={2}
+                  max={48}
+                  value={installments}
+                  onChange={(e) => {
+                    markTouched();
+                    setInstallments(e.target.value);
+                  }}
+                  placeholder="Ex: 3"
+                />
+                {formTouched && fieldErrors.totalInstallments && (
+                  <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.totalInstallments}</p>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ---- Apply to future installments (recurring transactions) ---- */}
+        {isRecurringTransaction && transaction && onSaveFuture && (
+          <div className="flex items-center justify-between rounded-xl bg-muted px-4 py-3">
+            <Label htmlFor="apply-to-future" className="text-sm">
+              Aplicar a todas as parcelas futuras
+            </Label>
+            <Toggle
+              id="apply-to-future"
+              checked={applyToFuture}
+              onChange={(next) => {
+                markTouched();
+                setApplyToFuture(next);
+              }}
+              aria-label="Aplicar a todas as parcelas futuras"
+              colorScheme="default"
+            />
+          </div>
+        )}
+
+        {/* ---- Action button ---- */}
+        <div className="pt-2">
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={!isFormValid || !isDirty || isSubmitting}
             onClick={handleSubmit}
-            className="flex-1"
+            className="w-full"
           >
             {isSubmitting ? 'Salvando...' : 'Salvar'}
           </Button>

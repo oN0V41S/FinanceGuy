@@ -21,15 +21,18 @@ export interface UseTransactionsReturn {
   createTransaction: (data: TransactionFormData) => Promise<void>;
   updateTransaction: (id: string, data: Partial<TransactionFormData>) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+  deleteFutureTransactions: (id: string) => Promise<void>;
+  updateFutureTransactions: (id: string, data: Partial<TransactionFormData>) => Promise<void>;
   isModalOpen: boolean;
   editingTransaction: Transaction | null;
   openCreateModal: () => void;
   openEditModal: (transaction: Transaction) => void;
   closeModal: () => void;
   isConfirmModalOpen: boolean;
-  openConfirmModal: (id: string) => void;
+  deletingTransaction: Transaction | null;
+  openConfirmModal: (transaction: Transaction) => void;
   closeConfirmModal: () => void;
-  confirmDeleteTransaction: () => Promise<void>;
+  confirmDeleteTransaction: (scope: 'single' | 'future') => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +118,7 @@ export default function useTransactions(): UseTransactionsReturn {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [deletingTransactionId, setDeletingTransactionId] = useState<string | null>(null);
+  const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const [confirmModalLoading, setConfirmModalLoading] = useState(false);
 
   const [refreshKey, setRefreshKey] = useState(0);
@@ -252,6 +255,40 @@ export default function useTransactions(): UseTransactionsReturn {
     [refresh],
   );
 
+  const deleteFutureTransactions = useCallback(
+    async (id: string) => {
+      const response = await fetch(`/api/transactions/${id}?scope=future`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || 'Erro ao excluir transações futuras');
+      }
+
+      refresh();
+    },
+    [refresh],
+  );
+
+  const updateFutureTransactions = useCallback(
+    async (id: string, data: Partial<TransactionFormData>) => {
+      const response = await fetch(`/api/transactions/${id}?scope=future`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        throw new Error(result.error || 'Erro ao atualizar transações futuras');
+      }
+
+      refresh();
+    },
+    [refresh],
+  );
+
   // ---- Modal ----
 
   const openCreateModal = useCallback(() => {
@@ -269,26 +306,33 @@ export default function useTransactions(): UseTransactionsReturn {
     setEditingTransaction(null);
   }, []);
 
-  const openConfirmModal = useCallback((id: string) => {
-    setDeletingTransactionId(id);
+  const openConfirmModal = useCallback((transaction: Transaction) => {
+    setDeletingTransaction(transaction);
     setIsConfirmModalOpen(true);
   }, []);
 
   const closeConfirmModal = useCallback(() => {
     setIsConfirmModalOpen(false);
-    setDeletingTransactionId(null);
+    setDeletingTransaction(null);
   }, []);
 
-  const confirmDeleteTransaction = useCallback(async () => {
-    if (!deletingTransactionId) return;
-    setConfirmModalLoading(true);
-    try {
-      await deleteTransaction(deletingTransactionId);
-      closeConfirmModal();
-    } finally {
-      setConfirmModalLoading(false);
-    }
-  }, [deletingTransactionId, deleteTransaction, closeConfirmModal]);
+  const confirmDeleteTransaction = useCallback(
+    async (scope: 'single' | 'future') => {
+      if (!deletingTransaction) return;
+      setConfirmModalLoading(true);
+      try {
+        if (scope === 'future') {
+          await deleteFutureTransactions(deletingTransaction.id);
+        } else {
+          await deleteTransaction(deletingTransaction.id);
+        }
+        closeConfirmModal();
+      } finally {
+        setConfirmModalLoading(false);
+      }
+    },
+    [deletingTransaction, deleteTransaction, deleteFutureTransactions, closeConfirmModal],
+  );
 
   return {
     transactions,
@@ -307,12 +351,15 @@ export default function useTransactions(): UseTransactionsReturn {
     createTransaction,
     updateTransaction,
     deleteTransaction,
+    deleteFutureTransactions,
+    updateFutureTransactions,
     isModalOpen,
     editingTransaction,
     openCreateModal,
     openEditModal,
     closeModal,
     isConfirmModalOpen,
+    deletingTransaction,
     openConfirmModal,
     closeConfirmModal,
     confirmDeleteTransaction,

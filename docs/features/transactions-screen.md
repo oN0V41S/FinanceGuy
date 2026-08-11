@@ -81,19 +81,23 @@ src/
 │   ├── page.tsx                         # Página principal (client component)
 │   ├── loading.tsx                      # Next.js Streaming (skeleton inicial)
 │   └── __tests__/
-│       └── page.test.tsx               # 49 testes de integração
+│       └── page.test.tsx               # 61 testes de integração
 │
 └── features/transactions/
     ├── hooks/
     │   ├── useTransactions.ts           # Hook central (303 linhas)
     │   └── __tests__/
-    │       └── useTransactions.test.ts  # 33 testes
+    │       └── useTransactions.test.ts  # 34 testes
     ├── components/
     │   ├── FilterControls.tsx           # Filtros shadcn-ui Select
     │   ├── TransactionsTable.tsx        # Tabela com estados loading/empty/success
+    │   ├── CardTransaction.tsx          # Cards com badges (categoria + recorrente)
     │   ├── TransactionModal.tsx         # Modal CRUD com validação Zod
+    │   ├── ConfirmDeleteModal.tsx       # Confirmação de exclusão (escopo)
     │   └── __tests__/
-    │       └── TransactionModal.test.tsx # 36+ testes
+    │       ├── TransactionModal.test.tsx   # 93 testes
+    │       ├── CardTransaction.test.tsx    # 46 testes
+    │       └── ConfirmDeleteModal.test.tsx # 13 testes
     ├── api/
     │   ├── route.ts                     # GET / POST /api/transactions
     │   └── [id]/
@@ -233,7 +237,7 @@ Tabela com 3 estados gerenciados via props:
 
 **Arquivo**: `src/features/transactions/components/TransactionModal.tsx`
 
-Modal de criação/edição com validação Zod client-side.
+Modal de criação/edição com validação Zod client-side. Suporta transações simples e recorrentes (parceladas — Issue #12).
 
 **Props**:
 ```typescript
@@ -241,6 +245,7 @@ interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: TransactionFormData) => Promise<void>;
+  onSaveFuture?: (data: TransactionFormData) => Promise<void>;
   transaction?: Transaction | null;
   isLoading?: boolean;
 }
@@ -249,22 +254,55 @@ interface TransactionModalProps {
 **Campos do formulário**:
 | Campo | Tipo | Validação |
 |-------|------|-----------|
-| Tipo | Toggle buttons (Receita / Despesa) | Obrigatório |
-| Descrição | Input text | 1-255 caracteres |
+| Tipo | Select (Receita / Despesa) | Obrigatório |
+| Título | Input text (opcional) | Máx. 100 caracteres |
+| Descrição | Input text (opcional) | Máx. 255 caracteres |
 | Valor | Input decimal | Deve ser positivo |
 | Data | Input date | Obrigatória |
-| Categoria | Select (9 opções) | Do enum CategoryEnum |
+| Categoria | Select (9 opções) | Obrigatória — "Este campo não deve estar vazio" |
 | Responsável | Input text | 1-100 caracteres |
-| Pago | Checkbox | Booleano |
+| Pago | Toggle | Booleano |
+| Recorrência (create) | Toggle "Transação recorrente (parcelada)" | — |
+| N.º de parcelas (create) | Input number | 2-48, obrigatório com recorrência ativa |
+| Aplicar a futuras (edit) | Toggle | Apenas edição de recorrente + `onSaveFuture` |
 
 **Estados**:
 - **Create**: Título "Nova Transação", campos vazios, type default "expense"
 - **Edit**: Título "Editar Transação", campos preenchidos com dados existentes
-- **Submitting**: Botão "Salvando..." desabilitado
-- **Error**: Banner vermelho no topo com mensagem de erro
-- **Validation Error**: Mensagens inline abaixo de cada campo inválido
+- **Save disabled**: botão "Salvar" desabilitado até o formulário ser válido (validação contínua)
+- **Dirty (edit)**: em edição, "Salvar" desabilitado até o usuário alterar algum campo; reverter ao valor original desabilita novamente
+- **Submitting**: botão "Salvando..." desabilitado
+- **Error**: banner vermelho no topo com mensagem de erro
+- **Validation Error**: mensagens inline abaixo de cada campo inválido (validação ao vivo após interação)
 
-**Validação**: Schema Zod `FormSchema` que valida todos os campos antes de chamar `onSave`.
+**Comportamento**:
+- **Sem botão "Cancelar"**: o modal fecha apenas pelo X (ou backdrop/ESC)
+- Validação ao vivo: erros de campo aparecem após o usuário interagir com o formulário
+- Recorrência (create): ativar o toggle exibe o campo de parcelas; submit envia `is_recurring` sempre (true/false) e `total_installments` (number) apenas quando recorrente
+- Recorrência (edit): com `onSaveFuture` e transação recorrente, o toggle "Aplicar a todas as parcelas futuras" propaga a alteração em série — **o histórico nunca é alterado**
+- **Validação**: Schema Zod `FormSchema` valida todos os campos antes de chamar `onSave`/`onSaveFuture`
+
+### 4.3.1 CardTransaction
+
+**Arquivo**: `src/features/transactions/components/CardTransaction.tsx`
+
+Renderiza as transações em cards (grid 1/2/3 colunas). Estados: loading (skeleton), empty e success.
+
+- Badge de categoria com cores por categoria
+- Badge **"Recorrente"** (ícone `RefreshCw`) exibido quando a transação pertence a uma série: `is_recurring`, `total_installments` ou `parent_transaction_id` — mesmo padrão visual dos badges de categoria
+- Status Pago (verde) / Pendente (amarelo)
+- Ações: editar (`Edit2`) e excluir (`Trash2`)
+
+### 4.3.2 ConfirmDeleteModal
+
+**Arquivo**: `src/features/transactions/components/ConfirmDeleteModal.tsx`
+
+Confirmação de exclusão com suporte a transações recorrentes (escopo de exclusão).
+
+- **Transação simples**: botão único "Excluir"
+- **Transação recorrente** (`isRecurring`): duas opções — "Excluir apenas esta" (`single`) ou "Excluir esta e as futuras" (`future`); aviso "As parcelas anteriores do histórico não serão alteradas"
+- **Loading por escopo**: durante a exclusão, apenas o botão clicado exibe "Excluindo..." (os demais ficam desabilitados)
+- Erros de API exibidos em banner no topo
 
 ### 4.4 Loading (Next.js Streaming)
 
@@ -549,6 +587,8 @@ Se `total_installments > 1`, o `TransactionService`:
 
 Atualiza parcialmente uma transação.
 
+**Query**: `?scope=future` — aplica a alteração também a todas as parcelas **futuras** da série (o histórico nunca é alterado). Requer transação recorrente.
+
 **Body**: Qualquer campo do `UpdateTransactionSchema` (todos opcionais)
 
 **Response** (`200`):
@@ -564,6 +604,8 @@ Atualiza parcialmente uma transação.
 ### 7.4 DELETE /api/transactions/[id]
 
 Remove uma transação.
+
+**Query**: `?scope=future` — remove também todas as parcelas **futuras** da série (exclusão em cascata; o histórico anterior é preservado).
 
 **Response** (`200`):
 ```json
@@ -618,16 +660,30 @@ const UpdateTransactionSchema = TransactionSchema.partial();
 ```typescript
 const FormSchema = z.object({
   type: z.enum(['income', 'expense']),
-  description: z.string().min(1).max(255),
+  title: z.string().max(100).optional(),
+  description: z.string().max(255).optional(),
   value: z.string().refine((val) => {
     if (val === '') return false;
     const num = parseFloat(val);
     return !isNaN(num) && num > 0;
   }),
   date: z.string().min(1),
-  category: z.string(),
+  category: z.string().refine((val) => CategoryEnum.safeParse(val).success),
   responsible: z.string().min(1).max(100),
   paid: z.boolean(),
+  isRecurring: z.boolean().optional(),
+  totalInstallments: z.string().optional(),
+}).superRefine((data, ctx) => {
+  if (data.isRecurring) {
+    const n = parseInt(data.totalInstallments ?? '', 10);
+    if (!data.totalInstallments || data.totalInstallments.trim() === '') {
+      ctx.addIssue({ code: 'custom', path: ['totalInstallments'], message: 'Informe o número de parcelas' });
+    } else if (n < 2) {
+      ctx.addIssue({ code: 'custom', path: ['totalInstallments'], message: 'Mínimo de 2 parcelas' });
+    } else if (n > 48) {
+      ctx.addIssue({ code: 'custom', path: ['totalInstallments'], message: 'Máximo de 48 parcelas' });
+    }
+  }
 });
 ```
 
@@ -655,13 +711,17 @@ type TransactionFormData = Omit<Transaction, 'id' | 'value' | ...> & {
 
 | Arquivo de Teste | Testes | O que cobre |
 |-----------------|--------|-------------|
-| `useTransactions.test.ts` | 33 | Hook: fetch, filtros, CRUD, modal, erros, edge cases |
-| `TransactionModal.test.tsx` | 36+ | Modal: render create/edit, interações, validação, erros |
-| `page.test.tsx` | 49 | Página: render, cards, tabela, empty, loading, error, modal, drawer, filtros |
+| `useTransactions.test.ts` | 34 | Hook: fetch, filtros, CRUD, modal, erros, edge cases |
+| `TransactionModal.test.tsx` | 93 | Modal: create/edit, recorrência, validação contínua, dirty tracking, erros |
+| `CardTransaction.test.tsx` | 46 | Cards: render, estados, badges (categoria + recorrente), ações |
+| `ConfirmDeleteModal.test.tsx` | 13 | Confirmação de exclusão: escopo, loading por botão, erros |
+| `page.test.tsx` | 61 | Página: render, cards, tabela, empty, loading, error, modal, drawer, filtros |
+| `transactions.service.test.ts` | 10 | Service: CRUD, datas incrementais de parcelas, delete/update future |
+| `api/[id]/route.test.ts` | 32 | API route: PUT/DELETE com e sem `scope=future` |
 
-**Total: ~118 testes** abrangendo hook, componente modal e página completa.
+**Total: ~289 testes** abrangendo hook, componentes, service, API e página completa.
 
-### 9.2 useTransactions.test.ts (33 testes)
+### 9.2 useTransactions.test.ts (34 testes)
 
 **Green Paths** (11 testes):
 - Fetch inicial com filtro do mês corrente
@@ -695,7 +755,7 @@ type TransactionFormData = Omit<Transaction, 'id' | 'value' | ...> & {
 - `isLoading` transições (deferred promise)
 - Loading durante refresh
 
-### 9.3 TransactionModal.test.tsx (36+ testes)
+### 9.3 TransactionModal.test.tsx (93 testes)
 
 **Create Mode** (6 testes):
 - Título "Nova Transação"
@@ -713,7 +773,7 @@ type TransactionFormData = Omit<Transaction, 'id' | 'value' | ...> & {
 **Interações** (7 testes):
 - Preenchimento completo e submissão
 - `onSave` chamado com dados corretos
-- Botão Cancelar → `onClose`
+- Sem botão Cancelar (fechamento via X do modal)
 - Botão X → `onClose`
 - Alternância income/expense
 - Toggle paid true/false
@@ -746,7 +806,33 @@ type TransactionFormData = Omit<Transaction, 'id' | 'value' | ...> & {
 - Reset de campos ao reabrir modal
 - Data padrão
 
-### 9.4 page.test.tsx (49 testes)
+**Validação Contínua** (5 testes):
+- Botão Salvar desabilitado com formulário inválido (categoria vazia)
+- Botão Salvar desabilitado no primeiro render do Create
+- Botão Salvar habilitado quando o formulário é válido
+- Erro de categoria exibe "Este campo não deve estar vazio" (sem mensagem Zod default)
+- Erro de categoria some ao selecionar categoria válida
+
+**Dirty Tracking (Edição)** (2 testes):
+- Botão Salvar desabilitado quando nada é alterado na edição
+- Botão habilita ao alterar um campo e re-desabilita ao reverter ao original
+
+**Recorrência — Criação (parcelada)** (8 testes):
+- Toggle "Transação recorrente (parcelada)" visível no Create
+- Campo "Número de parcelas" condicional (aparece/some com o toggle)
+- Submit recorrente envia `is_recurring: true` e `total_installments` (number)
+- Submit simples envia `is_recurring: false` sem `total_installments`
+- Validações: "Informe o número de parcelas", "Mínimo de 2", "Máximo de 48"
+- Toggle/campo ocultos no modo Edição
+- Reset do toggle ao fechar/reabrir
+
+**Recorrência — Edição (Aplicar a futuras)** (5 testes):
+- Toggle "Aplicar a todas as parcelas futuras" para transações recorrentes
+- `onSaveFuture` chamado com toggle marcado; `onSave` com desmarcado
+- Toggle ausente para transação simples / sem `onSaveFuture` / no Create
+- Reset do toggle ao fechar/reabrir
+
+### 9.4 page.test.tsx (61 testes)
 
 **Green Path — Renderização** (6 testes):
 - Título "Transações"
@@ -812,6 +898,63 @@ type TransactionFormData = Omit<Transaction, 'id' | 'value' | ...> & {
 - Transação com valor zero
 - Múltiplas aberturas/fechamentos de drawer
 - Link do drawer fecha drawer
+
+### 9.5 CardTransaction.test.tsx (46 testes)
+
+**Green Paths — Renderização** (6 testes):
+- Card com `title` e `description` (ambos exibidos)
+- Card exibe `title` e oculta `description` quando ausente
+- Card exibe `description` como título quando `title` ausente (fallback)
+- Categoria, data, responsável e valor formatados corretamente
+- Valores com cor (income/expense)
+- Status Pago / Pendente
+
+**Badges** (6 testes):
+- Badge de categoria com label
+- Badge "Recorrente" exibido quando `is_recurring`
+- Badge "Recorrente" exibido quando `total_installments`
+- Badge "Recorrente" exibido quando `parent_transaction_id`
+- Badge "Recorrente" oculto para transação simples
+- Badge "Recorrente" com cores padrão dos badges (amber)
+
+**Ações** (4 testes):
+- Clique em editar → `onEdit(transaction)`
+- Clique em excluir → `onDelete(transaction.id)`
+- Ícones Edit2 / Trash2 presentes
+
+**Estados** (4 testes):
+- Skeleton durante loading
+- Empty state com "Nenhuma transação encontrada"
+- Sem EmptyState quando há dados
+- EmptyState não aparece durante loading
+
+**Red Paths / Edge Cases** (4 testes):
+- Descrição muito longa truncada
+- Valor zero formatado
+- Título longo truncado
+- Card com responsável ausente
+
+### 9.6 ConfirmDeleteModal.test.tsx (13 testes)
+
+**Green Paths** (5 testes):
+- Modal renderiza título e mensagem padrão
+- Mensagem de recorrência com aviso de histórico ("As parcelas anteriores...")
+- Transação simples exibe apenas o botão "Excluir"
+- Transação recorrente exibe "Excluir apenas esta" e "Excluir esta e as futuras"
+- Confirmação com escopo correto
+
+**Loading por Escopo** (3 testes):
+- "Excluindo..." apenas no botão clicado (outros botões desabilitados)
+- Cancelar desabilitado durante a exclusão
+- Texto padrão mantido no botão não clicado
+
+**Red Paths** (2 testes):
+- Erro de API exibido em banner
+- Modal permanece aberto em caso de erro
+
+**Edge Cases** (2 testes):
+- Fechar via X / overlay
+- Reset de estado ao reabrir
 
 ---
 
@@ -919,9 +1062,11 @@ type TransactionFormData = Omit<Transaction, 'id' | 'value' | ...> & {
 - `src/features/transactions/api/[id]/route.ts` — API PUT/DELETE
 
 ### Testes
-- `src/features/transactions/hooks/__tests__/useTransactions.test.ts` — 33 testes do hook
-- `src/features/transactions/components/__tests__/TransactionModal.test.tsx` — 36+ testes do modal
-- `src/app/transactions/__tests__/page.test.tsx` — 49 testes de integração
+- `src/features/transactions/hooks/__tests__/useTransactions.test.ts` — 34 testes do hook
+- `src/features/transactions/components/__tests__/TransactionModal.test.tsx` — 93 testes do modal
+- `src/features/transactions/components/__tests__/CardTransaction.test.tsx` — 46 testes dos cards
+- `src/features/transactions/components/__tests__/ConfirmDeleteModal.test.tsx` — 13 testes de exclusão
+- `src/app/transactions/__tests__/page.test.tsx` — 61 testes de integração
 
 ### Tecnologias
 - [Next.js 16](https://nextjs.org/docs)

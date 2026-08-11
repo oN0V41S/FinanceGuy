@@ -88,6 +88,9 @@ jest.mock('lucide-react', () => ({
   X: (props: React.SVGProps<SVGSVGElement>) => (
     <svg data-testid="icon-x" {...props} />
   ),
+  RefreshCw: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-refresh" {...props} />
+  ),
 }));
 
 // ---------------------------------------------------------------------------
@@ -700,5 +703,208 @@ describe('CardTransaction — Múltiplas Transações', () => {
 
     expect(editButtons).toHaveLength(2);
     expect(deleteButtons).toHaveLength(2);
+  });
+});
+
+// ===========================================================================
+// Tests — Título (Issue #13 — título opcional + descrição opcional)
+// ===========================================================================
+// Regras aprovadas:
+//   - tx.title (opcional) é o texto PRINCIPAL do card, com truncamento visual.
+//   - tx.description (opcional) é a linha secundária; quando ausente, NADA é
+//     renderizado no lugar dela.
+//   - Card continua renderizando quando title está ausente (fallback).
+
+describe('CardTransaction — Título (Issue #13)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // -----------------------------------------------------------------------
+  // Title como texto principal
+  // -----------------------------------------------------------------------
+  it('deve renderizar o título (tx.title) como texto principal do card quando presente', () => {
+    const transaction = createMockTransaction({
+      title: 'Aluguel do Apartamento',
+      description: 'Mensalidade de janeiro',
+    });
+    renderComponent({ transactions: [transaction] });
+
+    expect(screen.getByText('Aluguel do Apartamento')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Description como linha secundária
+  // -----------------------------------------------------------------------
+  it('deve renderizar a descrição como linha secundária (CardDescription) quando presente', () => {
+    const transaction = createMockTransaction({
+      title: 'Aluguel',
+      description: 'Contrato mensal do apê',
+    });
+    renderComponent({ transactions: [transaction] });
+
+    const descriptionText = screen.getByText('Contrato mensal do apê');
+    expect(descriptionText.closest('[data-testid="card-description"]')).not.toBeNull();
+    // A descrição NÃO deve ocupar o título principal
+    expect(descriptionText.closest('[data-testid="card-title"]')).toBeNull();
+  });
+
+  // -----------------------------------------------------------------------
+  // Description ausente → nada renderizado no lugar dela
+  // -----------------------------------------------------------------------
+  it('não deve renderizar nada no lugar da descrição quando tx.description é undefined', () => {
+    const transaction = createMockTransaction({
+      title: 'Aluguel',
+      description: undefined,
+    });
+    renderComponent({ transactions: [transaction] });
+
+    // Nenhum texto de descrição deve existir no card
+    expect(screen.queryByText('Contrato mensal do apê')).not.toBeInTheDocument();
+    // O título continua sendo o texto principal
+    expect(screen.getByText('Aluguel')).toBeInTheDocument();
+  });
+
+  // -----------------------------------------------------------------------
+  // Truncamento visual do título
+  // -----------------------------------------------------------------------
+  it('deve aplicar truncamento visual ao título (classe truncate/line-clamp ou atributo title completo)', () => {
+    const longTitle = 'Aluguel do apartamento 302 - contrato mensal de locação';
+    const transaction = createMockTransaction({ title: longTitle });
+    renderComponent({ transactions: [transaction] });
+
+    const titleElement = screen.getByTestId('card-title');
+    const hasTruncateClass = /truncate|line-clamp/.test(titleElement.className);
+    const hasFullTitleAttr = titleElement.getAttribute('title') === longTitle;
+    expect(hasTruncateClass || hasFullTitleAttr).toBe(true);
+  });
+
+  // -----------------------------------------------------------------------
+  // Ações continuam funcionando com título presente
+  // -----------------------------------------------------------------------
+  it('deve chamar onEdit com a transação (incluindo title) ao clicar em Editar', () => {
+    const transaction = createMockTransaction({
+      title: 'Aluguel',
+      description: 'Mensal',
+    });
+    renderComponent({ transactions: [transaction] });
+
+    fireEvent.click(screen.getByRole('button', { name: /editar transação/i }));
+
+    expect(mockOnEdit).toHaveBeenCalledTimes(1);
+    expect(mockOnEdit).toHaveBeenCalledWith(transaction);
+  });
+
+  it('deve chamar onDelete com o id correto quando o card possui título', () => {
+    const transaction = createMockTransaction({
+      id: 'txn-title-001',
+      title: 'Aluguel',
+      description: 'Mensal',
+    });
+    renderComponent({ transactions: [transaction] });
+
+    fireEvent.click(screen.getByRole('button', { name: /excluir transação/i }));
+
+    expect(mockOnDelete).toHaveBeenCalledTimes(1);
+    expect(mockOnDelete).toHaveBeenCalledWith('txn-title-001');
+  });
+
+  // -----------------------------------------------------------------------
+  // Title ausente → card não quebra (fallback)
+  // -----------------------------------------------------------------------
+  it('deve renderizar o card normalmente quando title está ausente (fallback para description)', () => {
+    const transaction = createMockTransaction({
+      description: 'Mercado do mês',
+    });
+    renderComponent({ transactions: [transaction] });
+
+    expect(screen.getByTestId('transaction-card')).toBeInTheDocument();
+    expect(screen.getByText('Mercado do mês')).toBeInTheDocument();
+  });
+
+  it('deve renderizar o card sem quebrar quando title e description estão ausentes', () => {
+    const transaction = createMockTransaction({
+      title: undefined,
+      description: undefined,
+    });
+    renderComponent({ transactions: [transaction] });
+
+    expect(screen.getByTestId('transaction-card')).toBeInTheDocument();
+  });
+});
+
+// ===========================================================================
+// Tests — Badge "Recorrente" (Issue #12)
+// Regra: o badge aparece quando a transação pertence a uma série
+// (is_recurring OU total_installments OU parent_transaction_id).
+// ===========================================================================
+
+describe('CardTransaction — Badge Recorrente (Issue #12)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('deve exibir badge "Recorrente" com ícone RefreshCw quando is_recurring é true', () => {
+    const transaction = createMockTransaction({ is_recurring: true });
+    renderComponent({ transactions: [transaction] });
+
+    expect(screen.getByText('Recorrente')).toBeInTheDocument();
+    expect(screen.getByTestId('icon-refresh')).toBeInTheDocument();
+  });
+
+  it('deve exibir badge "Recorrente" quando total_installments é maior que 1', () => {
+    const transaction = createMockTransaction({
+      total_installments: 3,
+      installment_number: 2,
+    });
+    renderComponent({ transactions: [transaction] });
+
+    expect(screen.getByText('Recorrente')).toBeInTheDocument();
+    expect(screen.getByTestId('icon-refresh')).toBeInTheDocument();
+  });
+
+  it('deve exibir badge "Recorrente" quando parent_transaction_id está preenchido', () => {
+    const transaction = createMockTransaction({
+      parent_transaction_id: 'parent-001',
+    });
+    renderComponent({ transactions: [transaction] });
+
+    expect(screen.getByText('Recorrente')).toBeInTheDocument();
+    expect(screen.getByTestId('icon-refresh')).toBeInTheDocument();
+  });
+
+  it('não deve exibir badge "Recorrente" para transação normal', () => {
+    const transaction = createMockTransaction(); // is_recurring false
+    renderComponent({ transactions: [transaction] });
+
+    expect(screen.queryByText('Recorrente')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('icon-refresh')).not.toBeInTheDocument();
+  });
+
+  it('deve exibir badge "Recorrente" apenas para transações recorrentes em lista mista', () => {
+    const normal = createMockTransaction({ id: 'n1', description: 'Normal' });
+    const recurring = createMockTransaction({
+      id: 'r1',
+      description: 'Parcela recorrente',
+      is_recurring: true,
+    });
+    renderComponent({ transactions: [normal, recurring] });
+
+    // Apenas UM badge "Recorrente" (o card normal não exibe)
+    expect(screen.getAllByText('Recorrente')).toHaveLength(1);
+
+    // Badges totais: 2 categorias + 1 recorrente = 3
+    expect(screen.getAllByTestId('badge')).toHaveLength(3);
+  });
+
+  it('deve exibir badge "Recorrente" no mesmo padrão visual dos badges de categoria', () => {
+    const transaction = createMockTransaction({ is_recurring: true });
+    renderComponent({ transactions: [transaction] });
+
+    const badges = screen.getAllByTestId('badge');
+    const recurringBadge = badges.find((b) => b.textContent?.includes('Recorrente'));
+    expect(recurringBadge).toBeInTheDocument();
+    expect(recurringBadge?.className).toContain('bg-amber-100');
+    expect(recurringBadge?.className).toContain('text-amber-800');
   });
 });

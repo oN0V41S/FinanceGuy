@@ -44,13 +44,14 @@ export default function TransactionsPage() {
     refresh,
     createTransaction,
     updateTransaction,
-    deleteTransaction,
+    updateFutureTransactions,
     isModalOpen,
     editingTransaction,
     openCreateModal,
     openEditModal,
     closeModal,
     isConfirmModalOpen,
+    deletingTransaction,
     openConfirmModal,
     closeConfirmModal,
     confirmDeleteTransaction,
@@ -66,7 +67,8 @@ export default function TransactionsPage() {
   };
 
   const handleDeleteRequest = (id: string) => {
-    openConfirmModal(id);
+    const tx = transactions.find((t) => t.id === id);
+    if (tx) openConfirmModal(tx);
   };
 
   const handleSubmit = async (data: TransactionFormData) => {
@@ -81,6 +83,24 @@ export default function TransactionsPage() {
       throw error;
     }
   };
+
+  // Edição de transação recorrente propagada para todas as parcelas futuras.
+  const handleSubmitFuture = async (data: TransactionFormData) => {
+    if (!editingTransaction) return;
+    try {
+      await updateFutureTransactions(editingTransaction.id, data);
+      closeModal();
+    } catch (error) {
+      throw error;
+    }
+  };
+
+  // Transação em confirmação é recorrente quando pertence a uma série.
+  const isDeletingRecurring = Boolean(
+    deletingTransaction?.parent_transaction_id ||
+      deletingTransaction?.is_recurring ||
+      deletingTransaction?.total_installments,
+  );
 
   return (
     <div className="min-h-dvh bg-background">
@@ -322,6 +342,7 @@ export default function TransactionsPage() {
         onClose={closeModal}
         transaction={editingTransaction}
         onSave={handleSubmit}
+        onSaveFuture={handleSubmitFuture}
       />
 
       {/* Confirm Delete Modal */}
@@ -329,6 +350,7 @@ export default function TransactionsPage() {
         isOpen={isConfirmModalOpen}
         onClose={closeConfirmModal}
         onConfirm={confirmDeleteTransaction}
+        isRecurring={isDeletingRecurring}
       />
     </div>
   );

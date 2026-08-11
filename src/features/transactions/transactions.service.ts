@@ -2,6 +2,22 @@ import { ITransactionRepository } from './ITransaction.repository';
 import { IUserRepository } from '@/features/auth/IUser.repository';
 import { CreateTransactionSchema, UpdateTransactionSchema, TransactionInput } from './validations';
 
+/**
+ * Soma `months` a uma data 'YYYY-MM-DD' preservando o dia.
+ * Usa componentes locais (getFullYear/getMonth/getDate) para evitar
+ * desvios de fuso horário do toISOString().
+ */
+function addMonths(dateString: string, months: number): string {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setMonth(date.getMonth() + months);
+
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export class TransactionService {
   constructor(
     private readonly transactionRepository: ITransactionRepository,
@@ -59,12 +75,13 @@ export class TransactionService {
         value: dataForRepository.value, // Garante que o valor original seja usado para a transação pai
       });
 
-      // Criar as parcelas "Filhas"
+      // Criar as parcelas "Filhas" com datas incrementais (base + i meses)
       const childTransactions = [];
       for (let i = 1; i <= dataForRepository.total_installments; i++) {
         const child = await this.transactionRepository.create({
           ...dataForRepository,
           value: valuePerInstallment,
+          date: addMonths(dataForRepository.date, i),
           installment_number: i,
           total_installments: dataForRepository.total_installments,
           parent_transaction_id: parentTransaction.id,
@@ -101,5 +118,54 @@ export class TransactionService {
     }
     
     return true;
+  }
+
+  async deleteFutureTransactions(id: string, userId: string): Promise<number> {
+    const transaction = await this.transactionRepository.getById(id, userId);
+
+    if (!transaction) {
+      throw new Error('Transação não encontrada.');
+    }
+
+    const parentId = transaction.parent_transaction_id ?? transaction.id;
+    const count = await this.transactionRepository.deleteFuture(
+      parentId,
+      userId,
+      new Date(transaction.date)
+    );
+
+    // Se for o PAI (parent_transaction_id null), remove o próprio pai também.
+    // Parcelas anteriores (histórico) NUNCA são alteradas — o deleteMany filtra date >= referencia.
+    if (transaction.parent_transaction_id === null) {
+      await this.transactionRepository.delete(id);
+    }
+
+    return count;
+  }
+
+  async updateFutureTransactions(id: string, userId: string, data: unknown): Promise<number> {
+    // Validação ANTES de qualquer lookup — lança ZodError sem consultar a transação.
+    const validatedData = UpdateTransactionSchema.parse(data);
+
+    const transaction = await this.transactionRepository.getById(id, userId);
+
+    if (!transaction) {
+      throw new Error('Transação não encontrada.');
+    }
+
+    const parentId = transaction.parent_transaction_id ?? transaction.id;
+    const count = await this.transactionRepository.updateFuture(
+      parentId,
+      userId,
+      new Date(transaction.date),
+      validatedData
+    );
+
+    // Se for o PAI, atualiza o próprio pai também.
+    if (transaction.parent_transaction_id === null) {
+      await this.transactionRepository.update(id, validatedData);
+    }
+
+    return count;
   }
 }

@@ -6,17 +6,20 @@ export type { Transaction };
 export type TransactionFormData = Omit<Transaction, 'id' | 'value' | 'created_at' | 'updated_at' | 'installment_number' | 'total_installments' | 'parent_transaction_id'> & {
     value: string;
     date: string;
-    description: string;
+    title?: string;
+    description?: string;
     responsible: string;
     category: string;
     type: 'income' | 'expense';
     is_recurring: boolean;
+    total_installments?: number;
     paid?: boolean;
 };
 
 export const initialFormData: TransactionFormData = {
     date: '', 
     value: '', 
+    title: '',
     description: '', 
     responsible: '', 
     category: 'Outros', 

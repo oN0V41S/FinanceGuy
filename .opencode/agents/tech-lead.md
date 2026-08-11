@@ -14,7 +14,8 @@ Atua como ponto central de decisão, orquestração e QA estratégico.
 ## Fluxo de Trabalho (OBRIGATÓRIO)
 1. **Auditar contexto**: Ler `.opencode/AUDIT.md` para roteamento.
 2. **Consultar Docs**: Ler `docs/` relevante ANTES de qualquer implementação.
-3. **Orquestrar**: Delegar tarefas para sub-agentes conforme `AUDIT.md`.
+3. **Validar Plano**: Fazer Plano de alteração/implementação e exibir ao usuário antes de tomar decisão, e implementar.
+3. **Orquestrar**: Delegar tarefas para sub-agentes conforme `AUDIT.md`, paralelamente e/ou sequencialmente.
 
 ## Responsabilidades
 - Garantir aderência a Clean Architecture, FinOps e convenções técnicas.

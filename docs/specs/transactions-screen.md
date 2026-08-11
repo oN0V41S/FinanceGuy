@@ -187,6 +187,7 @@ interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: TransactionFormData) => Promise<void>;
+  onSaveFuture?: (data: TransactionFormData) => Promise<void>; // Issue #12
   transaction?: Transaction | null; // null ou undefined = Create mode
   isLoading?: boolean;
 }
@@ -200,13 +201,17 @@ interface TransactionModalProps {
 
 | Campo | Tipo | Componente | Validação |
 |-------|------|-----------|-----------|
-| `type` | `'income' \| 'expense'` | Toggle group (botões "Receita" / "Despesa") | Obrigatório |
-| `description` | `string` | `<Input>` | Obrigatório, min 1 char, max 255 |
+| `type` | `'income' \| 'expense'` | `<Select>` (opções "Receita" / "Despesa") | Obrigatório |
+| `title` | `string` | `<Input>` | Opcional, max 100 |
+| `description` | `string` | `<Input>` | Opcional, max 255 |
 | `value` | `string` | `<Input type="text" inputMode="decimal">` | Obrigatório, positivo, formato brasileiro |
 | `date` | `string` (YYYY-MM-DD) | `<Input type="date">` | Obrigatório, data válida |
-| `category` | `CategoryEnum` | `<Select>` com opções do enum | Obrigatório, valor do enum |
+| `category` | `CategoryEnum` | `<Select>` com opções do enum | Obrigatório — "Este campo não deve estar vazio" |
 | `responsible` | `string` | `<Input>` | Obrigatório, min 1 char, max 100 |
 | `paid` | `boolean` | `<Toggle>` switch | Opcional, default false |
+| `isRecurring` | `boolean` | `<Toggle>` "Transação recorrente (parcelada)" | Apenas Create |
+| `totalInstallments` | `string` | `<Input type="number">` | Create + recorrente: 2-48 |
+| `applyToFuture` | `boolean` | `<Toggle>` "Aplicar a todas as parcelas futuras" | Edit de recorrente (com `onSaveFuture`) |
 
 **Estrutura visual**:
 ```
@@ -214,11 +219,17 @@ interface TransactionModalProps {
 │  [X]  Nova Transação / Editar Transação │
 ├─────────────────────────────────────────┤
 │                                         │
-│  [Receita]  [Despesa]   ← Toggle Group  │
+│  Tipo   ┌─────────────────────────────┐ │
+│         │ Despesa           ▼         │ │
+│         └─────────────────────────────┘ │
 │                                         │
-│  Descrição                              │
+│  Título (opcional)                      │
 │  ┌─────────────────────────────────┐   │
-│  │ Ex: Supermercado               │   │
+│  │ Ex: Mercado                     │   │
+│  └─────────────────────────────────┘   │
+│  Descrição (opcional)                  │
+│  ┌─────────────────────────────────┐   │
+│  │ Ex: Compras do mês             │   │
 │  └─────────────────────────────────┘   │
 │                                         │
 │  Valor               Data               │
@@ -237,10 +248,14 @@ interface TransactionModalProps {
 │  └─────────────────────────────────┘   │
 │                                         │
 │  [ ] Pago           ← Toggle            │
+│  [ ] Transação recorrente (parcelada)   │ ← Create only
+│  ┌─────────────────────────────────┐   │
+│  │ N.º de parcelas: [ 12 ]        │   │ ← Create + recorrente
+│  └─────────────────────────────────┘   │
 │                                         │
-│  ┌──────────┐  ┌──────────────────┐    │
-│  │ Cancelar │  │   Salvar         │    │
-│  └──────────┘  └──────────────────┘    │
+│  ┌──────────────────────────────────┐   │
+│  │             Salvar              │   │
+│  └──────────────────────────────────┘   │
 └─────────────────────────────────────────┘
 ```
 
@@ -249,15 +264,24 @@ interface TransactionModalProps {
 - Erros de campo exibidos abaixo do respectivo input (texto vermelho, tamanho pequeno)
 - `value` é string no formulário → convertido para number antes de enviar
 - Validação acontece no client (Zod) e no server (Zod na API)
+- **Validação contínua**: botão "Salvar" desabilitado até o formulário estar válido; erros aparecem após interação com o campo
+- Categoria vazia exibe "Este campo não deve estar vazio" (sem mensagem Zod default)
 
 **Comportamento**:
 - Ao abrir em modo Edit: preencher todos os campos com dados atuais da transação
 - Ao submeter: chamar `onSave(data)`, desabilitar botão "Salvar" com spinner
 - Em caso de erro: exibir mensagem de erro no topo do modal (não fechar)
 - Em caso de sucesso: `onSave` resolve, pai fecha modal e faz refresh
-- Botão "Cancelar": fecha modal sem salvar
+- **Dirty tracking (Edit)**: "Salvar" desabilitado até o usuário alterar algum campo; reverter ao valor original desabilita novamente
+- **Sem botão "Cancelar"** — o modal fecha apenas pelo X
 - Clique no backdrop: fecha modal (não salva)
 - Tecla ESC: fecha modal (não salva)
+
+**Recorrência (Issue #12)**:
+- Create: toggle "Transação recorrente (parcelada)" + N.º de parcelas (2-48); cria série com datas incrementais (`addMonths`)
+- Edit: toggle "Aplicar a todas as parcelas futuras" (transação recorrente + `onSaveFuture`) propaga a alteração em série
+- Delete: escopo de exclusão — "Excluir apenas esta" ou "Excluir esta e as futuras"
+- O histórico (parcelas anteriores) nunca é alterado
 
 ### 3.4 `useTransactions` (NOVO)
 
@@ -583,7 +607,12 @@ interface UseTransactionsReturn {
 - [ ] Create → POST /api/transactions → refresh automático
 - [ ] Edit → PUT /api/transactions/[id] → refresh automático
 - [ ] Delete → confirmação → DELETE /api/transactions/[id] → refresh automático
-- [ ] Modal fecha ao clicar em "Cancelar", backdrop ou ESC
+- [ ] Modal fecha ao clicar no X, backdrop ou ESC (não há botão "Cancelar")
+- [ ] Botão "Salvar" desabilitado em edição até haver alteração (dirty tracking)
+- [ ] Validação contínua desabilita "Salvar" enquanto o formulário for inválido
+- [ ] Create de transação recorrente gera parcelas com datas incrementais (Issue #12)
+- [ ] Edit com "Aplicar a todas as parcelas futuras" chama `onSaveFuture` (`?scope=future`); histórico não é alterado
+- [ ] Delete de recorrente oferece "Excluir apenas esta" ou "Excluir esta e as futuras" (cascata; histórico preservado)
 - [ ] Erros de API são exibidos como banner na página
 - [ ] Erros de validação são exibidos no formulário
 

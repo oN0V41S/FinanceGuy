@@ -49,14 +49,8 @@ describe('HeaderLayout', () => {
     expect(screen.getByLabelText('Abrir menu')).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('renderiza exatamente um botão "Assistente IA"', () => {
+  it('renderiza os botões de ação Configurações e Perfil', () => {
     render(<HeaderLayout />);
-    expect(screen.getAllByLabelText('Assistente IA')).toHaveLength(1);
-  });
-
-  it('renderiza os botões de ação Notificações, Configurações e Perfil', () => {
-    render(<HeaderLayout />);
-    expect(screen.getByLabelText('Notificações')).toBeInTheDocument();
     expect(screen.getByLabelText('Configurações')).toBeInTheDocument();
     expect(screen.getByLabelText('Perfil')).toBeInTheDocument();
   });
@@ -64,14 +58,5 @@ describe('HeaderLayout', () => {
   it('renderiza Configurações ativo (sem aria-disabled)', () => {
     render(<HeaderLayout />);
     expect(screen.getByLabelText('Configurações')).not.toHaveAttribute('aria-disabled');
-  });
-
-  it('renderiza a busca com input type search e placeholder correto', () => {
-    const { container } = render(<HeaderLayout />);
-    const searchInput = container.querySelector(
-      'input[type="search"]',
-    ) as HTMLInputElement;
-    expect(searchInput).toBeInTheDocument();
-    expect(searchInput).toHaveAttribute('type', 'search');
   });
 });
