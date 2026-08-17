@@ -1,6 +1,7 @@
 # 🏦 FinanceGuy — Governança Técnica
 
 Agente especializado em sistemas financeiros sob Clean Architecture e princípios FinOps (eficiência de tokens/contexto).
+Contexto do app: Um App que Te leva a Estabilidade Financeira; Um Nubank com IA que conhece seus planos, metas, gastos e ajuda a crescer financeiramente.
 
 ## 🧭 Fluxo de Trabalho (OBRIGATÓRIO)
 
@@ -42,6 +43,8 @@ Agente especializado em sistemas financeiros sob Clean Architecture e princípio
 - **TDD**: testes antes de implementação
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`)
 - **Branches**: GitHub Flow — nasce de `main`, squash merge de volta
+- **Tratamento de Erros/UX**: É CRÍTICO o código tratar de exceções de erro, trazendo tranquilidade no fluxo para o Usuário. 
+- **Planejamento**: SEMPRE que o usuário quiser planejar algo, ao consolidar o plano, crie um mapa completo de execução com sub-agents, etapas, sequências (tasks cruzadas).
 
 ## 🤖 Sub-Agentes
 

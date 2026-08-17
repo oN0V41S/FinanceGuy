@@ -1,0 +1,17 @@
+diff --git a/index.d.ts b/index.d.ts
+index 56fed68c3fe5a49248e4b276ddb6703825c2e919..8bde217f3d5931e954f862e8c6900e0e69d1e9b6 100644
+--- a/index.d.ts
++++ b/index.d.ts
+@@ -314,8 +314,11 @@ declare namespace jest {
+     /**
+      * Equivalent of `jest.isolateModules()` for async functions to be wrapped.
+      * The caller is expected to `await` the completion of `jest.isolateModulesAsync()`.
++     * PATCH (FinanceGuy): retorna o valor resolvido do callback — o runtime
++     * (jest-runtime, também patcheado) propaga `await fn()`; a assinatura
++     * genérica reflete esse comportamento (usado pelos testes de cache, Issue #9).
+      */
+-    function isolateModulesAsync(fn: () => Promise<void>): Promise<void>;
++    function isolateModulesAsync<T>(fn: () => Promise<T>): Promise<T>;
+     /**
+      * Runs failed tests n-times until they pass or until the max number of retries is exhausted.
+      * This only works with jest-circus!

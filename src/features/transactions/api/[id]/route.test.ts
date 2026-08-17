@@ -458,7 +458,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
         expect(data.success).toBe(true);
         expect(data.message).toBe('Transação deletada');
         expect(data.id).toBe(mockTransactionId);
-        expect(transactionService.deleteTransaction).toHaveBeenCalledWith(mockTransactionId);
+        expect(transactionService.deleteTransaction).toHaveBeenCalledWith(mockTransactionId, userId);
       });
 
       it('should return correct response structure', async () => {
@@ -626,7 +626,7 @@ describe('Transactions API [ID] - PUT & DELETE', () => {
       });
 
       expect(response.status).toBe(200);
-      expect(transactionService.deleteTransaction).toHaveBeenCalledWith(mockTransactionId);
+      expect(transactionService.deleteTransaction).toHaveBeenCalledWith(mockTransactionId, userId);
       expect(transactionService.deleteFutureTransactions).not.toHaveBeenCalled();
     });
   });

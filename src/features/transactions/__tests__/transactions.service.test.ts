@@ -34,10 +34,18 @@ describe('TransactionService', () => {
       create: jest.fn(),
     } as any;
 
+    // Mock do cache (contrato ICacheRepository — Issue #9)
+    const mockCacheRepo = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn(),
+      del: jest.fn(),
+      delByPattern: jest.fn(),
+    } as any;
+
     // Por padrão, mockamos que o usuário existe para não quebrar os testes existentes
     mockUserRepo.findById.mockResolvedValue({ id: 'user-id', name: 'Test User', email: 'test@test.com', nickname: 'test' });
 
-    service = new TransactionService(mockTransactionRepo, mockUserRepo);
+    service = new TransactionService(mockTransactionRepo, mockUserRepo, mockCacheRepo);
   });
 
   describe('createTransaction — parcelamento com datas incrementais', () => {

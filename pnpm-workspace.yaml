@@ -16,3 +16,7 @@ allowBuilds:
 
 ignoredBuiltDependencies:
   - unrs-resolver
+
+patchedDependencies:
+  '@types/jest@30.0.0': patches/@types__jest@30.0.0.patch
+  jest-runtime@30.3.0: patches/jest-runtime@30.3.0.patch

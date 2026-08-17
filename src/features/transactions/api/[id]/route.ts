@@ -24,7 +24,7 @@ export async function PUT(
 
     const body = await request.json();
 
-    const updated = await transactionService.updateTransaction(id, body);
+    const updated = await transactionService.updateTransaction(id, { ...body, userId });
 
     return NextResponse.json({ data: updated });
   } catch (error: any) {
@@ -70,7 +70,7 @@ export async function DELETE(
       return NextResponse.json({ success: true, count });
     }
 
-    await transactionService.deleteTransaction(id);
+    await transactionService.deleteTransaction(id, userId);
 
     return NextResponse.json({
       success: true,

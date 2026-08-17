@@ -36,8 +36,8 @@ describe('Transactions API Integration', () => {
     const createdTransaction = { id: '1', ...transactionData, userId };
 
     (transactionService.createTransaction as jest.Mock).mockResolvedValue(createdTransaction);
-    (transactionService.getAllTransactions as jest.Mock).mockResolvedValue([createdTransaction]);
-    (transactionService.getFinancialSummary as jest.Mock).mockResolvedValue({});
+    (transactionService.getAllTransactions as jest.Mock).mockResolvedValue({ data: [createdTransaction], fromCache: false });
+    (transactionService.getFinancialSummary as jest.Mock).mockResolvedValue({ data: {}, fromCache: false });
     (transactionService.deleteTransaction as jest.Mock).mockResolvedValue(true);
 
     // 1. Action: POST /api/transactions
@@ -72,7 +72,7 @@ describe('Transactions API Integration', () => {
     const deleteResponse = await DELETE(deleteReq, { params: Promise.resolve({ id: createdTransaction.id }) });
     expect(deleteResponse.status).toBe(200);
     
-    // Verify delete was called
-    expect(transactionService.deleteTransaction).toHaveBeenCalledWith(createdTransaction.id);
+    // Verify delete was called (novo contrato: userId como 2º parâmetro — Issue #9)
+    expect(transactionService.deleteTransaction).toHaveBeenCalledWith(createdTransaction.id, userId);
   });
 });

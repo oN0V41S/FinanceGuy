@@ -94,6 +94,9 @@ function useFakeDate(year = 2026, month = 0, day = 15) {
 beforeEach(() => {
   jest.restoreAllMocks();
   jest.useRealTimers();
+  // Issue #9: o hook agora grava snapshots em localStorage (SWR). Limpar o
+  // cache a cada teste restaura o isolamento que existia antes do cache.
+  localStorage.clear();
   mockFetch.mockReset();
 });
 
@@ -327,7 +330,9 @@ describe('useTransactions', () => {
       expect(mockFetch).toHaveBeenNthCalledWith(
         3,
         expect.stringContaining('/api/transactions'),
-        undefined, // GET sem options
+        // Issue #9: GET do refetch agora envia cache:'no-store' (nunca serve
+        // do cache HTTP do browser — dados frescos pós-mutation).
+        expect.objectContaining({ cache: 'no-store' }),
       );
     });
 
@@ -364,7 +369,9 @@ describe('useTransactions', () => {
       expect(mockFetch).toHaveBeenNthCalledWith(
         3,
         expect.stringContaining('/api/transactions'),
-        undefined,
+        // Issue #9: GET do refetch agora envia cache:'no-store' (nunca serve
+        // do cache HTTP do browser — dados frescos pós-mutation).
+        expect.objectContaining({ cache: 'no-store' }),
       );
     });
 
@@ -396,7 +403,9 @@ describe('useTransactions', () => {
       expect(mockFetch).toHaveBeenNthCalledWith(
         3,
         expect.stringContaining('/api/transactions'),
-        undefined,
+        // Issue #9: GET do refetch agora envia cache:'no-store' (nunca serve
+        // do cache HTTP do browser — dados frescos pós-mutation).
+        expect.objectContaining({ cache: 'no-store' }),
       );
     });
   });
@@ -429,7 +438,9 @@ describe('useTransactions', () => {
       expect(mockFetch).toHaveBeenNthCalledWith(
         3,
         expect.stringContaining('/api/transactions'),
-        undefined,
+        // Issue #9: GET do refetch agora envia cache:'no-store' (nunca serve
+        // do cache HTTP do browser — dados frescos pós-mutation).
+        expect.objectContaining({ cache: 'no-store' }),
       );
     });
 
@@ -462,7 +473,9 @@ describe('useTransactions', () => {
       expect(mockFetch).toHaveBeenNthCalledWith(
         3,
         expect.stringContaining('/api/transactions'),
-        undefined,
+        // Issue #9: GET do refetch agora envia cache:'no-store' (nunca serve
+        // do cache HTTP do browser — dados frescos pós-mutation).
+        expect.objectContaining({ cache: 'no-store' }),
       );
     });
   });
@@ -807,9 +820,13 @@ describe('useTransactions', () => {
         result.current.refresh();
       });
 
-      expect(result.current.isLoading).toBe(true);
+      // Issue #9: com stale-while-revalidate, refresh mantém os dados na tela
+      // (isLoading=false) e roda o fetch em background (isFetching=true).
+      // O snapshot recém-gravado no mount é lido como stale válido.
+      expect(result.current.isFetching).toBe(true);
 
-      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      await waitFor(() => expect(result.current.isFetching).toBe(false));
+      expect(result.current.isLoading).toBe(false);
     });
   });
 

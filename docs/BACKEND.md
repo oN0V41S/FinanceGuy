@@ -1,6 +1,6 @@
 # Documentação Backend – FinanceGuy
 
-**Versão**: 1.0 | **Status**: Concluído (Auth + Transactions) | **Last Updated**: Março 2026
+**Versão**: 1.1 | **Status**: Concluído (Auth + Transactions + Cache) | **Last Updated**: Agosto 2026
 
 ## Arquitetura da API
 
@@ -42,6 +42,21 @@ Requisições autenticadas (Header `x-user-id` injetado pelo middleware).
 
 **Query Parameters**: `type`, `category`, `startDate`, `endDate`.
 
+**Resposta 200** (cache server-side — Issue #9):
+```json
+{
+  "data": [ { "id": "t1", "type": "expense", "description": "...", "value": 1500, "date": "2026-08-01", "paid": false } ],
+  "summary": { "income": 5000, "expense": 1200, "balance": 3800 },
+  "total": 1
+}
+```
+
+**Headers de resposta**:
+| Header | Valor | Descrição |
+|--------|-------|-----------|
+| `Cache-Control` | `private, max-age=300` | Cache privado (por usuário) com TTL padrão de 300s |
+| `X-Cache` | `HIT` / `MISS` | Indica se a resposta veio do cache Redis/Upstash |
+
 ---
 
 ### 2. **POST /api/transactions** – Criar Transação
@@ -57,6 +72,15 @@ Requisições autenticadas (Header `x-user-id` injetado pelo middleware).
 
 ### 4. **DELETE /api/transactions/[id]** – Deletar
 ---
+
+## Cache Server-side (Redis/Upstash)
+
+- **Singleton**: `src/lib/cache.ts` segue o padrão do `src/lib/prisma.ts` — uma única instância por processo.
+- **Fallback NOOP**: sem `UPSTASH_REDIS_REST_URL`, o cache vira NOOP (graceful degradation em dev/CI) — o cliente Redis **não** é instanciado.
+- **Chave**: `transactions:{userId}:{md5(JSON.stringify(filters sem userId))}` — filtros fora do hash, userId como namespace.
+- **TTL**: `CACHE_TTL` (env) com default de **300s**; `Cache-Control: private, max-age=300` na resposta.
+- **Invalidação**: toda mutation (`create`, `update`, `delete`, `update/delete future`) executa `delByPattern('transactions:{userId}:*')`.
+- **Contrato**: `ICacheRepository` em `src/shared/interfaces/ICacheRepository.ts`; `getAllTransactions` e `getFinancialSummary` retornam `{ data, fromCache }` e reutilizam a MESMA chave — payloads de tipos diferentes (lista vs. summary) são detectados e tratados como MISS para evitar contaminação cruzada.
 
 ## Estratégia de Segurança
 
