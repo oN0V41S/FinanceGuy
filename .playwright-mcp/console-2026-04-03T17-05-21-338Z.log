@@ -1,5 +1,0 @@
-[    2778ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ https://ominous-space-acorn-jx4q5vpjvpp3pgvj-3000.app.github.dev/_next/static/chunks/ccf90_next_dist_6161fc0b._.js:2287
-[    3210ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ https://ominous-space-acorn-jx4q5vpjvpp3pgvj-3000.app.github.dev/login:0
-[    3267ms] [LOG] [HMR] connected @ https://ominous-space-acorn-jx4q5vpjvpp3pgvj-3000.app.github.dev/_next/static/chunks/ccf90_next_dist_6161fc0b._.js:2287
-[    3706ms] [LOG] [Fast Refresh] rebuilding @ https://ominous-space-acorn-jx4q5vpjvpp3pgvj-3000.app.github.dev/_next/static/chunks/ccf90_next_dist_6161fc0b._.js:2287
-[    3875ms] [LOG] [Fast Refresh] done in 447ms @ https://ominous-space-acorn-jx4q5vpjvpp3pgvj-3000.app.github.dev/_next/static/chunks/ccf90_next_dist_6161fc0b._.js:2287

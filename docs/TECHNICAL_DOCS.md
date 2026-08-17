@@ -585,7 +585,7 @@ Relatório automático de **cobertura de testes** em cada PR:
 
 3. **Tudo pronto**: Próximo push acionará workflow automaticamente
 
-O repositório está configurado para GitHub Flow. Consulte o [AGENTS.md](../AGENTS.md) para detalhes do fluxo de desenvolvimento.
+O repositório está configurado para GitHub Flow. Consulte o [git-workflow.md](git-workflow.md) para detalhes do fluxo de desenvolvimento.
 
 ---
 

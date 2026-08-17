@@ -1,7 +1,8 @@
 ---
 name: docs-architect
-description: Gera documentação técnica, ADRs, diagramas Mermaid e documentação de API. Use when documentando APIs, criando guias, ou escrevendo ADRs.
+description: Gera documentação técnica, ADRs, diagramas Mermaid e docs de API do FinanceGuy. Use when documentando APIs, criando guias ou escrevendo ADRs.
 mode: subagent
+color: accent
 ---
 
 # Sub-Agent: docs-architect
@@ -38,11 +39,13 @@ docs/
 ├── VISUAL_IDENTITY.md    # Design system (sempre referenciar)
 ├── TECHNICAL_DOCS.md    # Decisões arquiteturais
 ├── BACKEND.md           # API documentation
-└── SPEC.md              # Especificações de features
+├── ADR/                 # Architectural Decision Records
+├── features/            # Feature specifications
+└── specs/               # Implementation specs e contratos
 ```
 
 ## Comandos de Validação
 ```bash
-npm run lint:docs        # Verificar documentação (se existir)
-npx markdownlint **/*.md # Validar links e formato
+pnpm lint                # Verificar qualidade do código
+npx markdownlint-cli2 'docs/**/*.md' # Validar links e formato
 ```

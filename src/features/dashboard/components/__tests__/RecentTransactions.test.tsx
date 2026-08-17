@@ -33,7 +33,7 @@ describe('RecentTransactions', () => {
       const { container } = render(
         <RecentTransactions transactions={[]} isLoading={true} />
       );
-      const skeletonRows = container.querySelectorAll('.space-y-3 > div');
+      const skeletonRows = container.querySelectorAll('table tbody tr');
       expect(skeletonRows.length).toBe(5);
     });
 
@@ -43,7 +43,7 @@ describe('RecentTransactions', () => {
       );
       expect(screen.getByText('Transações Recentes')).toBeInTheDocument();
       expect(screen.queryByText('Nenhuma transação recente')).not.toBeInTheDocument();
-      const skeletonRows = container.querySelectorAll('.space-y-3 > div');
+      const skeletonRows = container.querySelectorAll('table tbody tr');
       expect(skeletonRows.length).toBe(5);
     });
   });
@@ -58,7 +58,7 @@ describe('RecentTransactions', () => {
       const { container } = render(
         <RecentTransactions transactions={[]} isLoading={false} />
       );
-      const skeletonRows = container.querySelectorAll('.space-y-3 > div');
+      const skeletonRows = container.querySelectorAll('table tbody tr');
       expect(skeletonRows.length).toBe(0);
     });
   });

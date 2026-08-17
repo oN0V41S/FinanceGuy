@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     const searchParams = request.nextUrl.searchParams;
+    const paidParam = searchParams.get('paid');
     const filters = {
       userId, // Filtro obrigatório para segurança
       type: searchParams.get('type') || undefined,
@@ -22,16 +23,25 @@ export async function GET(request: NextRequest) {
       responsible: searchParams.get('responsible') || undefined,
       startDate: searchParams.get('startDate') || undefined,
       endDate: searchParams.get('endDate') || undefined,
+      paid: paidParam !== null ? paidParam === 'true' : undefined,
     };
 
-    const transactions = await transactionService.getAllTransactions(filters);
-    const summary = await transactionService.getFinancialSummary(filters);
+    const { data, fromCache } = await transactionService.getAllTransactions(filters);
+    const { data: summary } = await transactionService.getFinancialSummary(filters);
 
-    return NextResponse.json({
-      data: transactions,
-      summary,
-      total: transactions.length,
-    });
+    return NextResponse.json(
+      {
+        data,
+        summary,
+        total: data.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=300',
+          'X-Cache': fromCache ? 'HIT' : 'MISS',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Erro ao buscar transações:', error);
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });

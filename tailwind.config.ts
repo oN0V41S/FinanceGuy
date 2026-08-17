@@ -1,11 +1,9 @@
 import type { Config } from 'tailwindcss';
 
 const config: Config = {
+  darkMode: 'class',
   content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/features/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
@@ -18,6 +16,9 @@ const config: Config = {
       colors: {
         background: 'var(--background)',
         foreground: 'var(--foreground)',
+        'on-primary': 'var(--on-primary)',
+        'on-surface': 'var(--on-surface)',
+        'on-surface-variant': 'var(--on-surface-variant)',
         surface: {
           DEFAULT: 'var(--surface)',
           bright: 'var(--surface-bright)',
@@ -85,6 +86,7 @@ const config: Config = {
         },
       },
       borderRadius: {
+        DEFAULT: 'var(--radius)',
         'md': '0.375rem',
       },
       boxShadow: {

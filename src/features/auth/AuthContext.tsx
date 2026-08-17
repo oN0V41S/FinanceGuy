@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { logoutAction } from '@/features/auth/actions/logoutAction';
+import { clearCacheByPrefix, CACHE_PREFIX } from '@/shared/hooks/useLocalStorageCache';
 
 interface User {
   name: string | null;
@@ -43,6 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setUser(null);
     localStorage.removeItem('user_profile');
+    // A02 — limpa TODOS os snapshots client-side (transactions/dashboard) antes
+    // do signOut: se o logoutAction falhar, o cache já foi removido e o próximo
+    // usuário no mesmo navegador não verá dados financeiros da conta anterior.
+    clearCacheByPrefix(CACHE_PREFIX);
     await logoutAction();
   };
 

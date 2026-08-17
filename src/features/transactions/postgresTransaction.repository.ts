@@ -9,6 +9,7 @@ export class PostgresTransactionRepository implements ITransactionRepository {
     if (filters?.type) where.type = filters.type;
     if (filters?.category) where.category = filters.category;
     if (filters?.responsible) where.responsible = filters.responsible;
+    if (filters?.paid !== undefined) where.paid = filters.paid;
     if (filters?.startDate || filters?.endDate) {
       where.date = {};
       if (filters.startDate) where.date.gte = new Date(filters.startDate);
@@ -27,13 +28,18 @@ export class PostgresTransactionRepository implements ITransactionRepository {
       date: rest.date.toISOString().split('T')[0], // YYYY-MM-DD
       type: rest.type as 'income' | 'expense',
       category: rest.category as Transaction['category'],
+      title: rest.title ?? undefined,
+      description: rest.description ?? undefined,
       installment_number: rest.installment_number ?? undefined,
       total_installments: rest.total_installments ?? undefined,
     }));
   }
 
-  async getById(id: string): Promise<Transaction | null> {
-    const transaction = await prisma.transaction.findUnique({ where: { id } });
+  async getById(id: string, userId?: string): Promise<Transaction | null> {
+    const where: any = { id };
+    if (userId) where.userId = userId;
+
+    const transaction = await prisma.transaction.findFirst({ where });
     if (!transaction) return null;
     const { userId: _u, ...rest } = transaction;
 
@@ -43,6 +49,8 @@ export class PostgresTransactionRepository implements ITransactionRepository {
       date: rest.date.toISOString().split('T')[0],
       type: rest.type as 'income' | 'expense',
       category: rest.category as Transaction['category'],
+      title: rest.title ?? undefined,
+      description: rest.description ?? undefined,
       installment_number: rest.installment_number ?? undefined,
       total_installments: rest.total_installments ?? undefined,
     };
@@ -50,10 +58,14 @@ export class PostgresTransactionRepository implements ITransactionRepository {
 
   async create(data: TransactionInput): Promise<Transaction> {
     const { userId, ...transactionData } = data; // Extrair userId
+    const { parent_transaction_id, ...restData } = transactionData;
     const transaction = await prisma.transaction.create({
       data: {
-        ...transactionData,
+        ...restData,
         date: new Date(transactionData.date),
+        parent_transaction: parent_transaction_id
+          ? { connect: { id: parent_transaction_id } }
+          : undefined,
         user: {
           connect: { id: userId }, // Conectar a transação ao usuário
         },
@@ -67,6 +79,8 @@ export class PostgresTransactionRepository implements ITransactionRepository {
       date: rest.date.toISOString().split('T')[0],
       type: rest.type as 'income' | 'expense',
       category: rest.category as Transaction['category'],
+      title: rest.title ?? undefined,
+      description: rest.description ?? undefined,
       installment_number: rest.installment_number ?? undefined,
       total_installments: rest.total_installments ?? undefined,
     };
@@ -89,6 +103,8 @@ export class PostgresTransactionRepository implements ITransactionRepository {
         date: rest.date.toISOString().split('T')[0],
         type: rest.type as 'income' | 'expense',
         category: rest.category as Transaction['category'],
+        title: rest.title ?? undefined,
+        description: rest.description ?? undefined,
         installment_number: rest.installment_number ?? undefined,
         total_installments: rest.total_installments ?? undefined,
       };
@@ -104,6 +120,41 @@ export class PostgresTransactionRepository implements ITransactionRepository {
     } catch (error) {
       return false;
     }
+  }
+
+  async deleteFuture(
+    parentId: string,
+    userId: string,
+    referenceDate: Date
+  ): Promise<number> {
+    const result = await prisma.transaction.deleteMany({
+      where: {
+        parent_transaction_id: parentId,
+        userId,
+        date: { gte: referenceDate },
+      },
+    });
+    return result.count;
+  }
+
+  async updateFuture(
+    parentId: string,
+    userId: string,
+    referenceDate: Date,
+    data: Partial<TransactionInput>
+  ): Promise<number> {
+    const updateData: any = { ...data };
+    if (data.date) updateData.date = new Date(data.date);
+
+    const result = await prisma.transaction.updateMany({
+      where: {
+        parent_transaction_id: parentId,
+        userId,
+        date: { gte: referenceDate },
+      },
+      data: updateData,
+    });
+    return result.count;
   }
 
   async getSummary(filters?: Record<string, any>): Promise<FinancialSummary> {

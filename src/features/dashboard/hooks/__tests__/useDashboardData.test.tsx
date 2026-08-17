@@ -38,6 +38,9 @@ const fortnightSummary = { summary: { income: 100, expense: 50, balance: 50 } };
 
 beforeEach(() => {
   mockFetch.mockReset();
+  // Issue #9: o hook agora grava snapshots em localStorage (SWR). Limpar o
+  // cache a cada teste restaura o isolamento que existia antes do cache.
+  localStorage.clear();
 });
 
 describe('useDashboardData', () => {
@@ -53,8 +56,16 @@ describe('useDashboardData', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('startDate=2025-01-01'));
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('endDate=2025-01-31'));
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('startDate=2025-01-01'),
+        // Issue #9: GET agora envia cache:'no-store' (nunca serve do cache
+        // HTTP do browser — dados frescos sempre).
+        expect.objectContaining({ cache: 'no-store' }),
+      );
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('endDate=2025-01-31'),
+        expect.objectContaining({ cache: 'no-store' }),
+      );
       expect(result.current.recentTransactions).toHaveLength(3);
       expect(result.current.recentTransactions[0].id).toBe('3');
       expect(result.current.recentTransactions[1].id).toBe('2');
@@ -177,7 +188,11 @@ describe('useDashboardData', () => {
       // Assert
       await waitFor(() => expect(result.current.isLoading).toBe(false));
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(mockFetch).toHaveBeenLastCalledWith(expect.stringContaining('startDate=2025-02-01'));
+      expect(mockFetch).toHaveBeenLastCalledWith(
+        expect.stringContaining('startDate=2025-02-01'),
+        // Issue #9: GET com cache:'no-store' (ver contrato do hook).
+        expect.objectContaining({ cache: 'no-store' }),
+      );
     });
 
     it('re-fetches when fortnight changes', async () => {

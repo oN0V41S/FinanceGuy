@@ -16,27 +16,28 @@ export const CategoryEnum = z.enum([
 
 // Complete Schema
 export const TransactionSchema = z.object({
-    id: z.string().uuid('ID deve ser um UUID válido'),
+    id: z.string().min(1, 'ID deve ser uma string não vazia'),
     type: TransactionTypeEnum,
-    description: z.string().min(1, 'Descrição é obrigatória').max(255),
+    title: z.string().trim().max(100, 'Título muito longo (máximo 100 caracteres)').optional(),
+    description: z.string().max(255, 'Descrição muito longa (máximo 255 caracteres)').optional(),
     value: z.number().positive('Valor deve ser positivo'),
     date: z.string().refine(
         (val) => !isNaN(Date.parse(val)),
         'Data deve estar em (YYYY-MM-DD)'
     ),
     category: CategoryEnum,
-    responsible: z.string().min(1, 'Responsael é Obrigatório').max(100),
+    responsible: z.string().min(1, 'Responsável é Obrigatório').max(100),
     installment_number: z.number().positive().optional(),
     total_installments: z.number().positive().optional(),
     is_recurring: z.boolean().optional().default(false),
-    parent_transaction_id: z.string().uuid().optional().nullable(),
+    parent_transaction_id: z.string().optional().nullable(),
     paid: z.boolean().optional().default(false),
     created_at: z.date().optional(),
     updated_at: z.date().optional()
 });
 
-// Schema for Crate (without id)
-export const CreateTransactionSchema = TransactionSchema.omit({id: true});
+// Schema for Create (without id, created_at, updated_at)
+export const CreateTransactionSchema = TransactionSchema.omit({ id: true, created_at: true, updated_at: true });
 
 // Schema for Update (all optional)
 export const UpdateTransactionSchema = TransactionSchema.partial();

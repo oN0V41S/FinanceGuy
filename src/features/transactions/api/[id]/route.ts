@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { UpdateTransactionSchema } from '../../validations';
-import { transactionRepository } from '@/core/container';
+import { transactionService } from '@/core/container';
 
 // PUT /api/transactions/[id] - Atualizar transação existente
 export async function PUT(
@@ -8,28 +7,41 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const userId = request.headers.get('x-user-id');
+    if (!userId) {
+      return NextResponse.json({ error: 'Usuário não identificado' }, { status: 401 });
+    }
+
     const { id } = await params;
+    const scope = request.nextUrl.searchParams.get('scope');
+
+    // scope=future — "esta e futuras": atualiza a parcela selecionada e as seguintes.
+    if (scope === 'future') {
+      const body = await request.json();
+      const count = await transactionService.updateFutureTransactions(id, userId, body);
+      return NextResponse.json({ data: { updated: count } });
+    }
+
     const body = await request.json();
-    const validatedData = UpdateTransactionSchema.parse(body);
 
-    const updated = await transactionRepository.update(id, validatedData);
+    const updated = await transactionService.updateTransaction(id, { ...body, userId });
 
-    if (!updated) {
+    return NextResponse.json({ data: updated });
+  } catch (error: any) {
+    if (error?.name === 'ZodError') {
       return NextResponse.json(
-        { error: 'Transação não encontrada' },
+        { error: 'Validação falhou', issues: error.issues ?? error.errors },
+        { status: 400 }
+      );
+    }
+
+    if (error?.message?.includes('não encontrada')) {
+      return NextResponse.json(
+        { error: error.message },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ data: updated });
-  } catch (error: any) {
-    if (error.name === 'ZodError') {
-      console.log(error)
-      return NextResponse.json(
-        { error: 'Validação falhou', issues: error },
-        { status: 400 }
-      );
-    }
     console.error('Erro ao atualizar transação:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
@@ -44,22 +56,35 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const success = await transactionRepository.delete(id);
-
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Transação não encontrada' },
-        { status: 404 }
-      );
+    const userId = request.headers.get('x-user-id');
+    if (!userId) {
+      return NextResponse.json({ error: 'Usuário não identificado' }, { status: 401 });
     }
+
+    const { id } = await params;
+    const scope = request.nextUrl.searchParams.get('scope');
+
+    // scope=future — "esta e futuras": deleta a parcela selecionada e as seguintes.
+    if (scope === 'future') {
+      const count = await transactionService.deleteFutureTransactions(id, userId);
+      return NextResponse.json({ success: true, count });
+    }
+
+    await transactionService.deleteTransaction(id, userId);
 
     return NextResponse.json({
       success: true,
       message: 'Transação deletada',
       id,
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message?.includes('não encontrada')) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 404 }
+      );
+    }
+
     console.error('Erro ao deletar transação:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },

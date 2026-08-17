@@ -2,9 +2,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { HeaderActions } from '../HeaderActions';
 
 describe('HeaderActions', () => {
-  it('renderiza os botões Notificações, Configurações e Perfil', () => {
+  it('renderiza os botões Configurações e Perfil', () => {
     render(<HeaderActions onLogout={jest.fn()} />);
-    expect(screen.getByLabelText('Notificações')).toBeInTheDocument();
     expect(screen.getByLabelText('Configurações')).toBeInTheDocument();
     expect(screen.getByLabelText('Perfil')).toBeInTheDocument();
   });
@@ -20,12 +19,5 @@ describe('HeaderActions', () => {
     fireEvent.click(screen.getByLabelText('Perfil'));
     fireEvent.click(screen.getByText('Sair'));
     expect(mockLogout).toHaveBeenCalledTimes(1);
-  });
-
-  it('não chama onLogout ao clicar em Notificações', () => {
-    const mockLogout = jest.fn();
-    render(<HeaderActions onLogout={mockLogout} />);
-    fireEvent.click(screen.getByLabelText('Notificações'));
-    expect(mockLogout).not.toHaveBeenCalled();
   });
 });

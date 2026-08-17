@@ -19,6 +19,8 @@ jobs:
       contents: read
       pull-requests: read
       issues: read
+      # Permissão explícita para fontes do Google
+      allow-dns-zones: ['fonts.gstatic.com']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { HeaderIconButton } from './HeaderIconButton';
 import { ProfileDropdown } from './ProfileDropdown';
 import { ConfigModal } from './ConfigModal';
@@ -15,11 +15,6 @@ export function HeaderActions({ onLogout }: HeaderActionsProps) {
 
   return (
     <div className="flex items-center gap-1 shrink-0 ml-auto">
-      <HeaderIconButton
-        icon={<Bell className="size-5" />}
-        label="Notificações"
-      />
-
       <HeaderIconButton
         icon={<Settings className="size-5" />}
         label="Configurações"
