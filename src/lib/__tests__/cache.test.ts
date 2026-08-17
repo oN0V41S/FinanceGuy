@@ -17,6 +17,10 @@
  * "Cannot find module '@/lib/cache'" (implementação ainda não existe).
  */
 import { Redis } from '@upstash/redis';
+// Tipo REAL do SDK (v1.38.2) usado no teste de contrato — compile-time check:
+// se uma futura versão do SDK mudar o formato do TTL em `set`, este arquivo
+// deixa de compilar (tsc --noEmit) e o teste quebra na CI.
+import type { Redis as RedisType } from '@upstash/redis';
 
 // Instância única do cliente mockado — o factory do jest.mock é a ÚNICA
 // implementação de @upstash/redis vista pelo módulo sob teste.
@@ -99,7 +103,7 @@ describe('src/lib/cache — cliente Redis com fallback NOOP', () => {
       expect(mockRedisInstance.set).toHaveBeenCalledWith(
         'transactions:u1:abc',
         '{"data":[]}',
-        300
+        { ex: 300 }
       );
 
       mockRedisInstance.get.mockResolvedValue('{"data":[]}');
@@ -119,7 +123,19 @@ describe('src/lib/cache — cliente Redis com fallback NOOP', () => {
       );
 
       await cache.set('key', 'value');
-      expect(mockRedisInstance.set).toHaveBeenCalledWith('key', 'value', 300);
+      expect(mockRedisInstance.set).toHaveBeenCalledWith('key', 'value', { ex: 300 });
+    });
+
+    it('should apply CACHE_TTL env (600) as the ex option when defined', async () => {
+      process.env.UPSTASH_REDIS_REST_URL = 'https://mock.upstash.io';
+      process.env.CACHE_TTL = '600';
+
+      const { cache }: { cache: CacheLike } = await jest.isolateModulesAsync(() =>
+        import('@/lib/cache')
+      );
+
+      await cache.set('key', 'value');
+      expect(mockRedisInstance.set).toHaveBeenCalledWith('key', 'value', { ex: 600 });
     });
 
     it('should delete all keys matching the pattern via keys + del on delByPattern', async () => {
@@ -140,6 +156,37 @@ describe('src/lib/cache — cliente Redis com fallback NOOP', () => {
       expect(mockRedisInstance.del).toHaveBeenCalledWith(
         'transactions:u1:aaa',
         'transactions:u1:bbb'
+      );
+    });
+  });
+
+  describe('contrato com o SDK real (@upstash/redis v1.38.2)', () => {
+    it('should pass the TTL as the { ex: number } OPTION to the real Redis set signature (compile-time contract)', async () => {
+      // 1) RUNTIME SANITY: o módulo REAL do SDK (contornando o jest.mock)
+      //    exporta a classe Redis — garante que o teste valida contra o SDK
+      //    de verdade, não contra um shape inventado.
+      const actualSdk = jest.requireActual<typeof import('@upstash/redis')>(
+        '@upstash/redis'
+      );
+      expect(typeof actualSdk.Redis).toBe('function');
+
+      // 2) COMPILE-TIME CONTRACT: `sdkSet` é tipado com a assinatura REAL do
+      //    SDK (`Redis['set']`). A chamada abaixo espelha exatamente o que o
+      //    wrapper em src/lib/cache.ts faz (`client.set(key, value, { ex })`).
+      //    Se o SDK mudar o formato do TTL (ex.: aceitar número posicional,
+      //    renomear `ex` ou torná-lo obrigatório de outra forma), o
+      //    `tsc --noEmit` QUEBRA aqui — impedindo drift silencioso.
+      const sdkSet: RedisType['set'] = mockRedisInstance.set as unknown as RedisType['set'];
+
+      // Espelho da chamada do wrapper: this.client.set(key, value, { ex: ttl })
+      sdkSet('contract:key', 'contract:value', { ex: 300 });
+
+      // 3) RUNTIME: o argumento que chega ao cliente é o objeto de OPÇÕES
+      //    { ex: 300 } — nunca um número posicional.
+      expect(mockRedisInstance.set).toHaveBeenCalledWith(
+        'contract:key',
+        'contract:value',
+        { ex: 300 }
       );
     });
   });

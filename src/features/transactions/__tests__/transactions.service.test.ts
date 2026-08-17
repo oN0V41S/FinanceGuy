@@ -3,6 +3,15 @@ import { TransactionService } from '../transactions.service';
 import { ITransactionRepository } from '../ITransaction.repository';
 import { IUserRepository } from '@/features/auth/IUser.repository';
 
+// Contrato local do cache (equivale a ICacheRepository — padrão usado também
+// em transactions.service.cache.test.ts)
+interface CacheRepositoryLike {
+  get(key: string): Promise<string | null>;
+  set(key: string, value: string, ttlSeconds?: number): Promise<void>;
+  del(key: string): Promise<void>;
+  delByPattern(pattern: string): Promise<void>;
+}
+
 describe('TransactionService', () => {
   let service: TransactionService;
   // jest.Mocked<ITransactionRepository> + métodos do novo contrato de operações em lote
@@ -40,7 +49,7 @@ describe('TransactionService', () => {
       set: jest.fn(),
       del: jest.fn(),
       delByPattern: jest.fn(),
-    } as any;
+    } as unknown as jest.Mocked<CacheRepositoryLike>;
 
     // Por padrão, mockamos que o usuário existe para não quebrar os testes existentes
     mockUserRepo.findById.mockResolvedValue({ id: 'user-id', name: 'Test User', email: 'test@test.com', nickname: 'test' });

@@ -2,12 +2,16 @@ import { Redis } from '@upstash/redis';
 import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
 
 /**
- * Subconjunto do cliente Redis usado pelo cache (evita acoplar a assinatura
- * exata do SDK — ex.: TTL posicional em `set`).
+ * Subconjunto do cliente Redis usado pelo cache.
+ *
+ * ALINHADO com o contrato real do SDK @upstash/redis (v1.38.2):
+ * `set<TData>(key, value, opts?: SetCommandOptions)` — o TTL é passado como
+ * OPÇÃO `{ ex: number }`, NUNCA como número posicional (que o SDK não aceita
+ * e lançaria TypeError em produção no primeiro MISS).
  */
 interface CacheClient {
   get(key: string): Promise<string | null>;
-  set(key: string, value: string, ttlSeconds: number): Promise<unknown>;
+  set(key: string, value: string, opts: { ex: number }): Promise<unknown>;
   del(...keys: string[]): Promise<unknown>;
   keys(pattern: string): Promise<string[]>;
 }
@@ -22,7 +26,8 @@ class UpstashCacheRepository implements ICacheRepository {
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
     const ttl = ttlSeconds ?? Number(process.env.CACHE_TTL ?? 300);
-    await this.client.set(key, value, ttl);
+    // Contrato do SDK: TTL como OPÇÃO ({ ex }), não posicional.
+    await this.client.set(key, value, { ex: ttl });
   }
 
   async del(key: string): Promise<void> {
@@ -60,7 +65,7 @@ const cacheClient: CacheClient | null =
     ? (new Redis({
         url: process.env.UPSTASH_REDIS_REST_URL as string,
         token: process.env.UPSTASH_REDIS_REST_TOKEN as string,
-      }) as unknown as CacheClient)
+      }) as CacheClient)
     : null;
 
 // Singleton do módulo (padrão prisma.ts): instanciado uma única vez por
