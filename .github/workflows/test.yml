@@ -50,7 +50,7 @@ jobs:
           echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY || '' }}" >> .env.local
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no--frozen-lockfile
 
       - name: Generate Prisma Client
         run: pnpm exec prisma generate
