@@ -7,11 +7,12 @@ import { Wallet, LayoutDashboard, ArrowLeftRight, Settings, X } from 'lucide-rea
 import { HeaderLayout } from '@/features/dashboard/components/HeaderLayout';
 import { MobileNavBar } from '@/features/dashboard/components/MobileNavBar';
 import { SummaryCard } from '@/features/dashboard/components/SummaryCard';
+import { RecentTransactions } from '@/features/dashboard/components/RecentTransactions';
 import { MonthFilter } from '@/features/dashboard/components/MonthFilter';
 import { FortnightFilter } from '@/features/dashboard/components/FortnightFilter';
 import type { FortnightValue } from '@/features/dashboard/components/FortnightFilter';
+import { EmptyState } from '@/features/dashboard/components/EmptyState';
 import { LazyLoad } from '@/shared/components/LazyLoad';
-import { buttonVariants } from '@/components/ui/button';
 import { useDashboardData } from '@/features/dashboard/hooks/useDashboardData';
 import { cn } from '@/lib/utils';
 
@@ -30,7 +31,7 @@ export default function DashboardPage() {
   const [selectedYear, setSelectedYear] = useState(String(now.getFullYear()));
   const [selectedFortnight, setSelectedFortnight] = useState<FortnightValue>('all');
 
-  const { summary, isLoading, error } =
+  const { recentTransactions, summary, isLoading, error, refresh } =
     useDashboardData(selectedMonth, selectedYear, selectedFortnight);
 
   const isActive = (href: string) => {
@@ -68,7 +69,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">
               <Wallet className="w-5 h-5 text-primary" />
             </div>
-            <span className="font-sans font-semibold text-xl text-primary">
+            <span className="font-display font-semibold text-xl text-primary">
               FinanceGuy
             </span>
           </div>
@@ -131,10 +132,7 @@ export default function DashboardPage() {
       {/* Main Content Area */}
       <div className="flex flex-col pb-16 md:pb-0">
         {/* Header — menu button triggers drawer on ALL screen sizes */}
-        <HeaderLayout
-          isDrawerOpen={drawerOpen}
-          onToggleDrawer={() => setDrawerOpen(!drawerOpen)}
-        />
+        <HeaderLayout onOpenMobileDrawer={() => setDrawerOpen(true)} />
 
         {/* Dashboard Content */}
         <main className="flex-1 p-4 md:p-6">
@@ -148,7 +146,7 @@ export default function DashboardPage() {
             {/* Page Title + Filters */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
-                <h1 className="text-2xl font-semibold text-on-surface font-sans">
+                <h1 className="text-2xl font-semibold text-on-surface font-display">
                   Visão Geral
                 </h1>
                 <p className="text-sm text-on-surface-variant mt-1">
@@ -178,15 +176,14 @@ export default function DashboardPage() {
               </div>
             </LazyLoad>
 
-            {/* Link to full transactions page */}
-            <div className="flex justify-center">
-              <Link
-                href="/transactions"
-                className={buttonVariants({ variant: "outline", size: "lg" })}
-              >
-                Ver todas as transações
-              </Link>
-            </div>
+            {/* Recent Transactions — lazy loaded */}
+            <LazyLoad isReady={!isLoading} message="Carregando transações recentes...">
+              {recentTransactions.length === 0 ? (
+                <EmptyState />
+              ) : (
+                <RecentTransactions transactions={recentTransactions} isLoading={isLoading} />
+              )}
+            </LazyLoad>
           </div>
         </main>
       </div>

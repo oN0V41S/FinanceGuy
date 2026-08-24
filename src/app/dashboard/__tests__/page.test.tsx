@@ -16,19 +16,9 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/features/dashboard/components/HeaderLayout', () => ({
-  HeaderLayout: ({
-    isDrawerOpen,
-    onToggleDrawer,
-  }: {
-    isDrawerOpen?: boolean;
-    onToggleDrawer?: () => void;
-  }) => (
+  HeaderLayout: ({ onOpenMobileDrawer }: { onOpenMobileDrawer?: () => void }) => (
     <header data-testid="header">
-      <button
-        aria-label="Abrir menu"
-        aria-expanded={isDrawerOpen ?? false}
-        onClick={onToggleDrawer}
-      >
+      <button aria-label="Abrir menu" onClick={onOpenMobileDrawer}>
         Menu
       </button>
     </header>
@@ -41,6 +31,10 @@ jest.mock('@/features/dashboard/components/MobileNavBar', () => ({
 
 jest.mock('@/features/dashboard/components/SummaryCard', () => ({
   SummaryCard: ({ label }: { label: string }) => <div data-testid="summary-card">{label}</div>,
+}));
+
+jest.mock('@/features/dashboard/components/RecentTransactions', () => ({
+  RecentTransactions: () => <div data-testid="recent-transactions">Transactions</div>,
 }));
 
 jest.mock('@/features/dashboard/components/MonthFilter', () => ({
@@ -75,12 +69,18 @@ jest.mock('@/features/dashboard/components/FortnightFilter', () => ({
   ),
 }));
 
+jest.mock('@/features/dashboard/components/EmptyState', () => ({
+  EmptyState: () => <div data-testid="empty-state">EmptyState</div>,
+}));
+
 import DashboardPage from '../page';
 
 const defaultData = {
+  recentTransactions: [],
   summary: { income: 0, expense: 0, balance: 0 },
   isLoading: false,
   error: null,
+  refresh: jest.fn(),
 };
 
 describe('DashboardPage Integration', () => {
@@ -184,15 +184,6 @@ describe('DashboardPage Integration', () => {
       render(<DashboardPage />);
 
       expect(screen.getByText('Falha ao carregar dados financeiros')).toBeInTheDocument();
-    });
-  });
-
-  describe('Link para transações', () => {
-    it('renderiza botão "Ver todas as transações" com link para /transactions', () => {
-      render(<DashboardPage />);
-      const link = screen.getByRole('link', { name: 'Ver todas as transações' });
-      expect(link).toBeInTheDocument();
-      expect(link).toHaveAttribute('href', '/transactions');
     });
   });
 

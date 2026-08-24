@@ -1,8 +1,7 @@
 ---
 name: security-secret-auditor
-description: Audita segurança do código FinanceGuy: secrets expostos, SQL injection, CVEs e dados financeiros. Use when auditando segurança, verificando secrets ou antes de deploy.
+description: Audita segurança do código: secrets expostos, SQL injection, CVEs e dados financeiros. Use when auditando segurança, verificando secrets, ou antes de deploy.
 mode: subagent
-color: error
 ---
 
 # Sub-Agent: security-secret-auditor

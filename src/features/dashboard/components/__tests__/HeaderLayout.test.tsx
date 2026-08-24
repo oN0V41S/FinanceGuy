@@ -6,12 +6,21 @@ jest.mock('@/features/auth/actions/logoutAction', () => ({
 }));
 
 describe('HeaderLayout', () => {
-  it('renderiza o botão de menu visível em todas as telas', () => {
+  it('renderiza botão de menu', () => {
+    render(<HeaderLayout />);
+    const menuButton = screen.getByLabelText('Abrir menu');
+    expect(menuButton).toBeInTheDocument();
+    // O botão de menu agora é visível em todas as telas (sem md:hidden)
+    expect(menuButton).toHaveClass('flex');
+  });
+
+  it('renderiza botão de menu em todas as telas', () => {
+    // O botão de menu agora é visível em todas as telas
     const { container } = render(<HeaderLayout />);
     const menuButton = container.querySelector('button[aria-label="Abrir menu"]');
     expect(menuButton).toBeInTheDocument();
+    // Verifica que NÃO tem md:hidden (visível em todas as telas)
     expect(menuButton).not.toHaveClass('md:hidden');
-    expect(menuButton).toHaveClass('inline-flex');
   });
 
   it('renderiza a marca "FinanceGuy" visível em todas as telas', () => {
@@ -26,32 +35,19 @@ describe('HeaderLayout', () => {
     expect(mockToggleDrawer).toHaveBeenCalledTimes(1);
   });
 
-  it('não chama onToggleDrawer quando a prop não é fornecida', () => {
-    render(<HeaderLayout />);
-    expect(() => fireEvent.click(screen.getByLabelText('Abrir menu'))).not.toThrow();
-  });
-
-  it('reflete o estado do drawer via aria-expanded (false)', () => {
-    render(<HeaderLayout isDrawerOpen={false} />);
-    expect(screen.getByLabelText('Abrir menu')).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('reflete o estado do drawer via aria-expanded (true)', () => {
-    render(<HeaderLayout isDrawerOpen={true} />);
-    expect(screen.getByLabelText('Abrir menu')).toHaveAttribute('aria-expanded', 'true');
-  });
-
-  it('alterna aria-expanded conforme a prop isDrawerOpen muda', () => {
-    const { rerender } = render(<HeaderLayout isDrawerOpen={false} />);
-    expect(screen.getByLabelText('Abrir menu')).toHaveAttribute('aria-expanded', 'false');
-
-    rerender(<HeaderLayout isDrawerOpen={true} />);
-    expect(screen.getByLabelText('Abrir menu')).toHaveAttribute('aria-expanded', 'true');
+  it('renderiza SearchInput em desktop', () => {
+    const { container } = render(<HeaderLayout />);
+    const searchContainer = container.querySelector('.hidden.md\\:flex');
+    expect(searchContainer).toBeInTheDocument();
+    const searchInput = searchContainer?.querySelector('input[type="search"]');
+    expect(searchInput).toBeInTheDocument();
+    expect(searchInput).toHaveAttribute('placeholder', 'Buscar transações...');
   });
 
   it('renderiza os botões de ação Configurações e Perfil', () => {
     render(<HeaderLayout />);
-    expect(screen.getByLabelText('Configurações')).toBeInTheDocument();
+    expect(screen.getAllByLabelText('Assistente IA')).toHaveLength(2);
+    expect(screen.getByLabelText('Notificações')).toBeInTheDocument();
     expect(screen.getByLabelText('Perfil')).toBeInTheDocument();
   });
 

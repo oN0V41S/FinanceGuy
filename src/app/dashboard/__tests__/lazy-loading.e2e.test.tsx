@@ -30,6 +30,22 @@ jest.mock('@/features/dashboard/components/SummaryCard', () => ({
   ),
 }));
 
+jest.mock('@/features/dashboard/components/RecentTransactions', () => ({
+  RecentTransactions: ({ transactions }: { transactions: any[] }) => (
+    <div data-testid="recent-transactions">
+      {transactions.length > 0 ? (
+        transactions.map((t: any) => <span key={t.id}>{t.description}</span>)
+      ) : (
+        <span data-testid="empty-table">Nenhuma transação</span>
+      )}
+    </div>
+  ),
+}));
+
+jest.mock('@/features/dashboard/components/EmptyState', () => ({
+  EmptyState: () => <div data-testid="empty-state">Nenhuma transação encontrada</div>,
+}));
+
 jest.mock('@/features/dashboard/components/MonthFilter', () => ({
   MonthFilter: () => <div data-testid="month-filter">MonthFilter</div>,
 }));
@@ -86,15 +102,22 @@ describe('Dashboard Lazy Loading — Components Never Render Empty (E2E)', () =>
 
   // ── Loading state: components MUST be OFF ──
 
-  it('while loading: SummaryCards are OFF — only spinner shows', () => {
+  it('while loading: SummaryCards and RecentTransactions are OFF — only spinner shows', () => {
     mockUseDashboardData.mockReturnValue(loadingState);
     render(<DashboardPage />);
 
-    // Spinner is shown while loading
-    expect(screen.getAllByRole('status').length).toBeGreaterThanOrEqual(1);
+    // Two spinners are shown (one for cards, one for transactions)
+    expect(screen.getAllByRole('status')).toHaveLength(2);
 
     // SummaryCards must NOT be rendered (not even with zeros)
     expect(screen.queryByTestId('summary-card')).not.toBeInTheDocument();
+
+    // RecentTransactions must NOT be rendered (not even empty table)
+    expect(screen.queryByTestId('recent-transactions')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('empty-table')).not.toBeInTheDocument();
+
+    // EmptyState must NOT be rendered
+    expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument();
 
     // Header and month filter are always visible (no data dependency)
     expect(screen.getByTestId('header')).toBeInTheDocument();
@@ -120,28 +143,33 @@ describe('Dashboard Lazy Loading — Components Never Render Empty (E2E)', () =>
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it('after loading with data: page shows transactions link', () => {
+  it('after loading with data: RecentTransactions shows actual transaction rows', () => {
     mockUseDashboardData.mockReturnValue(loadedState);
     render(<DashboardPage />);
 
-    // The "Ver todas as transações" link should be present
-    expect(screen.getByText('Ver todas as transações')).toBeInTheDocument();
+    expect(screen.getByTestId('recent-transactions')).toBeInTheDocument();
+    expect(screen.getByText('Supermercado')).toBeInTheDocument();
+    expect(screen.getByText('Salário')).toBeInTheDocument();
+
+    // No empty placeholder inside the component
+    expect(screen.queryByTestId('empty-table')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument();
   });
 
-  // ── Loaded with empty transactions: summary shows zero values ──
+  // ── Loaded with empty transactions: EmptyState shows, RecentTransactions stays OFF ──
 
-  it('after loading with no transactions: summary cards show with zero values', () => {
+  it('after loading with no transactions: RecentTransactions stays OFF, EmptyState can show', () => {
     mockUseDashboardData.mockReturnValue({
       ...loadedState,
       recentTransactions: [],
     });
     render(<DashboardPage />);
 
-    // SummaryCards appear even with zero/empty data (they show R$ 0,00)
-    const cards = screen.getAllByTestId('summary-card');
-    expect(cards.length).toBeGreaterThanOrEqual(1);
+    // RecentTransactions must NOT render — not even an empty list/table
+    expect(screen.queryByTestId('recent-transactions')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('empty-table')).not.toBeInTheDocument();
 
-    // The "Ver todas as transações" link is still present
-    expect(screen.getByText('Ver todas as transações')).toBeInTheDocument();
+    // EmptyState is the ONLY acceptable "empty" visual (it's a different component)
+    expect(screen.getByTestId('empty-state')).toBeInTheDocument();
   });
 });
