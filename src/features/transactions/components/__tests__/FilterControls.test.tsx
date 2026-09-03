@@ -65,15 +65,15 @@ jest.mock('@/lib/utils', () => ({
 // ---------------------------------------------------------------------------
 
 const defaultProps = {
-  quinzenalFilter: 'month' as const,
+  quinzenalFilter: 'month' as 'month' | 'first' | 'second',
   onQuinzenalFilterChange: jest.fn(),
   selectedYear: '2026',
   onYearChange: jest.fn(),
   selectedMonth: '01',
   onMonthChange: jest.fn(),
-  paidFilter: 'all' as const,
+  paidFilter: 'all' as 'all' | 'paid' | 'unpaid',
   onPaidFilterChange: jest.fn(),
-  typeFilter: 'all' as const,
+  typeFilter: 'all' as 'all' | 'income' | 'expense',
   onTypeFilterChange: jest.fn(),
   searchFilter: '',
   onSearchChange: jest.fn(),
