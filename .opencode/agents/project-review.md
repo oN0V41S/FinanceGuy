@@ -1,8 +1,7 @@
 ---
 name: project-review
-description: Audita conformidade com Clean Architecture, revisa estrutura do código e valida padrões TypeScript/Prisma/Zod do FinanceGuy. Use when revisando arquitetura, validando features ou antes de PRs.
+description: Audita conformidade com Clean Architecture, revisa estrutura do código e valida padrões TypeScript/Prisma/Zod. Use when revisando arquitetura, validando features, ou antes de PRs.
 mode: subagent
-color: secondary
 ---
 
 # Sub-Agent: project-review
@@ -48,7 +47,13 @@ src/
 
 ## Comandos de Análise
 ```bash
+<<<<<<< HEAD
 pnpm lint
 pnpm exec tsc --noEmit
 pnpm test:coverage
+=======
+npm run lint
+npx tsc --noEmit
+npm run test:coverage
+>>>>>>> 621809d47e7ef71e4061c4f48a706e0f74ab01b5
 ```

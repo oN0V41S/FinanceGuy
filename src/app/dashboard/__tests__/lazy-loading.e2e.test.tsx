@@ -1,41 +1,52 @@
 /**
- * E2E — Dashboard lazy loading: components must never render empty.
+ * E2E — Dashboard lazy loading: LazyLoad gates MonthlyChart and CategoryBreakdown.
  *
- * Validation rule:
- *   - While loading → SummaryCards and RecentTransactions are OFF (not in DOM).
- *     Only the loading spinner is visible.
- *   - After loading → components render ONLY if they have real data to show.
- *     SummaryCards show non-zero values. RecentTransactions shows transactions.
- *   - Empty/zero state → components stay OFF. The EmptyState component can
- *     appear, but SummaryCards/RecentTransactions must NOT mount with zeros.
+ * Current architecture (as of feat/dashboard):
+ *   - SummaryCards: always rendered (isLoading passed as prop, no LazyLoad gate)
+ *   - MonthlyChart: wrapped in <LazyLoad isReady={!chartLoading}>
+ *   - CategoryBreakdown: wrapped in <LazyLoad isReady={!isLoading}>
+ *   - GoalsCard, AIInsightCard: always rendered (static)
  */
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-// Mock useDashboardData with controllable loading state
 const mockUseDashboardData = jest.fn();
+const mockUseMonthlySummary = jest.fn();
 
 jest.mock('@/features/dashboard/hooks/useDashboardData', () => ({
   useDashboardData: (...args: any[]) => mockUseDashboardData(...args),
 }));
 
-// Mock child components — only LoadingSpinner (via LazyLoad) is real
+jest.mock('@/features/dashboard/hooks/useMonthlySummary', () => ({
+  useMonthlySummary: (...args: any[]) => mockUseMonthlySummary(...args),
+}));
+
 jest.mock('@/features/dashboard/components/SummaryCard', () => ({
-  SummaryCard: ({ label, value }: { label: string; value: number }) => (
-    <div data-testid="summary-card">
-      {label}: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
-    </div>
+  SummaryCard: ({ label }: { label: string }) => (
+    <div data-testid="summary-card">{label}</div>
   ),
+}));
+
+jest.mock('@/features/dashboard/components/MonthlyChart', () => ({
+  MonthlyChart: () => <div data-testid="monthly-chart">MonthlyChart</div>,
+}));
+
+jest.mock('@/features/dashboard/components/CategoryBreakdown', () => ({
+  CategoryBreakdown: () => <div data-testid="category-breakdown">CategoryBreakdown</div>,
+}));
+
+jest.mock('@/features/dashboard/components/GoalsCard', () => ({
+  GoalsCard: () => <div data-testid="goals-card">GoalsCard</div>,
+}));
+
+jest.mock('@/features/dashboard/components/AIInsightCard', () => ({
+  AIInsightCard: () => <div data-testid="ai-insight-card">AIInsightCard</div>,
 }));
 
 jest.mock('@/features/dashboard/components/MonthFilter', () => ({
   MonthFilter: () => <div data-testid="month-filter">MonthFilter</div>,
-}));
-
-jest.mock('@/features/dashboard/components/FortnightFilter', () => ({
-  FortnightFilter: () => <div data-testid="fortnight-filter">FortnightFilter</div>,
 }));
 
 jest.mock('@/features/dashboard/components/HeaderLayout', () => ({
@@ -52,96 +63,79 @@ jest.mock('next/navigation', () => ({
 
 import DashboardPage from '../page';
 
-describe('Dashboard Lazy Loading — Components Never Render Empty (E2E)', () => {
-  const loadingState = {
-    recentTransactions: [],
-    summary: { income: 0, expense: 0, balance: 0 },
-    isLoading: true,
-    error: null,
-    refresh: jest.fn(),
-  };
+const baseData = {
+  recentTransactions: [
+    { id: '1', date: '2026-06-15', value: 150, description: 'Mercado', responsible: 'João', category: 'Alimentação', type: 'expense', paid: true, is_recurring: false, parent_transaction_id: null },
+  ],
+  summary: { income: 5000, expense: 150, balance: 4850 },
+  error: null,
+  refresh: jest.fn(),
+};
 
-  const loadedState = {
-    recentTransactions: [
-      {
-        id: '1', date: '2026-06-15', value: 150.50,
-        description: 'Supermercado', responsible: 'João',
-        category: 'Alimentação', type: 'expense',
-      },
-      {
-        id: '2', date: '2026-06-10', value: 5000,
-        description: 'Salário', responsible: 'João',
-        category: 'Outros', type: 'income',
-      },
-    ],
-    summary: { income: 5000, expense: 150.50, balance: 4849.50 },
-    isLoading: false,
-    error: null,
-    refresh: jest.fn(),
-  };
+const baseMonthlySummary = {
+  data: [{ month: '06', monthLabel: 'Jun', income: 5000, expense: 150 }],
+  period: 'last6',
+  setPeriod: jest.fn(),
+};
 
+describe('Dashboard LazyLoad gates (E2E)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  // ── Loading state: components MUST be OFF ──
-
-  it('while loading: SummaryCards are OFF — only spinner shows', () => {
-    mockUseDashboardData.mockReturnValue(loadingState);
+  it('shows spinner instead of CategoryBreakdown while useDashboardData is loading', () => {
+    mockUseDashboardData.mockReturnValue({ ...baseData, isLoading: true });
+    mockUseMonthlySummary.mockReturnValue({ ...baseMonthlySummary, isLoading: false });
     render(<DashboardPage />);
 
-    // Spinner is shown while loading
-    expect(screen.getAllByRole('status').length).toBeGreaterThanOrEqual(1);
-
-    // SummaryCards must NOT be rendered (not even with zeros)
-    expect(screen.queryByTestId('summary-card')).not.toBeInTheDocument();
-
-    // Header and month filter are always visible (no data dependency)
-    expect(screen.getByTestId('header')).toBeInTheDocument();
-    expect(screen.getByTestId('month-filter')).toBeInTheDocument();
+    expect(screen.queryByTestId('category-breakdown')).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Carregando' })).toBeInTheDocument();
   });
 
-  // ── Loaded with data: components render with real content ──
+  it('shows spinner instead of MonthlyChart while useMonthlySummary is loading', () => {
+    mockUseDashboardData.mockReturnValue({ ...baseData, isLoading: false });
+    mockUseMonthlySummary.mockReturnValue({ ...baseMonthlySummary, isLoading: true });
+    render(<DashboardPage />);
 
-  it('after loading with data: SummaryCards show actual (non-zero) values', () => {
-    mockUseDashboardData.mockReturnValue(loadedState);
+    expect(screen.queryByTestId('monthly-chart')).not.toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Carregando' })).toBeInTheDocument();
+  });
+
+  it('shows both spinners when both hooks are loading', () => {
+    mockUseDashboardData.mockReturnValue({ ...baseData, isLoading: true });
+    mockUseMonthlySummary.mockReturnValue({ ...baseMonthlySummary, isLoading: true });
+    render(<DashboardPage />);
+
+    expect(screen.queryByTestId('monthly-chart')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('category-breakdown')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('status', { name: 'Carregando' })).toHaveLength(2);
+  });
+
+  it('renders MonthlyChart and CategoryBreakdown after both hooks finish loading', () => {
+    mockUseDashboardData.mockReturnValue({ ...baseData, isLoading: false });
+    mockUseMonthlySummary.mockReturnValue({ ...baseMonthlySummary, isLoading: false });
+    render(<DashboardPage />);
+
+    expect(screen.getByTestId('monthly-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('category-breakdown')).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Carregando' })).not.toBeInTheDocument();
+  });
+
+  it('always renders SummaryCards regardless of loading state', () => {
+    mockUseDashboardData.mockReturnValue({ ...baseData, isLoading: true });
+    mockUseMonthlySummary.mockReturnValue({ ...baseMonthlySummary, isLoading: true });
     render(<DashboardPage />);
 
     const cards = screen.getAllByTestId('summary-card');
     expect(cards).toHaveLength(3);
-
-    // Each card displays the label AND a non-zero formatted value
-    expect(cards[0]).toHaveTextContent('Entradas');
-    expect(cards[0]).toHaveTextContent(/R\$\s*5\.000/);
-    expect(cards[1]).toHaveTextContent(/R\$\s*150[.,]50/);
-    expect(cards[2]).toHaveTextContent(/R\$\s*4\.849[.,]5/);
-
-    // Loading spinner must be gone
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  it('after loading with data: page shows transactions link', () => {
-    mockUseDashboardData.mockReturnValue(loadedState);
+  it('always renders GoalsCard and AIInsightCard (static content)', () => {
+    mockUseDashboardData.mockReturnValue({ ...baseData, isLoading: true });
+    mockUseMonthlySummary.mockReturnValue({ ...baseMonthlySummary, isLoading: true });
     render(<DashboardPage />);
 
-    // The "Ver todas as transações" link should be present
-    expect(screen.getByText('Ver todas as transações')).toBeInTheDocument();
-  });
-
-  // ── Loaded with empty transactions: summary shows zero values ──
-
-  it('after loading with no transactions: summary cards show with zero values', () => {
-    mockUseDashboardData.mockReturnValue({
-      ...loadedState,
-      recentTransactions: [],
-    });
-    render(<DashboardPage />);
-
-    // SummaryCards appear even with zero/empty data (they show R$ 0,00)
-    const cards = screen.getAllByTestId('summary-card');
-    expect(cards.length).toBeGreaterThanOrEqual(1);
-
-    // The "Ver todas as transações" link is still present
-    expect(screen.getByText('Ver todas as transações')).toBeInTheDocument();
+    expect(screen.getByTestId('goals-card')).toBeInTheDocument();
+    expect(screen.getByTestId('ai-insight-card')).toBeInTheDocument();
   });
 });

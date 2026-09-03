@@ -4,6 +4,7 @@ import { IUserRepository } from '@/features/auth/IUser.repository';
 import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
 import { CreateTransactionSchema, UpdateTransactionSchema, TransactionInput } from './validations';
 import type { Transaction, FinancialSummary } from '@/types/finance';
+import type { MonthlyPoint } from './types';
 
 /**
  * Soma `months` a uma data 'YYYY-MM-DD' preservando o dia.
@@ -269,6 +270,28 @@ export class TransactionService {
     await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));
 
     return count;
+  }
+
+  async getMonthlySummary(userId: string, period: string): Promise<MonthlyPoint[]> {
+    const cacheKey = `transactions:${escapeGlobChars(userId)}:monthly:${period}`;
+
+    const cached = await this.cacheRepository.get(cacheKey);
+    if (cached !== null) {
+      try {
+        const parsed = JSON.parse(cached) as unknown;
+        if (Array.isArray(parsed)) {
+          return parsed as MonthlyPoint[];
+        }
+      } catch {
+        // A01 — payload corrompido: trata como MISS.
+        await this.cacheRepository.del(cacheKey);
+      }
+    }
+
+    const data = await this.transactionRepository.getMonthlySummary(userId, period);
+    await this.cacheRepository.set(cacheKey, JSON.stringify(data), this.getTtl());
+
+    return data;
   }
 
   async updateFutureTransactions(id: string, userId: string, data: unknown): Promise<number> {

@@ -31,7 +31,7 @@ describe('FortnightFilter', () => {
     const trigger = screen.getByLabelText('Filtrar por quinzena');
     await userEvent.click(trigger);
 
-    const option = screen.getByText('Dia 16 ao 31');
+    const option = await screen.findByText('Dia 16 ao 31');
     await userEvent.click(option);
 
     expect(onChange).toHaveBeenCalledWith('second');

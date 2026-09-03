@@ -6,9 +6,14 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
 const mockUseDashboardData = jest.fn();
+const mockUseMonthlySummary = jest.fn();
 
 jest.mock('@/features/dashboard/hooks/useDashboardData', () => ({
   useDashboardData: (...args: any[]) => mockUseDashboardData(...args),
+}));
+
+jest.mock('@/features/dashboard/hooks/useMonthlySummary', () => ({
+  useMonthlySummary: (...args: any[]) => mockUseMonthlySummary(...args),
 }));
 
 jest.mock('next/navigation', () => ({
@@ -16,19 +21,9 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/features/dashboard/components/HeaderLayout', () => ({
-  HeaderLayout: ({
-    isDrawerOpen,
-    onToggleDrawer,
-  }: {
-    isDrawerOpen?: boolean;
-    onToggleDrawer?: () => void;
-  }) => (
+  HeaderLayout: ({ onOpenMobileDrawer }: { onOpenMobileDrawer?: () => void }) => (
     <header data-testid="header">
-      <button
-        aria-label="Abrir menu"
-        aria-expanded={isDrawerOpen ?? false}
-        onClick={onToggleDrawer}
-      >
+      <button aria-label="Abrir menu" onClick={onOpenMobileDrawer}>
         Menu
       </button>
     </header>
@@ -41,6 +36,10 @@ jest.mock('@/features/dashboard/components/MobileNavBar', () => ({
 
 jest.mock('@/features/dashboard/components/SummaryCard', () => ({
   SummaryCard: ({ label }: { label: string }) => <div data-testid="summary-card">{label}</div>,
+}));
+
+jest.mock('@/features/dashboard/components/RecentTransactions', () => ({
+  RecentTransactions: () => <div data-testid="recent-transactions">Transactions</div>,
 }));
 
 jest.mock('@/features/dashboard/components/MonthFilter', () => ({
@@ -75,17 +74,31 @@ jest.mock('@/features/dashboard/components/FortnightFilter', () => ({
   ),
 }));
 
+jest.mock('@/features/dashboard/components/EmptyState', () => ({
+  EmptyState: () => <div data-testid="empty-state">EmptyState</div>,
+}));
+
 import DashboardPage from '../page';
 
 const defaultData = {
+  recentTransactions: [],
   summary: { income: 0, expense: 0, balance: 0 },
   isLoading: false,
   error: null,
+  refresh: jest.fn(),
+};
+
+const defaultMonthlySummary = {
+  data: [],
+  isLoading: false,
+  period: 'last6',
+  setPeriod: jest.fn(),
 };
 
 describe('DashboardPage Integration', () => {
   beforeEach(() => {
     mockUseDashboardData.mockReturnValue(defaultData);
+    mockUseMonthlySummary.mockReturnValue(defaultMonthlySummary);
   });
 
   describe('HeaderLayout and MobileNavBar', () => {
@@ -157,21 +170,6 @@ describe('DashboardPage Integration', () => {
       );
     });
 
-    it('FortnightFilter renders and triggers onChange', async () => {
-      const user = userEvent.setup();
-      render(<DashboardPage />);
-
-      expect(screen.getByTestId('fortnight-filter')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Quinzena' })).toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: 'Quinzena' }));
-
-      expect(mockUseDashboardData).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(String),
-        'first',
-      );
-    });
   });
 
   describe('Error state', () => {
@@ -184,15 +182,6 @@ describe('DashboardPage Integration', () => {
       render(<DashboardPage />);
 
       expect(screen.getByText('Falha ao carregar dados financeiros')).toBeInTheDocument();
-    });
-  });
-
-  describe('Link para transações', () => {
-    it('renderiza botão "Ver todas as transações" com link para /transactions', () => {
-      render(<DashboardPage />);
-      const link = screen.getByRole('link', { name: 'Ver todas as transações' });
-      expect(link).toBeInTheDocument();
-      expect(link).toHaveAttribute('href', '/transactions');
     });
   });
 

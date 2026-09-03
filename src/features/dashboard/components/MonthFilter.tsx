@@ -88,7 +88,7 @@ export function MonthFilter({
       {/* Year Selector */}
       {year && onYearChange && (
         <div className="relative">
-          <Select value={year} onValueChange={(value) => value != null && onYearChange(value)}>
+          <Select value={year} onValueChange={onYearChange}>
             <SelectTrigger
               className={cn(
                 'w-[80px] h-9',
