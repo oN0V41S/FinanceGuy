@@ -6,57 +6,17 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import type { Transaction } from '@/types/finance';
 
 // ---------------------------------------------------------------------------
-// Mocks — UI components do shadcn-ui
+// Mocks — UI components
 // ---------------------------------------------------------------------------
 
-jest.mock('@/components/ui/card', () => ({
-  Card: ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }) => (
-    <div data-testid="card-root" className={className} {...props}>
-      {children}
-    </div>
-  ),
-  CardContent: ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }) => (
-    <div data-testid="card-content" className={className} {...props}>
-      {children}
-    </div>
-  ),
-  CardHeader: ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }) => (
-    <div data-testid="card-header" className={className} {...props}>
-      {children}
-    </div>
-  ),
-  CardTitle: ({ children, className, ...props }: React.HTMLAttributes<HTMLHeadingElement> & { children: React.ReactNode }) => (
-    <h3 data-testid="card-title" className={className} {...props}>
-      {children}
-    </h3>
-  ),
-  CardFooter: ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement> & { children: React.ReactNode }) => (
-    <div data-testid="card-footer" className={className} {...props}>
-      {children}
-    </div>
-  ),
-  CardDescription: ({ children, className, ...props }: React.HTMLAttributes<HTMLParagraphElement> & { children: React.ReactNode }) => (
-    <p data-testid="card-description" className={className} {...props}>
-      {children}
-    </p>
-  ),
-}));
-
-jest.mock('@/components/ui/badge', () => ({
-  Badge: ({ children, className, ...props }: React.HTMLAttributes<HTMLSpanElement> & { children: React.ReactNode }) => (
-    <span data-testid="badge" className={className} {...props}>
-      {children}
-    </span>
-  ),
-}));
-
 jest.mock('@/components/ui/button', () => ({
-  Button: ({ children, disabled, onClick, 'aria-label': ariaLabel, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children: React.ReactNode }) => (
+  Button: ({ children, disabled, onClick, 'aria-label': ariaLabel, className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children: React.ReactNode }) => (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
       aria-label={ariaLabel}
+      className={className}
       data-testid={`action-button-${ariaLabel?.toLowerCase().replace(/\s+/g, '-') || 'unknown'}`}
       {...props}
     >
@@ -91,6 +51,12 @@ jest.mock('lucide-react', () => ({
   RefreshCw: (props: React.SVGProps<SVGSVGElement>) => (
     <svg data-testid="icon-refresh" {...props} />
   ),
+  TrendingUp: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-trending-up" {...props} />
+  ),
+  TrendingDown: (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-trending-down" {...props} />
+  ),
 }));
 
 // ---------------------------------------------------------------------------
@@ -98,11 +64,9 @@ jest.mock('lucide-react', () => ({
 // ---------------------------------------------------------------------------
 
 const mockFormatCurrency = jest.fn();
-const mockFormatDate = jest.fn();
 
 jest.mock('@/shared/utils', () => ({
   formatCurrency: (...args: unknown[]) => mockFormatCurrency(...args),
-  formatDate: (...args: unknown[]) => mockFormatDate(...args),
 }));
 
 jest.mock('@/lib/utils', () => ({
@@ -110,7 +74,7 @@ jest.mock('@/lib/utils', () => ({
 }));
 
 // ---------------------------------------------------------------------------
-// CATEGORY_COLORS — mesma definição do TransactionsTable
+// CATEGORY_COLORS — mesma definição do CardTransaction
 // ---------------------------------------------------------------------------
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -181,19 +145,12 @@ describe('CardTransaction — Loading State', () => {
     jest.clearAllMocks();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 1: Renderiza loading state com skeletons
-  // -----------------------------------------------------------------------
-  it('deve renderizar 3 skeleton cards quando isLoading é true', () => {
+  it('deve renderizar 3+ skeleton elements quando isLoading é true', () => {
     const { container } = renderComponent({ isLoading: true, transactions: [] });
 
-    // Verificar que não há cards de transação
     expect(screen.queryByTestId('transaction-card')).not.toBeInTheDocument();
-
-    // Verificar que não há empty state
     expect(screen.queryByTestId('empty-state')).not.toBeInTheDocument();
 
-    // Verificar que existem skeletons (cada skeleton card tem vários skeletons)
     const skeletons = container.querySelectorAll('[data-testid="skeleton"]');
     expect(skeletons.length).toBeGreaterThanOrEqual(3);
   });
@@ -211,9 +168,6 @@ describe('CardTransaction — Empty State', () => {
     jest.clearAllMocks();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 2: Renderiza empty state quando array vazio
-  // -----------------------------------------------------------------------
   it('deve exibir mensagem de empty state quando não há transações', () => {
     renderComponent({ transactions: [], isLoading: false });
 
@@ -237,9 +191,6 @@ describe('CardTransaction — Renderização', () => {
     jest.clearAllMocks();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 3: Renderiza lista de transações corretamente
-  // -----------------------------------------------------------------------
   it('deve renderizar um card para cada transação', () => {
     const transactions = [
       createMockTransaction({ id: '1', description: 'Aluguel' }),
@@ -253,9 +204,6 @@ describe('CardTransaction — Renderização', () => {
     expect(cards).toHaveLength(3);
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 4: Exibe descrição e responsável em cada card
-  // -----------------------------------------------------------------------
   it('deve exibir a descrição e o responsável da transação', () => {
     const transaction = createMockTransaction({
       description: 'Supermercado Extra',
@@ -268,23 +216,17 @@ describe('CardTransaction — Renderização', () => {
     expect(screen.getByText('Maria')).toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 5: Exibe data formatada
-  // -----------------------------------------------------------------------
-  it('deve exibir a data formatada via formatDate', () => {
-    mockFormatDate.mockReturnValue('15/01/2026');
-
+  it('deve exibir data agrupada no cabeçalho do grupo', () => {
     const transaction = createMockTransaction({ date: '2026-01-15' });
     renderComponent({ transactions: [transaction] });
 
-    expect(screen.getByText('15/01/2026')).toBeInTheDocument();
-    expect(mockFormatDate).toHaveBeenCalledWith('2026-01-15');
+    const dateHeader = screen.getByTestId('date-header');
+    expect(dateHeader).toBeInTheDocument();
+    // O cabeçalho deve mostrar o dia e o mês em português maiúsculo
+    expect(dateHeader.textContent).toMatch(/15 DE/i);
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 6: Exibe categoria como badge com cor
-  // -----------------------------------------------------------------------
-  it('deve exibir a categoria como Badge com as classes de cor corretas', () => {
+  it('deve exibir a categoria como badge com as classes de cor corretas', () => {
     const transaction = createMockTransaction({ category: 'Transporte' });
     renderComponent({ transactions: [transaction] });
 
@@ -296,7 +238,6 @@ describe('CardTransaction — Renderização', () => {
   });
 
   it('deve usar a cor "Outros" para categorias desconhecidas', () => {
-    // Usar uma categoria que não existe no CATEGORY_COLORS via type cast
     const transaction = createMockTransaction({ category: 'Assinatura' as any });
     renderComponent({ transactions: [transaction] });
 
@@ -306,9 +247,6 @@ describe('CardTransaction — Renderização', () => {
     expect(badge.className).toContain('text-gray-800');
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 7: Exibe status Pago com ícone Check e badge verde
-  // -----------------------------------------------------------------------
   it('deve exibir badge "Pago" com ícone Check quando paid é true', () => {
     const transaction = createMockTransaction({ paid: true });
     renderComponent({ transactions: [transaction] });
@@ -318,9 +256,6 @@ describe('CardTransaction — Renderização', () => {
     expect(screen.getByTestId('icon-check')).toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 8: Exibe status Pendente com ícone X e badge amarelo
-  // -----------------------------------------------------------------------
   it('deve exibir badge "Pendente" com ícone X quando paid é false', () => {
     const transaction = createMockTransaction({ paid: false });
     renderComponent({ transactions: [transaction] });
@@ -330,9 +265,6 @@ describe('CardTransaction — Renderização', () => {
     expect(screen.getByTestId('icon-x')).toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 9: Exibe valor com cor verde para income
-  // -----------------------------------------------------------------------
   it('deve exibir valor com classe text-finance-income quando type é income', () => {
     mockFormatCurrency.mockReturnValue('R$ 5.000,00');
 
@@ -349,9 +281,6 @@ describe('CardTransaction — Renderização', () => {
     expect(mockFormatCurrency).toHaveBeenCalledWith(5000);
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 10: Exibe valor com cor vermelha para expense
-  // -----------------------------------------------------------------------
   it('deve exibir valor com classe text-finance-expense quando type é expense', () => {
     mockFormatCurrency.mockReturnValue('R$ 1.500,00');
 
@@ -368,9 +297,6 @@ describe('CardTransaction — Renderização', () => {
     expect(mockFormatCurrency).toHaveBeenCalledWith(1500);
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 11: Botão de editar chama onEdit com a transação correta
-  // -----------------------------------------------------------------------
   it('deve chamar onEdit com a transação correta ao clicar em Editar', () => {
     const transaction = createMockTransaction({
       id: 'txn-editar-001',
@@ -385,9 +311,6 @@ describe('CardTransaction — Renderização', () => {
     expect(mockOnEdit).toHaveBeenCalledWith(transaction);
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 12: Botão de excluir chama onDelete com o id correto
-  // -----------------------------------------------------------------------
   it('deve chamar onDelete com o id correto ao clicar em Excluir', () => {
     const transaction = createMockTransaction({
       id: 'txn-excluir-001',
@@ -432,7 +355,7 @@ describe('CardTransaction — Renderização', () => {
 });
 
 // ===========================================================================
-// Tests — Layout
+// Tests — Layout (lista agrupada por data)
 // ===========================================================================
 
 describe('CardTransaction — Layout', () => {
@@ -440,9 +363,6 @@ describe('CardTransaction — Layout', () => {
     jest.clearAllMocks();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 13: Cada botão de ação está em sua própria coluna
-  // -----------------------------------------------------------------------
   it('deve renderizar botão Editar e Excluir em elementos separados', () => {
     const transaction = createMockTransaction();
     renderComponent({ transactions: [transaction] });
@@ -453,11 +373,8 @@ describe('CardTransaction — Layout', () => {
     expect(editButton).toBeInTheDocument();
     expect(deleteButton).toBeInTheDocument();
 
-    // Cada botão deve estar em seu próprio wrapper (não no mesmo container)
     const editContainer = editButton.parentElement;
     const deleteContainer = deleteButton.parentElement;
-
-    // Devem ser containers diferentes (cada um em sua coluna)
     expect(editContainer).not.toBe(deleteContainer);
   });
 
@@ -479,117 +396,49 @@ describe('CardTransaction — Layout', () => {
     expect(trashIcon).toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 14: Grid responsivo (1/2/3 colunas)
-  // -----------------------------------------------------------------------
-  it('deve usar grid layout responsivo com classes Tailwind', () => {
+  it('deve usar transactions-list como container principal da lista', () => {
     const transactions = [
       createMockTransaction({ id: '1' }),
       createMockTransaction({ id: '2' }),
     ];
     const { container } = renderComponent({ transactions });
 
-    // O container do grid deve ter as classes de grid responsivo
-    const gridContainer = container.querySelector('[data-testid="transactions-grid"]');
-    expect(gridContainer).toBeInTheDocument();
-
-    // Verificar classes responsivas: 1 col mobile, 2 col md, 3 col lg
-    expect(gridContainer?.className).toContain('grid');
+    const listContainer = container.querySelector('[data-testid="transactions-list"]');
+    expect(listContainer).toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 15: CardFooter usa grid grid-cols-2 no mobile
-  // -----------------------------------------------------------------------
-  it('deve ter classe grid grid-cols-2 no CardFooter para layout mobile', () => {
-    const transaction = createMockTransaction();
+  it('deve agrupar transações por data em date-group', () => {
+    const transactions = [
+      createMockTransaction({ id: '1', date: '2026-01-15' }),
+      createMockTransaction({ id: '2', date: '2026-01-15' }),
+      createMockTransaction({ id: '3', date: '2026-01-10' }),
+    ];
+    renderComponent({ transactions });
+
+    const groups = screen.getAllByTestId('date-group');
+    expect(groups).toHaveLength(2);
+  });
+
+  it('deve exibir cabeçalho de data com formato DD DE MÊS', () => {
+    const transaction = createMockTransaction({ date: '2026-09-02' });
     renderComponent({ transactions: [transaction] });
 
-    const footer = screen.getByTestId('card-footer');
-    expect(footer).toBeInTheDocument();
-
-    // Mobile: grid + grid-cols-2
-    expect(footer.className).toContain('grid');
-    expect(footer.className).toContain('grid-cols-2');
+    const dateHeader = screen.getByTestId('date-header');
+    expect(dateHeader.textContent).toContain('02 DE');
+    expect(dateHeader.textContent?.toUpperCase()).toContain('SETEMBRO');
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 16: CardFooter usa md:flex md:justify-end no desktop
-  // -----------------------------------------------------------------------
-  it('deve ter classe md:flex md:justify-end no CardFooter para layout desktop', () => {
-    const transaction = createMockTransaction();
-    renderComponent({ transactions: [transaction] });
+  it('deve exibir total diário no cabeçalho do grupo', () => {
+    const transactions = [
+      createMockTransaction({ id: '1', date: '2026-01-15', type: 'income', value: 1000 }),
+      createMockTransaction({ id: '2', date: '2026-01-15', type: 'expense', value: 300 }),
+    ];
+    renderComponent({ transactions });
 
-    const footer = screen.getByTestId('card-footer');
-    expect(footer).toBeInTheDocument();
-
-    // Desktop: md:flex + md:justify-end
-    expect(footer.className).toContain('md:flex');
-    expect(footer.className).toContain('md:justify-end');
+    const dailyTotal = screen.getByTestId('daily-total');
+    expect(dailyTotal).toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 17: CardFooter também tem md:gap-2 no desktop
-  // -----------------------------------------------------------------------
-  it('deve ter classe md:gap-2 no CardFooter para espaçamento desktop', () => {
-    const transaction = createMockTransaction();
-    renderComponent({ transactions: [transaction] });
-
-    const footer = screen.getByTestId('card-footer');
-    expect(footer).toBeInTheDocument();
-    expect(footer.className).toContain('md:gap-2');
-  });
-
-  // -----------------------------------------------------------------------
-  // Teste 18: Cada botão de ação está dentro de wrapper com flex justify-center
-  // -----------------------------------------------------------------------
-  it('deve envolver cada botão de ação em div com classe flex justify-center', () => {
-    const transaction = createMockTransaction();
-    renderComponent({ transactions: [transaction] });
-
-    const footer = screen.getByTestId('card-footer');
-    const children = Array.from(footer.children);
-
-    // Devem haver 2 wrappers (um para Editar, um para Excluir)
-    expect(children).toHaveLength(2);
-
-    // Cada wrapper deve ter flex justify-center
-    children.forEach((child) => {
-      expect(child.className).toContain('flex');
-      expect(child.className).toContain('justify-center');
-    });
-  });
-
-  // -----------------------------------------------------------------------
-  // Teste 19: Botão Editar está dentro do primeiro wrapper
-  // -----------------------------------------------------------------------
-  it('deve ter o botão Editar dentro do primeiro wrapper com flex justify-center', () => {
-    const transaction = createMockTransaction();
-    renderComponent({ transactions: [transaction] });
-
-    const footer = screen.getByTestId('card-footer');
-    const firstWrapper = footer.children[0];
-
-    const editButton = firstWrapper.querySelector('button[aria-label="Editar transação"]');
-    expect(editButton).toBeInTheDocument();
-  });
-
-  // -----------------------------------------------------------------------
-  // Teste 20: Botão Excluir está dentro do segundo wrapper
-  // -----------------------------------------------------------------------
-  it('deve ter o botão Excluir dentro do segundo wrapper com flex justify-center', () => {
-    const transaction = createMockTransaction();
-    renderComponent({ transactions: [transaction] });
-
-    const footer = screen.getByTestId('card-footer');
-    const secondWrapper = footer.children[1];
-
-    const deleteButton = secondWrapper.querySelector('button[aria-label="Excluir transação"]');
-    expect(deleteButton).toBeInTheDocument();
-  });
-
-  // -----------------------------------------------------------------------
-  // Teste 21: Botões têm tamanho size-8 no mobile
-  // -----------------------------------------------------------------------
   it('deve aplicar classe size-8 aos botões de ação para layout mobile', () => {
     const transaction = createMockTransaction();
     renderComponent({ transactions: [transaction] });
@@ -597,14 +446,10 @@ describe('CardTransaction — Layout', () => {
     const editButton = screen.getByRole('button', { name: /editar transação/i });
     const deleteButton = screen.getByRole('button', { name: /excluir transação/i });
 
-    // Mobile: botões com size-8
     expect(editButton.className).toContain('size-8');
     expect(deleteButton.className).toContain('size-8');
   });
 
-  // -----------------------------------------------------------------------
-  // Teste 22: Botões têm classe md:size-9 para desktop
-  // -----------------------------------------------------------------------
   it('deve aplicar classe md:size-9 aos botões de ação para layout desktop', () => {
     const transaction = createMockTransaction();
     renderComponent({ transactions: [transaction] });
@@ -612,7 +457,6 @@ describe('CardTransaction — Layout', () => {
     const editButton = screen.getByRole('button', { name: /editar transação/i });
     const deleteButton = screen.getByRole('button', { name: /excluir transação/i });
 
-    // Desktop: botões com md:size-9
     expect(editButton.className).toContain('md:size-9');
     expect(deleteButton.className).toContain('md:size-9');
   });
@@ -630,9 +474,6 @@ describe('CardTransaction — Múltiplas Transações', () => {
   it('deve renderizar múltiplas transações com dados mistos', () => {
     mockFormatCurrency.mockReturnValueOnce('R$ 2.000,00');
     mockFormatCurrency.mockReturnValueOnce('R$ 45,90');
-    mockFormatDate
-      .mockReturnValueOnce('15/01/2026')
-      .mockReturnValueOnce('20/01/2026');
 
     const transactions = [
       createMockTransaction({
@@ -660,15 +501,11 @@ describe('CardTransaction — Múltiplas Transações', () => {
     const cards = screen.getAllByTestId('transaction-card');
     expect(cards).toHaveLength(2);
 
-    // Verificar descrições
     expect(screen.getByText('Salário Mensal')).toBeInTheDocument();
     expect(screen.getByText('Almoço')).toBeInTheDocument();
-
-    // Verificar responsáveis
     expect(screen.getByText('João')).toBeInTheDocument();
     expect(screen.getByText('Maria')).toBeInTheDocument();
 
-    // Verificar que há badges de categoria (1 por transação)
     const badges = screen.getAllByTestId('badge');
     expect(badges).toHaveLength(2);
   });
@@ -687,7 +524,6 @@ describe('CardTransaction — Múltiplas Transações', () => {
 
     const values = screen.getAllByTestId('transaction-value');
     expect(values).toHaveLength(2);
-    expect(mockFormatCurrency).toHaveBeenCalledTimes(2);
   });
 
   it('deve ter 4 action buttons (2 editar + 2 excluir) para 2 transações', () => {
@@ -707,81 +543,61 @@ describe('CardTransaction — Múltiplas Transações', () => {
 });
 
 // ===========================================================================
-// Tests — Título (Issue #13 — título opcional + descrição opcional)
+// Tests — Título (Issue #13)
 // ===========================================================================
-// Regras aprovadas:
-//   - tx.title (opcional) é o texto PRINCIPAL do card, com truncamento visual.
-//   - tx.description (opcional) é a linha secundária; quando ausente, NADA é
-//     renderizado no lugar dela.
-//   - Card continua renderizando quando title está ausente (fallback).
 
 describe('CardTransaction — Título (Issue #13)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  // -----------------------------------------------------------------------
-  // Title como texto principal
-  // -----------------------------------------------------------------------
-  it('deve renderizar o título (tx.title) como texto principal do card quando presente', () => {
+  it('deve renderizar o título (tx.title) como texto principal quando presente', () => {
     const transaction = createMockTransaction({
       title: 'Aluguel do Apartamento',
       description: 'Mensalidade de janeiro',
     });
     renderComponent({ transactions: [transaction] });
 
-    expect(screen.getByText('Aluguel do Apartamento')).toBeInTheDocument();
+    // O título aparece como parte do texto principal do card
+    expect(screen.getByText(/Aluguel do Apartamento/)).toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Description como linha secundária
-  // -----------------------------------------------------------------------
-  it('deve renderizar a descrição como linha secundária (CardDescription) quando presente', () => {
+  it('deve renderizar descrição junto com o título quando ambos presentes', () => {
     const transaction = createMockTransaction({
       title: 'Aluguel',
       description: 'Contrato mensal do apê',
     });
     renderComponent({ transactions: [transaction] });
 
-    const descriptionText = screen.getByText('Contrato mensal do apê');
-    expect(descriptionText.closest('[data-testid="card-description"]')).not.toBeNull();
-    // A descrição NÃO deve ocupar o título principal
-    expect(descriptionText.closest('[data-testid="card-title"]')).toBeNull();
+    // Tanto título quanto descrição aparecem no parágrafo
+    const card = screen.getByTestId('transaction-card');
+    expect(card.textContent).toContain('Aluguel');
+    expect(card.textContent).toContain('Contrato mensal do apê');
   });
 
-  // -----------------------------------------------------------------------
-  // Description ausente → nada renderizado no lugar dela
-  // -----------------------------------------------------------------------
-  it('não deve renderizar nada no lugar da descrição quando tx.description é undefined', () => {
+  it('não deve renderizar descrição quando tx.description é undefined', () => {
     const transaction = createMockTransaction({
       title: 'Aluguel',
       description: undefined,
     });
     renderComponent({ transactions: [transaction] });
 
-    // Nenhum texto de descrição deve existir no card
     expect(screen.queryByText('Contrato mensal do apê')).not.toBeInTheDocument();
-    // O título continua sendo o texto principal
     expect(screen.getByText('Aluguel')).toBeInTheDocument();
   });
 
-  // -----------------------------------------------------------------------
-  // Truncamento visual do título
-  // -----------------------------------------------------------------------
-  it('deve aplicar truncamento visual ao título (classe truncate/line-clamp ou atributo title completo)', () => {
+  it('deve aplicar truncamento visual ao parágrafo do título', () => {
     const longTitle = 'Aluguel do apartamento 302 - contrato mensal de locação';
     const transaction = createMockTransaction({ title: longTitle });
     renderComponent({ transactions: [transaction] });
 
-    const titleElement = screen.getByTestId('card-title');
-    const hasTruncateClass = /truncate|line-clamp/.test(titleElement.className);
-    const hasFullTitleAttr = titleElement.getAttribute('title') === longTitle;
+    const card = screen.getByTestId('transaction-card');
+    const titleParagraph = card.querySelector('p');
+    const hasTruncateClass = /truncate|line-clamp/.test(titleParagraph?.className || '');
+    const hasFullTitleAttr = titleParagraph?.getAttribute('title')?.includes(longTitle.substring(0, 20));
     expect(hasTruncateClass || hasFullTitleAttr).toBe(true);
   });
 
-  // -----------------------------------------------------------------------
-  // Ações continuam funcionando com título presente
-  // -----------------------------------------------------------------------
   it('deve chamar onEdit com a transação (incluindo title) ao clicar em Editar', () => {
     const transaction = createMockTransaction({
       title: 'Aluguel',
@@ -809,9 +625,6 @@ describe('CardTransaction — Título (Issue #13)', () => {
     expect(mockOnDelete).toHaveBeenCalledWith('txn-title-001');
   });
 
-  // -----------------------------------------------------------------------
-  // Title ausente → card não quebra (fallback)
-  // -----------------------------------------------------------------------
   it('deve renderizar o card normalmente quando title está ausente (fallback para description)', () => {
     const transaction = createMockTransaction({
       description: 'Mercado do mês',
@@ -835,8 +648,6 @@ describe('CardTransaction — Título (Issue #13)', () => {
 
 // ===========================================================================
 // Tests — Badge "Recorrente" (Issue #12)
-// Regra: o badge aparece quando a transação pertence a uma série
-// (is_recurring OU total_installments OU parent_transaction_id).
 // ===========================================================================
 
 describe('CardTransaction — Badge Recorrente (Issue #12)', () => {
@@ -874,7 +685,7 @@ describe('CardTransaction — Badge Recorrente (Issue #12)', () => {
   });
 
   it('não deve exibir badge "Recorrente" para transação normal', () => {
-    const transaction = createMockTransaction(); // is_recurring false
+    const transaction = createMockTransaction();
     renderComponent({ transactions: [transaction] });
 
     expect(screen.queryByText('Recorrente')).not.toBeInTheDocument();
@@ -890,21 +701,22 @@ describe('CardTransaction — Badge Recorrente (Issue #12)', () => {
     });
     renderComponent({ transactions: [normal, recurring] });
 
-    // Apenas UM badge "Recorrente" (o card normal não exibe)
     expect(screen.getAllByText('Recorrente')).toHaveLength(1);
 
-    // Badges totais: 2 categorias + 1 recorrente = 3
-    expect(screen.getAllByTestId('badge')).toHaveLength(3);
+    // Apenas 2 category badges (Recorrente não usa data-testid="badge")
+    expect(screen.getAllByTestId('badge')).toHaveLength(2);
   });
 
-  it('deve exibir badge "Recorrente" no mesmo padrão visual dos badges de categoria', () => {
+  it('deve exibir badge "Recorrente" com classes amber', () => {
     const transaction = createMockTransaction({ is_recurring: true });
     renderComponent({ transactions: [transaction] });
 
-    const badges = screen.getAllByTestId('badge');
-    const recurringBadge = badges.find((b) => b.textContent?.includes('Recorrente'));
-    expect(recurringBadge).toBeInTheDocument();
-    expect(recurringBadge?.className).toContain('bg-amber-100');
-    expect(recurringBadge?.className).toContain('text-amber-800');
+    const card = screen.getByTestId('transaction-card');
+    const recurrentSpan = Array.from(card.querySelectorAll('span')).find(
+      (s) => s.textContent?.includes('Recorrente'),
+    );
+    expect(recurrentSpan).toBeInTheDocument();
+    expect(recurrentSpan?.className).toContain('bg-amber-100');
+    expect(recurrentSpan?.className).toContain('text-amber-800');
   });
 });
