@@ -17,8 +17,16 @@ const mockUseTransactions = {
   setQuinzenalFilter: jest.fn(),
   selectedYear: '2026',
   setSelectedYear: jest.fn(),
-  selectedMonth: '01',
+  selectedMonth: '09',
   setSelectedMonth: jest.fn(),
+  paidFilter: 'all' as const,
+  setPaidFilter: jest.fn(),
+  typeFilter: 'all' as const,
+  setTypeFilter: jest.fn(),
+  searchFilter: '',
+  setSearchFilter: jest.fn(),
+  categoryFilter: '',
+  setCategoryFilter: jest.fn(),
   refresh: jest.fn(),
   createTransaction: jest.fn(),
   updateTransaction: jest.fn(),
@@ -146,6 +154,14 @@ jest.mock('@/features/transactions/components/FilterControls', () => ({
     onYearChange: (v: string) => void;
     selectedMonth: string;
     onMonthChange: (v: string) => void;
+    paidFilter?: string;
+    onPaidFilterChange?: (v: string) => void;
+    typeFilter?: string;
+    onTypeFilterChange?: (v: string) => void;
+    searchFilter?: string;
+    onSearchChange?: (v: string) => void;
+    categoryFilter?: string;
+    onCategoryFilterChange?: (v: string) => void;
   }) => (
     <div data-testid="filter-controls">
       <select
@@ -173,6 +189,7 @@ jest.mock('@/features/transactions/components/FilterControls', () => ({
         aria-label="Mês"
       >
         <option value="01">Janeiro</option>
+        <option value="09">Setembro</option>
       </select>
     </div>
   ),
@@ -941,14 +958,14 @@ describe('TransactionsPage Integration', () => {
       Object.assign(mockUseTransactions, {
         quinzenalFilter: 'month',
         selectedYear: '2026',
-        selectedMonth: '01',
+        selectedMonth: '09',
       });
 
       render(<TransactionsPage />);
 
       expect(screen.getByTestId('filter-quinzenal')).toHaveValue('month');
       expect(screen.getByTestId('filter-year')).toHaveValue('2026');
-      expect(screen.getByTestId('filter-month')).toHaveValue('01');
+      expect(screen.getByTestId('filter-month')).toHaveValue('09');
     });
 
     it('mudar filtro quinzenal chama setQuinzenalFilter', async () => {

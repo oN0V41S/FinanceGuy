@@ -59,6 +59,12 @@ export interface UseTransactionsReturn {
   setSelectedMonth: (month: string) => void;
   paidFilter: 'all' | 'paid' | 'unpaid';
   setPaidFilter: (filter: 'all' | 'paid' | 'unpaid') => void;
+  typeFilter: 'all' | 'income' | 'expense';
+  setTypeFilter: (value: 'all' | 'income' | 'expense') => void;
+  searchFilter: string;
+  setSearchFilter: (value: string) => void;
+  categoryFilter: string;
+  setCategoryFilter: (value: string) => void;
   refresh: () => void;
   createTransaction: (data: TransactionFormData) => Promise<void>;
   updateTransaction: (id: string, data: Partial<TransactionFormData>) => Promise<void>;
@@ -146,6 +152,9 @@ export default function useTransactions(): UseTransactionsReturn {
   const [selectedYear, setSelectedYearState] = useState(initialYear);
   const [selectedMonth, setSelectedMonthState] = useState(initialMonth);
   const [paidFilter, setPaidFilterState] = useState<'all' | 'paid' | 'unpaid'>('all');
+  const [typeFilter, setTypeFilterState] = useState<'all' | 'income' | 'expense'>('all');
+  const [searchFilter, setSearchFilterState] = useState('');
+  const [categoryFilter, setCategoryFilterState] = useState('');
 
   // Chave do snapshot — memoizada para não recalcular a cada render.
   // O prefixo `financeguy:cache:` é adicionado pelo utilitário readCache/writeCache.
@@ -157,7 +166,7 @@ export default function useTransactions(): UseTransactionsReturn {
   // Lazy initializers: leem o snapshot SÍNCRONAMENTE no mount, garantindo
   // que dados stale apareçam no primeiro render (isLoading=false com stale).
   // Snapshot com shape inválido é tratado como ausente.
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>(() => {
     const snapshot = readCache<TransactionsSnapshot>(cacheKey);
     return isValidTransactionsSnapshot(snapshot) ? snapshot.data : [];
   });
@@ -224,7 +233,7 @@ export default function useTransactions(): UseTransactionsReturn {
     const snapshot = readCache<TransactionsSnapshot>(cacheKey);
     if (isValidTransactionsSnapshot(snapshot)) {
       hadStale = true;
-      setTransactions(snapshot.data);
+      setAllTransactions(snapshot.data);
       setSummary(snapshot.summary);
       setIsLoading(false);
       setIsFetching(true);
@@ -261,7 +270,7 @@ export default function useTransactions(): UseTransactionsReturn {
 
         const nextData = result.data || [];
         const nextSummary = result.summary || { income: 0, expense: 0, balance: 0 };
-        setTransactions(nextData);
+        setAllTransactions(nextData);
         setSummary(nextSummary);
         setError(null);
 
@@ -281,7 +290,7 @@ export default function useTransactions(): UseTransactionsReturn {
           setError(
             err instanceof Error ? err.message : 'Erro desconhecido',
           );
-          setTransactions([]);
+          setAllTransactions([]);
           setSummary({ income: 0, expense: 0, balance: 0 });
         }
       } finally {
@@ -303,6 +312,37 @@ export default function useTransactions(): UseTransactionsReturn {
       cancelled = true;
     };
   }, [cacheKey, quinzenalFilter, selectedYear, selectedMonth, paidFilter, refreshKey]);
+
+  // ---- Client-side filters ----
+
+  const transactions = useMemo(() => {
+    let result = allTransactions;
+    if (typeFilter !== 'all') result = result.filter((tx) => tx.type === typeFilter);
+    if (categoryFilter) result = result.filter((tx) => tx.category === categoryFilter);
+    if (searchFilter.trim()) {
+      const q = searchFilter.trim().toLowerCase();
+      result = result.filter(
+        (tx) =>
+          tx.description?.toLowerCase().includes(q) ||
+          (tx.title ?? '').toLowerCase().includes(q) ||
+          tx.responsible?.toLowerCase().includes(q) ||
+          tx.category?.toLowerCase().includes(q),
+      );
+    }
+    return result;
+  }, [allTransactions, typeFilter, categoryFilter, searchFilter]);
+
+  const setTypeFilter = useCallback((value: 'all' | 'income' | 'expense') => {
+    setTypeFilterState(value);
+  }, []);
+
+  const setSearchFilter = useCallback((value: string) => {
+    setSearchFilterState(value);
+  }, []);
+
+  const setCategoryFilter = useCallback((value: string) => {
+    setCategoryFilterState(value);
+  }, []);
 
   // ---- Refresh ----
 
@@ -474,6 +514,12 @@ export default function useTransactions(): UseTransactionsReturn {
     setSelectedMonth,
     paidFilter,
     setPaidFilter,
+    typeFilter,
+    setTypeFilter,
+    searchFilter,
+    setSearchFilter,
+    categoryFilter,
+    setCategoryFilter,
     refresh,
     createTransaction,
     updateTransaction,

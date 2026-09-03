@@ -41,6 +41,12 @@ export default function TransactionsPage() {
     setSelectedMonth,
     paidFilter,
     setPaidFilter,
+    typeFilter,
+    setTypeFilter,
+    searchFilter,
+    setSearchFilter,
+    categoryFilter,
+    setCategoryFilter,
     refresh,
     createTransaction,
     updateTransaction,
@@ -238,11 +244,20 @@ export default function TransactionsPage() {
               </div>
             )}
 
-            {/* Page Title — no desktop button here (moved below) */}
+            {/* Page Title */}
             <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-semibold text-on-surface font-sans">
-                Transações
-              </h1>
+              <div>
+                <h1 className="text-2xl font-semibold text-on-surface font-sans">
+                  Transações
+                </h1>
+                <p
+                  data-testid="page-subtitle"
+                  className="text-sm text-muted-foreground capitalize mt-0.5"
+                >
+                  {new Date(Number(selectedYear), Number(selectedMonth) - 1, 1)
+                    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
               {/* Desktop button — visible on sm+ only */}
               <button
                 type="button"
@@ -266,6 +281,12 @@ export default function TransactionsPage() {
                 onMonthChange={setSelectedMonth}
                 paidFilter={paidFilter}
                 onPaidFilterChange={setPaidFilter}
+                typeFilter={typeFilter}
+                onTypeFilterChange={setTypeFilter}
+                searchFilter={searchFilter}
+                onSearchChange={setSearchFilter}
+                categoryFilter={categoryFilter}
+                onCategoryFilterChange={setCategoryFilter}
               />
             </div>
 
