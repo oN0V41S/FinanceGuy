@@ -49,6 +49,25 @@ task(subagent_type="frontend", prompt="Implemente o formulário de login...")
 task(subagent_type="database-engineer", prompt="Adicione o campo category ao schema...")
 ```
 
+## 🚨 Armadilhas Conhecidas (todos os agentes devem conhecer)
+
+### Select — `@base-ui/react` NÃO é Radix
+O projeto usa `@base-ui/react/select`. `SelectValue` **não** reflete automaticamente o `ItemText` do item selecionado (ao contrário do Radix). Sempre fornecer o label mapeado como `children`:
+```tsx
+// ❌ Exibe a chave interna ("last6", "2025")
+<SelectValue placeholder="Selecionar" />
+
+// ✅ Mapear value → label e passar como children
+<SelectValue>{getLabelForValue(value)}</SelectValue>
+```
+`SelectContent` deve ter `className="bg-surface-container"` para fundo correto no portal.
+
+### Lazy Loading — Política
+- `<LazyLoad>` (em `src/shared/components/LazyLoad.tsx`): **somente** para listas/seções custosas com dados assíncronos (ex: lista de transações). Nunca envolver card estático ou a página inteira.
+- `<Skeleton>`: preferir para loading de componentes individuais (cards, gráficos, textos).
+- Dados **nunca** devem ter `MOCK_DATA` como fallback de produção. Usar estado vazio (empty state) quando a API retorna `[]`.
+- `setTimeout` para simular loading é proibido em componentes com dados estáticos.
+
 ### Subagentes (Todos seguem Spec-first + TDD)
 Todos os subagentes seguem rigoroso **Spec-first + TDD**:
 

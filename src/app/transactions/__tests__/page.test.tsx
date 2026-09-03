@@ -79,17 +79,14 @@ jest.mock('next/navigation', () => ({
 // ---------------------------------------------------------------------------
 jest.mock('@/features/dashboard/components/HeaderLayout', () => ({
   HeaderLayout: ({
-    isDrawerOpen,
-    onToggleDrawer,
+    onOpenMobileDrawer,
   }: {
-    isDrawerOpen?: boolean;
-    onToggleDrawer?: () => void;
+    onOpenMobileDrawer?: () => void;
   }) => (
     <header data-testid="header">
       <button
         aria-label="Abrir menu"
-        aria-expanded={isDrawerOpen ?? false}
-        onClick={onToggleDrawer}
+        onClick={onOpenMobileDrawer}
       >
         Menu
       </button>

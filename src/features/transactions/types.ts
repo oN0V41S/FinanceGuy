@@ -1,6 +1,13 @@
 import type { Transaction } from './validations';
 export type { Transaction };
 
+export interface MonthlyPoint {
+  month: string;       // "01" a "12"
+  monthLabel: string;  // "Jan", "Fev", etc.
+  income: number;
+  expense: number;
+}
+
 // O valor é string no formulário para facilitar a manipulação de input
 // e é convertido para number no handler de submissão.
 export type TransactionFormData = Omit<Transaction, 'id' | 'value' | 'created_at' | 'updated_at' | 'installment_number' | 'total_installments' | 'parent_transaction_id'> & {

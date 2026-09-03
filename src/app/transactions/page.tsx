@@ -214,10 +214,7 @@ export default function TransactionsPage() {
 
       {/* Main Content Area */}
       <div className="flex flex-col pb-16 md:pb-0">
-        <HeaderLayout
-          isDrawerOpen={drawerOpen}
-          onToggleDrawer={() => setDrawerOpen(!drawerOpen)}
-        />
+        <HeaderLayout onOpenMobileDrawer={() => setDrawerOpen(true)} />
 
         <main className="flex-1 p-4 md:p-6">
           <div className="max-w-6xl mx-auto">

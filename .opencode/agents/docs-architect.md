@@ -46,6 +46,6 @@ docs/
 
 ## Comandos de Validação
 ```bash
-pnpm lint                # Verificar qualidade do código
-npx markdownlint-cli2 'docs/**/*.md' # Validar links e formato
+npm run lint:docs        # Verificar documentação (se existir)
+npx markdownlint **/*.md # Validar links e formato
 ```
