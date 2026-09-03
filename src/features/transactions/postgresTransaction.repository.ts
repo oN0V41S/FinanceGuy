@@ -1,6 +1,20 @@
 import { ITransactionRepository } from './ITransaction.repository';
 import { Transaction, FinancialSummary, TransactionInput } from '@/types/finance';
+import { MonthlyPoint } from './types';
 import { prisma } from '@/lib/prisma';
+
+/** Mapa de número de mês (0-based) para abreviação pt-BR. */
+const MONTH_LABELS: Record<string, string> = {
+  '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr',
+  '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago',
+  '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez',
+};
+
+interface RawMonthlyRow {
+  month: string;
+  income: string | number;
+  expense: string | number;
+}
 
 export class PostgresTransactionRepository implements ITransactionRepository {
   async getAll(filters?: Record<string, any>): Promise<Transaction[]> {
@@ -166,5 +180,74 @@ export class PostgresTransactionRepository implements ITransactionRepository {
       .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.value, 0);
     return { income, expense, balance: income - expense };
+  }
+
+  async getMonthlySummary(userId: string, period: string): Promise<MonthlyPoint[]> {
+    const today = new Date();
+    let startDate: Date;
+    let endDate: Date;
+    let months: string[];
+
+    if (period === 'last6') {
+      // Últimos 6 meses rolantes, mês atual inclusive.
+      endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // último dia do mês atual
+      startDate = new Date(today.getFullYear(), today.getMonth() - 5, 1); // 1º dia de 5 meses atrás
+
+      // Gera a lista de meses no intervalo (MM strings).
+      months = [];
+      const cursor = new Date(startDate);
+      while (cursor <= endDate) {
+        months.push(String(cursor.getMonth() + 1).padStart(2, '0'));
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+    } else if (/^\d{4}$/.test(period)) {
+      const year = parseInt(period, 10);
+      startDate = new Date(year, 0, 1);
+      endDate = new Date(year, 11, 31);
+      months = ['01','02','03','04','05','06','07','08','09','10','11','12'];
+    } else if (/^\d{4}-s1$/.test(period)) {
+      const year = parseInt(period.slice(0, 4), 10);
+      startDate = new Date(year, 0, 1);
+      endDate = new Date(year, 5, 30);
+      months = ['01','02','03','04','05','06'];
+    } else if (/^\d{4}-s2$/.test(period)) {
+      const year = parseInt(period.slice(0, 4), 10);
+      startDate = new Date(year, 6, 1);
+      endDate = new Date(year, 11, 31);
+      months = ['07','08','09','10','11','12'];
+    } else {
+      throw new Error(`Período inválido: ${period}`);
+    }
+
+    const rows = await prisma.$queryRaw<RawMonthlyRow[]>`
+      SELECT
+        TO_CHAR(date::date, 'MM') AS month,
+        SUM(CASE WHEN type = 'income' THEN value ELSE 0 END) AS income,
+        SUM(CASE WHEN type = 'expense' THEN value ELSE 0 END) AS expense
+      FROM "transactions"
+      WHERE "userId" = ${userId}
+        AND date::date >= ${startDate}
+        AND date::date <= ${endDate}
+      GROUP BY TO_CHAR(date::date, 'MM')
+      ORDER BY month ASC
+    `;
+
+    // Indexar por month para lookup O(1).
+    const rowsByMonth = new Map<string, RawMonthlyRow>();
+    for (const row of rows) {
+      rowsByMonth.set(row.month, row);
+    }
+
+    // Preenche todos os meses do período, zerando os sem dados.
+    return months.map((month): MonthlyPoint => {
+      const row = rowsByMonth.get(month);
+      const monthLabel = MONTH_LABELS[month] ?? month;
+      return {
+        month,
+        monthLabel,
+        income: row ? Number(row.income) : 0,
+        expense: row ? Number(row.expense) : 0,
+      };
+    });
   }
 }

@@ -1,109 +1,69 @@
 'use client';
 
-import { Menu } from 'lucide-react';
-import { HeaderIconButton } from './HeaderIconButton';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Menu, LayoutDashboard, ArrowLeftRight } from 'lucide-react';
 import { HeaderBrand } from './HeaderBrand';
 import { HeaderActions } from './HeaderActions';
+import { HeaderIconButton } from './HeaderIconButton';
 import { logoutAction } from '@/features/auth/actions/logoutAction';
+import { cn } from '@/lib/utils';
+
+const NAV_ITEMS = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Transações', href: '/transactions', icon: ArrowLeftRight },
+];
 
 interface HeaderLayoutProps {
-  isDrawerOpen?: boolean;
-  onToggleDrawer?: () => void;
+  onOpenMobileDrawer?: () => void;
 }
 
-export function HeaderLayout({ isDrawerOpen, onToggleDrawer }: HeaderLayoutProps) {
+export function HeaderLayout({ onOpenMobileDrawer }: HeaderLayoutProps) {
+  const pathname = usePathname();
+
   async function handleLogout() {
     await logoutAction();
   }
 
+  const isActive = (href: string) =>
+    href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
+
   return (
-    <header className="sticky top-0 z-50 bg-surface-container">
-      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Left Side - Mobile: Menu + Logo | Desktop: Search + IA */}
-        <div className="flex items-center gap-3">
-          {/* Mobile - Menu Button */}
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-center p-2 rounded-md',
-              'text-neutral hover:bg-surface-container-low transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50'
-            )}
-            aria-label="Abrir menu"
+    <header className="sticky top-0 z-30 bg-surface-container">
+      <div className="max-w-6xl mx-auto px-4 py-3 grid grid-cols-3 items-center">
+        {/* Left: hamburger (mobile) + brand */}
+        <div className="flex items-center gap-2">
+          <HeaderIconButton
+            icon={<Menu className="w-5 h-5" />}
+            label="Abrir menu"
             onClick={onOpenMobileDrawer}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-
-        {/* Mobile - Logo */}
-        <div className="md:hidden flex items-center gap-2">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/10">
-            <Wallet className="w-5 h-5 text-primary" />
-          </div>
-          <span className="font-display font-semibold text-lg text-primary">
-            FinanceGuy
-          </span>
+            className="md:hidden"
+          />
+          <HeaderBrand />
         </div>
 
-          {/* Desktop - Search + IA */}
-          <div className="hidden md:flex items-center gap-2">
-            <div className="w-[480px]">
-              <SearchInput placeholder="Buscar transações..." />
-            </div>
-            <button
-              type="button"
+        {/* Center: desktop navigation */}
+        <nav className="hidden md:flex items-center justify-center gap-1">
+          {NAV_ITEMS.map(({ label, href, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
               className={cn(
-                'flex items-center justify-center p-2.5 rounded-md',
-                'text-secondary hover:bg-surface-container-low transition-colors',
-                'focus:outline-none focus:ring-2 focus:ring-primary/50'
+                'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                isActive(href)
+                  ? 'text-primary bg-primary/10'
+                  : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high',
               )}
-              aria-label="Assistente IA"
             >
-              <Sparkles className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+              <Icon className="w-4 h-4" />
+              {label}
+            </Link>
+          ))}
+        </nav>
 
-        {/* Right Side - Mobile: IA + Bell + Profile | Desktop: Bell + Profile */}
-        <div className="flex items-center gap-1">
-          {/* Mobile - IA Button */}
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-center p-2 rounded-md',
-              'text-secondary hover:bg-surface-container-low transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50'
-            )}
-            aria-label="Assistente IA"
-          >
-            <Sparkles className="w-5 h-5" />
-          </button>
-
-          {/* Mobile + Desktop - Bell Button */}
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-center p-2 rounded-md',
-              'text-neutral hover:bg-surface-container-low transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50'
-            )}
-            aria-label="Notificações"
-          >
-            <Bell className="w-5 h-5" />
-          </button>
-
-          {/* Mobile + Desktop - Profile Button */}
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-center p-2 rounded-md',
-              'text-neutral hover:bg-surface-container-low transition-colors',
-              'focus:outline-none focus:ring-2 focus:ring-primary/50'
-            )}
-            aria-label="Perfil"
-          >
-            <UserCircle2 className="w-5 h-5" />
-          </button>
+        {/* Right: actions */}
+        <div className="flex justify-end">
+          <HeaderActions onLogout={handleLogout} />
         </div>
       </div>
     </header>

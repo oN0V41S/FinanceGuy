@@ -6,9 +6,14 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
 const mockUseDashboardData = jest.fn();
+const mockUseMonthlySummary = jest.fn();
 
 jest.mock('@/features/dashboard/hooks/useDashboardData', () => ({
   useDashboardData: (...args: any[]) => mockUseDashboardData(...args),
+}));
+
+jest.mock('@/features/dashboard/hooks/useMonthlySummary', () => ({
+  useMonthlySummary: (...args: any[]) => mockUseMonthlySummary(...args),
 }));
 
 jest.mock('next/navigation', () => ({
@@ -83,9 +88,17 @@ const defaultData = {
   refresh: jest.fn(),
 };
 
+const defaultMonthlySummary = {
+  data: [],
+  isLoading: false,
+  period: 'last6',
+  setPeriod: jest.fn(),
+};
+
 describe('DashboardPage Integration', () => {
   beforeEach(() => {
     mockUseDashboardData.mockReturnValue(defaultData);
+    mockUseMonthlySummary.mockReturnValue(defaultMonthlySummary);
   });
 
   describe('HeaderLayout and MobileNavBar', () => {
@@ -157,21 +170,6 @@ describe('DashboardPage Integration', () => {
       );
     });
 
-    it('FortnightFilter renders and triggers onChange', async () => {
-      const user = userEvent.setup();
-      render(<DashboardPage />);
-
-      expect(screen.getByTestId('fortnight-filter')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: 'Quinzena' })).toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: 'Quinzena' }));
-
-      expect(mockUseDashboardData).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(String),
-        'first',
-      );
-    });
   });
 
   describe('Error state', () => {

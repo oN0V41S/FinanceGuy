@@ -51,3 +51,8 @@ config.json.env
 # dev screenshots and logs
 *.png
 network-requests.txt
+
+# .env
+.env.local
+
+/node_modules/
