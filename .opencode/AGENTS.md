@@ -27,7 +27,7 @@ Os arquivos `.md` ficam em `.opencode/agents/` (planos, sem diretórios).
 | Agente | Modo | Cor | Especialização |
 |--------|------|-----|----------------|
 | **tech-lead** | `all` | primary | Orquestração, delegação, triagem de PRs, decisões técnicas |
-| **frontend** | `subagent` | info | UI/UX com shadcn-ui + VISUAL_IDENTITY.md | Spec-first + TDD: escrever Spec detalhada → testes → implementação; dark/light theme + mobile responsivo |
+| **frontend** | `subagent` | info | UI/UX com shadcn-ui + VISUAL_IDENTITY.md | Página/Modal novo → `/design` (prototipação) → Spec-first + TDD; Componente complementar → direto para Spec-first + TDD; dark/light theme + mobile responsivo |
 | **backend-engineer** | `subagent` | secondary | API routes, services, repositories, Prisma, Zod |
 | **database-engineer** | `subagent` | accent | Schema Prisma, PostgreSQL, migrations, queries |
 | **devops-platform-engineer** | `subagent` | warning | CI/CD, build Next.js, deploy, FinOps |
@@ -67,6 +67,19 @@ O projeto usa `@base-ui/react/select`. `SelectValue` **não** reflete automatica
 - `<Skeleton>`: preferir para loading de componentes individuais (cards, gráficos, textos).
 - Dados **nunca** devem ter `MOCK_DATA` como fallback de produção. Usar estado vazio (empty state) quando a API retorna `[]`.
 - `setTimeout` para simular loading é proibido em componentes com dados estáticos.
+
+### Front-end — Componente Complementar vs Página/Modal Novo (OBRIGATÓRIO)
+Antes de qualquer implementação de UI, o agente `frontend` (ou quem estiver executando a tarefa) DEVE classificar o escopo:
+
+| Tipo | Critério | Exige `/design`? |
+|------|----------|-------------------|
+| **Componente complementar** | Ajuste, extensão ou novo componente que reaproveita padrões visuais/layout já existentes na tela onde será inserido (ex: novo card no dashboard, novo campo em um form existente, variante de um componente já implementado) | ❌ Não — segue direto para Spec-first + TDD |
+| **Página ou Modal novo** | Nova rota, novo fluxo de tela completo, ou modal com estrutura/layout ainda inexistente no projeto | ✅ Sim — **etapa `/design` de prototipação é obrigatória antes de escrever código de UI** |
+
+Regras:
+- Na dúvida entre as categorias, tratar como Página/Modal novo (mais conservador).
+- Não pular a etapa `/design` para "economizar tempo" — o protótipo evita retrabalho de layout/UX depois da implementação.
+- Após o protótipo aprovado, seguir normalmente o Spec-first + TDD descrito abaixo.
 
 ### Subagentes (Todos seguem Spec-first + TDD)
 Todos os subagentes seguem rigoroso **Spec-first + TDD**:

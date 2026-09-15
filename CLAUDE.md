@@ -9,7 +9,17 @@ Contexto do app: Um App que Te leva a Estabilidade Financeira; Um Nubank com IA 
 2. **Identifique a área** da tarefa na routing table
 3. **Leia APENAS o doc relevante** em `docs/`
 4. **Invoque o sub-agente** correspondente quando aplicável (ver `.opencode/AGENTS.md`)
-5. **Valide**: `npx jest <relacionado>` + `npm run lint` antes de finalizar
+5. **Se for tarefa de front-end**, classifique-a antes de implementar (ver "Front-end: Componente vs Página/Modal" abaixo)
+6. **Valide**: `npx jest <relacionado>` + `npm run lint` antes de finalizar
+
+### Front-end: Componente vs Página/Modal (OBRIGATÓRIO)
+
+Antes de implementar qualquer tarefa de UI, classifique-a:
+
+- **Componente complementar** (ajuste/extensão de um componente já existente, ou um componente novo que reutiliza padrões visuais já estabelecidos na tela onde será inserido) → **não exige prototipação**. Pode seguir direto para Spec-first + TDD (`.opencode/AGENTS.md`).
+- **Página ou Modal novos** (nova rota, novo fluxo de tela, ou modal com layout/estrutura ainda não existente no projeto) → **exige etapa de `/design` (prototipação)** ANTES de qualquer implementação. Não escrever código de UI para páginas/modais novos sem o protótipo aprovado primeiro.
+
+Na dúvida entre as duas categorias, trate como página/modal novo (mais conservador) e passe pelo `/design`.
 
 ## 📚 Documentação Focada
 
