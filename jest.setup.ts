@@ -1,5 +1,18 @@
 import "@testing-library/jest-dom";
 
+// Polyfill de fetch para o ambiente jsdom (não implementa fetch nativamente).
+// Testes que precisam de um comportamento específico sobrescrevem global.fetch
+// no próprio beforeEach — este é apenas o fallback para hooks que chamam fetch
+// em componentes sem mock explícito (evita "ReferenceError: fetch is not defined").
+if (typeof global.fetch === "undefined") {
+  global.fetch = jest.fn(() =>
+    Promise.resolve({
+      ok: false,
+      json: async () => null,
+    })
+  ) as unknown as typeof fetch;
+}
+
 // Mock do Next.js Request/Response para testes de API
 // Isso permite que os testes de API funcionem no ambiente jsdom/node
 
