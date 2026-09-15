@@ -1515,19 +1515,21 @@ describe('TransactionModal — Recorrência (Issue #12)', () => {
 });
 
 // ===========================================================================
-// Recorrência na CRIAÇÃO (parcelada) — Toggle "Transação recorrente (parcelada)"
+// Recorrência na CRIAÇÃO — Toggle "Repetir transação" (Issue #22)
 // Requisitos aprovados pelo PO:
 //   1. No modo CRIAR (transaction null/undefined) deve existir o toggle
-//      "Transação recorrente (parcelada)".
-//   2. Toggle ATIVO → campo "Número de parcelas" (input number) aparece.
-//      Toggle DESATIVADO → campo NÃO aparece.
-//   3. Submit recorrente → onSave recebe is_recurring: true e
+//      "Repetir transação".
+//   2. Toggle ATIVO → seletor de modo (Parcelado/Recorrente) e campo de
+//      contagem (input number) aparecem. Toggle DESATIVADO → somem.
+//   3. Modo "Parcelado" (padrão) → onSave recebe is_recurring: false e
 //      total_installments como NUMBER (≥ 2).
-//   4. Submit não recorrente → onSave recebe is_recurring: false e SEM
+//   4. Modo "Recorrente" → onSave recebe is_recurring: true e
+//      total_installments como NUMBER (≥ 2).
+//   5. Sem repetição → onSave recebe is_recurring: false e SEM
 //      total_installments (ou undefined).
-//   5. Validações pt-BR com role="alert" e classe text-finance-expense.
-//   6. Modo EDIÇÃO não exibe este toggle nem o campo de parcelas.
-//   7. Reset: fechar e reabrir o modal em modo Create volta o toggle a false
+//   6. Validações pt-BR com role="alert" e classe text-finance-expense.
+//   7. Modo EDIÇÃO não exibe este toggle nem o campo de parcelas.
+//   8. Reset: fechar e reabrir o modal em modo Create volta o toggle a false
 //      e o campo de parcelas some.
 // ===========================================================================
 
@@ -1548,21 +1550,21 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
   // Green Path — toggle visível no modo Create
   // -----------------------------------------------------------------------
 
-  it('deve exibir o toggle "Transação recorrente (parcelada)" no modo Create', () => {
+  it('deve exibir o toggle "Repetir transação" no modo Create', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
     const toggle = screen.getByRole('switch', {
-      name: /transação recorrente.*parcelada/i,
+      name: /repetir transação/i,
     });
     expect(toggle).toBeInTheDocument();
     expect(toggle).toHaveAttribute('aria-checked', 'false');
   });
 
-  it('deve exibir o texto visível "Transação recorrente (parcelada)" no modo Create', () => {
+  it('deve exibir o texto visível "Repetir transação" no modo Create', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
     expect(
-      screen.getByText(/transação recorrente.*parcelada/i),
+      screen.getByText(/repetir transação/i),
     ).toBeInTheDocument();
   });
 
@@ -1580,7 +1582,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
     fireEvent.click(
-      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+      screen.getByRole('switch', { name: /repetir transação/i }),
     );
 
     const installmentsInput = screen.getByLabelText(
@@ -1594,7 +1596,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
     const toggle = screen.getByRole('switch', {
-      name: /transação recorrente.*parcelada/i,
+      name: /repetir transação/i,
     });
 
     fireEvent.click(toggle);
@@ -1608,7 +1610,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
   // Green Path — payload de submissão
   // -----------------------------------------------------------------------
 
-  it('deve enviar is_recurring true e total_installments (number) ao submeter com recorrência ativa', async () => {
+  it('deve enviar is_recurring false e total_installments (number) ao submeter no modo Parcelado (padrão)', async () => {
     mockOnSave.mockResolvedValue(undefined);
     render(<TransactionModal {...defaultProps} transaction={null} />);
 
@@ -1617,9 +1619,9 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     // Selecionar categoria (necessária para validação)
     fireEvent.click(screen.getByTestId('select-item-Alimentação'));
 
-    // Ativar recorrência e preencher o número de parcelas
+    // Ativar repetição — modo padrão é "Parcelado" — e preencher o número de parcelas
     fireEvent.click(
-      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+      screen.getByRole('switch', { name: /repetir transação/i }),
     );
     fireEvent.change(screen.getByLabelText(/número de parcelas/i), {
       target: { value: '3' },
@@ -1630,7 +1632,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     await waitFor(() => {
       expect(mockOnSave).toHaveBeenCalledWith(
         expect.objectContaining({
-          is_recurring: true,
+          is_recurring: false,
           total_installments: 3,
         }),
       );
@@ -1639,6 +1641,60 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     const payload = mockOnSave.mock.calls[0][0];
     // total_installments deve ser NUMBER (não string)
     expect(typeof payload.total_installments).toBe('number');
+  });
+
+  it('deve enviar is_recurring true ao selecionar o modo "Recorrente"', async () => {
+    mockOnSave.mockResolvedValue(undefined);
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields({ description: 'Assinatura mensal' });
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    fireEvent.click(
+      screen.getByRole('switch', { name: /repetir transação/i }),
+    );
+    fireEvent.click(screen.getByTestId('select-item-recurring'));
+    fireEvent.change(screen.getByLabelText(/número de ocorrências/i), {
+      target: { value: '12' },
+    });
+
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          is_recurring: true,
+          total_installments: 12,
+        }),
+      );
+    });
+  });
+
+  it('deve enviar is_recurring false ao selecionar explicitamente o modo "Parcelado"', async () => {
+    mockOnSave.mockResolvedValue(undefined);
+    render(<TransactionModal {...defaultProps} transaction={null} />);
+
+    fillFormFields({ description: 'Compra parcelada' });
+    fireEvent.click(screen.getByTestId('select-item-Alimentação'));
+
+    fireEvent.click(
+      screen.getByRole('switch', { name: /repetir transação/i }),
+    );
+    fireEvent.click(screen.getByTestId('select-item-installment'));
+    fireEvent.change(screen.getByLabelText(/número de parcelas/i), {
+      target: { value: '5' },
+    });
+
+    fireEvent.click(screen.getByTestId('submit-button'));
+
+    await waitFor(() => {
+      expect(mockOnSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          is_recurring: false,
+          total_installments: 5,
+        }),
+      );
+    });
   });
 
   it('deve enviar is_recurring false e sem total_installments ao submeter sem recorrência', async () => {
@@ -1674,7 +1730,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     fireEvent.click(screen.getByTestId('select-item-Alimentação'));
 
     fireEvent.click(
-      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+      screen.getByRole('switch', { name: /repetir transação/i }),
     );
 
     fireEvent.click(screen.getByTestId('submit-button'));
@@ -1697,7 +1753,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     fireEvent.click(screen.getByTestId('select-item-Alimentação'));
 
     fireEvent.click(
-      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+      screen.getByRole('switch', { name: /repetir transação/i }),
     );
     fireEvent.change(screen.getByLabelText(/número de parcelas/i), {
       target: { value: '1' },
@@ -1720,7 +1776,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     fireEvent.click(screen.getByTestId('select-item-Alimentação'));
 
     fireEvent.click(
-      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+      screen.getByRole('switch', { name: /repetir transação/i }),
     );
     fireEvent.change(screen.getByLabelText(/número de parcelas/i), {
       target: { value: '49' },
@@ -1743,7 +1799,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     fireEvent.click(screen.getByTestId('select-item-Alimentação'));
 
     fireEvent.click(
-      screen.getByRole('switch', { name: /transação recorrente.*parcelada/i }),
+      screen.getByRole('switch', { name: /repetir transação/i }),
     );
     // Nota: com <input type="number"> o valor 'abc' é sanitizado para '' no DOM,
     // então o erro exibido pode ser "Informe o número de parcelas" ou
@@ -1784,7 +1840,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     // O novo toggle de criação (parcelada) NÃO deve aparecer em edição
     expect(
       screen.queryByRole('switch', {
-        name: /transação recorrente.*parcelada/i,
+        name: /repetir transação/i,
       }),
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/número de parcelas/i)).not.toBeInTheDocument();
@@ -1800,7 +1856,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     );
 
     const toggle = screen.getByRole('switch', {
-      name: /transação recorrente.*parcelada/i,
+      name: /repetir transação/i,
     });
     expect(toggle).toHaveAttribute('aria-checked', 'false');
 
@@ -1820,7 +1876,7 @@ describe('TransactionModal — Recorrência na Criação (parcelada)', () => {
     );
 
     const reopenedToggle = screen.getByRole('switch', {
-      name: /transação recorrente.*parcelada/i,
+      name: /repetir transação/i,
     });
     expect(reopenedToggle).toHaveAttribute('aria-checked', 'false');
     expect(screen.queryByLabelText(/número de parcelas/i)).not.toBeInTheDocument();

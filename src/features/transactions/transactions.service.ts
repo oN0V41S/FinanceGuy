@@ -184,7 +184,9 @@ export class TransactionService {
 
     // 2. Lógica de Parcelamento (Installments)
     if (dataForRepository.total_installments && dataForRepository.total_installments > 1) {
-      const valuePerInstallment = dataForRepository.value / dataForRepository.total_installments;
+      const valuePerOccurrence = dataForRepository.is_recurring
+        ? dataForRepository.value
+        : dataForRepository.value / dataForRepository.total_installments;
 
       // Criar transação "Pai" (O registro principal da compra)
       const parentTransaction = await this.transactionRepository.create({
@@ -197,7 +199,7 @@ export class TransactionService {
       for (let i = 1; i <= dataForRepository.total_installments; i++) {
         const child = await this.transactionRepository.create({
           ...dataForRepository,
-          value: valuePerInstallment,
+          value: valuePerOccurrence,
           date: addMonths(dataForRepository.date, i),
           installment_number: i,
           total_installments: dataForRepository.total_installments,

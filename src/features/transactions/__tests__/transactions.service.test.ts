@@ -137,6 +137,65 @@ describe('TransactionService', () => {
     });
   });
 
+  describe('createTransaction — recorrência (is_recurring) sem divisão de valor', () => {
+    it('deve replicar o valor integral em cada ocorrência quando is_recurring=true', async () => {
+      const transactionData = {
+        userId: 'user-id',
+        description: 'Assinatura Streaming',
+        value: 50,
+        total_installments: 3,
+        is_recurring: true,
+        type: 'expense',
+        category: 'Lazer',
+        date: '2024-01-01',
+        responsible: 'Admin',
+      };
+
+      mockTransactionRepo.create.mockResolvedValue({ id: 'parent-id', ...transactionData } as any);
+
+      const result = await service.createTransaction(transactionData);
+
+      expect(mockTransactionRepo.create).toHaveBeenCalledTimes(4);
+
+      const createCalls = mockTransactionRepo.create.mock.calls.map(([args]) => args as any);
+      const [parentCall, child1, child2, child3] = createCalls;
+
+      // Pai mantém o valor integral
+      expect(parentCall).toMatchObject({ date: '2024-01-01', value: 50 });
+
+      // Filhas replicam o valor CHEIO (sem divisão), com datas incrementais
+      expect(child1).toMatchObject({ installment_number: 1, value: 50, date: '2024-02-01', parent_transaction_id: 'parent-id' });
+      expect(child2).toMatchObject({ installment_number: 2, value: 50, date: '2024-03-01', parent_transaction_id: 'parent-id' });
+      expect(child3).toMatchObject({ installment_number: 3, value: 50, date: '2024-04-01', parent_transaction_id: 'parent-id' });
+
+      expect(result).toMatchObject({ id: 'parent-id' });
+      expect((result as any).installments).toHaveLength(3);
+    });
+
+    it('deve continuar dividindo o valor quando is_recurring é false/ausente (parcelamento)', async () => {
+      const transactionData = {
+        userId: 'user-id',
+        description: 'Compra Parcelada',
+        value: 300,
+        total_installments: 3,
+        is_recurring: false,
+        type: 'expense',
+        category: 'Outros',
+        date: '2024-01-01',
+        responsible: 'Admin',
+      };
+
+      mockTransactionRepo.create.mockResolvedValue({ id: 'parent-id', ...transactionData } as any);
+
+      await service.createTransaction(transactionData);
+
+      const childCalls = mockTransactionRepo.create.mock.calls.slice(1).map(([args]) => args as any);
+      expect(childCalls[0]).toMatchObject({ value: 100 });
+      expect(childCalls[1]).toMatchObject({ value: 100 });
+      expect(childCalls[2]).toMatchObject({ value: 100 });
+    });
+  });
+
   describe('deleteFutureTransactions — esta e futuras', () => {
     it('a partir de uma FILHA deve deletar apenas parcelas >= data da filha (preserva histórico)', async () => {
       const child = {

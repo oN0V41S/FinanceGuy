@@ -101,6 +101,7 @@ export default function TransactionModal({
   const [paid, setPaid] = useState(false);
   const [applyToFuture, setApplyToFuture] = useState(false);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceMode, setRecurrenceMode] = useState<'installment' | 'recurring'>('installment');
   const [installments, setInstallments] = useState('');
   const [formTouched, setFormTouched] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -142,6 +143,7 @@ export default function TransactionModal({
 
     setApplyToFuture(false);
     setIsRecurring(false);
+    setRecurrenceMode('installment');
     setInstallments('');
     setFormTouched(false);
     setSubmitError(null);
@@ -255,7 +257,7 @@ export default function TransactionModal({
       const dataToSend = {
         ...buildFormData(),
         value: parseFloat(amount),
-        is_recurring: isRecurring,
+        is_recurring: isRecurring && recurrenceMode === 'recurring',
         ...(isRecurring ? { total_installments: parseInt(installments, 10) } : {}),
       } as unknown as TransactionFormData;
 
@@ -447,11 +449,11 @@ export default function TransactionModal({
           />
         </div>
 
-        {/* ---- Create recurring (installments) toggle (create mode only) ---- */}
+        {/* ---- Repeat transaction toggle (create mode only) ---- */}
         {!transaction && (
           <>
             <div className="flex items-center justify-between">
-              <Label htmlFor="is-recurring">Transação recorrente (parcelada)</Label>
+              <Label htmlFor="is-recurring">Repetir transação</Label>
               <Toggle
                 id="is-recurring"
                 checked={isRecurring}
@@ -459,30 +461,55 @@ export default function TransactionModal({
                   markTouched();
                   setIsRecurring(next);
                 }}
-                aria-label="Transação recorrente (parcelada)"
+                aria-label="Repetir transação"
                 colorScheme="default"
               />
             </div>
 
             {isRecurring && (
-              <div>
-                <Label htmlFor="installments">Número de parcelas</Label>
-                <Input
-                  id="installments"
-                  type="number"
-                  min={2}
-                  max={48}
-                  value={installments}
-                  onChange={(e) => {
-                    markTouched();
-                    setInstallments(e.target.value);
-                  }}
-                  placeholder="Ex: 3"
-                />
-                {formTouched && fieldErrors.totalInstallments && (
-                  <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.totalInstallments}</p>
-                )}
-              </div>
+              <>
+                <div>
+                  <Label>Tipo de repetição</Label>
+                  <Select
+                    value={recurrenceMode}
+                    onValueChange={(value) => {
+                      markTouched();
+                      setRecurrenceMode(value as 'installment' | 'recurring');
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-9">
+                      <SelectValue>
+                        {recurrenceMode === 'recurring' ? 'Recorrente' : 'Parcelado'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="bg-surface-container">
+                      <SelectItem value="installment" data-testid="select-item-installment">Parcelado</SelectItem>
+                      <SelectItem value="recurring" data-testid="select-item-recurring">Recorrente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="installments">
+                    {recurrenceMode === 'recurring' ? 'Número de ocorrências' : 'Número de parcelas'}
+                  </Label>
+                  <Input
+                    id="installments"
+                    type="number"
+                    min={2}
+                    max={48}
+                    value={installments}
+                    onChange={(e) => {
+                      markTouched();
+                      setInstallments(e.target.value);
+                    }}
+                    placeholder="Ex: 3"
+                  />
+                  {formTouched && fieldErrors.totalInstallments && (
+                    <p className="text-finance-expense text-sm mt-1" role="alert">{fieldErrors.totalInstallments}</p>
+                  )}
+                </div>
+              </>
             )}
           </>
         )}
