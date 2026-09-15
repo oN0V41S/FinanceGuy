@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Wallet, LayoutDashboard, ArrowLeftRight, Settings, X } from 'lucide-react';
+import { Wallet, LayoutDashboard, ArrowLeftRight, TrendingUp, Settings, X } from 'lucide-react';
 import { HeaderLayout } from '@/features/dashboard/components/HeaderLayout';
 import { MobileNavBar } from '@/features/dashboard/components/MobileNavBar';
 import { SummaryCard } from '@/features/dashboard/components/SummaryCard';
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 const navigationItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight },
+  { label: 'Investimentos', href: '/investimentos', icon: TrendingUp },
 ];
 
 const footerItem = { label: 'Configurações', href: '/settings', icon: Settings };

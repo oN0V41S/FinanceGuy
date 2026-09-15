@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, LayoutDashboard, ArrowLeftRight } from 'lucide-react';
+import { Menu, LayoutDashboard, ArrowLeftRight, TrendingUp } from 'lucide-react';
 import { HeaderBrand } from './HeaderBrand';
 import { HeaderActions } from './HeaderActions';
 import { HeaderIconButton } from './HeaderIconButton';
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight },
+  { label: 'Investimentos', href: '/investimentos', icon: TrendingUp },
 ];
 
 interface HeaderLayoutProps {
