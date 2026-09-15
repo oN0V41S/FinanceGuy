@@ -46,16 +46,18 @@ describe('PeriodSelector', () => {
     expect(screen.getByTestId('select-item-last6')).toHaveTextContent('Últimos 6 meses');
   });
 
-  it('renders year options starting from 2024', () => {
+  it('renders year option for the current year (default before years load from API)', () => {
+    const currentYear = new Date().getFullYear();
     render(<PeriodSelector value="last6" onChange={() => {}} />);
-    expect(screen.getByTestId('select-item-2024')).toBeInTheDocument();
-    expect(screen.getByTestId('select-item-2024')).toHaveTextContent('2024 completo');
+    expect(screen.getByTestId(`select-item-${currentYear}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`select-item-${currentYear}`)).toHaveTextContent(`${currentYear} completo`);
   });
 
-  it('renders semester options for 2024', () => {
+  it('renders semester options for the current year', () => {
+    const currentYear = new Date().getFullYear();
     render(<PeriodSelector value="last6" onChange={() => {}} />);
-    expect(screen.getByTestId('select-item-2024-s1')).toBeInTheDocument();
-    expect(screen.getByTestId('select-item-2024-s2')).toBeInTheDocument();
+    expect(screen.getByTestId(`select-item-${currentYear}-s1`)).toBeInTheDocument();
+    expect(screen.getByTestId(`select-item-${currentYear}-s2`)).toBeInTheDocument();
   });
 
   it('renders options up to current year', () => {
