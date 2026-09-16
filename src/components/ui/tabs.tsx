@@ -27,7 +27,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
       className={cn(
         "inline-flex h-full min-w-[7rem] flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium",
         "transition-colors outline-none select-none disabled:pointer-events-none disabled:opacity-50",
-        "data-active:bg-surface-container data-active:text-primary data-active:shadow-sm",
+        "data-[active]:bg-surface-container data-[active]:text-primary data-[active]:shadow-sm",
         "text-on-surface-variant hover:text-on-surface",
         className
       )}
