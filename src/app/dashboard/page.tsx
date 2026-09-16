@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { HeaderLayout } from '@/features/dashboard/components/HeaderLayout';
-import { MobileDrawer } from '@/features/dashboard/components/MobileDrawer';
 import { MobileNavBar } from '@/features/dashboard/components/MobileNavBar';
 import { SummaryCard } from '@/features/dashboard/components/SummaryCard';
 import { MonthFilter } from '@/features/dashboard/components/MonthFilter';
@@ -16,7 +15,6 @@ import { useMonthlySummary } from '@/features/dashboard/hooks/useMonthlySummary'
 import { LazyLoad } from '@/shared/components/LazyLoad';
 
 export default function DashboardPage() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(String(now.getMonth() + 1).padStart(2, '0'));
   const [selectedYear, setSelectedYear] = useState(String(now.getFullYear()));
@@ -31,10 +29,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-
       <div className="flex flex-col pb-16 md:pb-0">
-        <HeaderLayout onOpenMobileDrawer={() => setDrawerOpen(true)} />
+        <HeaderLayout />
 
         <main className="flex-1 p-4 md:p-6">
           <div className="max-w-6xl mx-auto">

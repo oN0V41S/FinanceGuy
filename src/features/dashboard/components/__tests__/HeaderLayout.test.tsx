@@ -18,13 +18,6 @@ jest.mock('../ConfigModal', () => ({
 }));
 
 describe('HeaderLayout', () => {
-  // Botão de menu mobile temporariamente desativado até a nova navegação
-  // flutuante (liquid glass) substituir o drawer atual.
-  it('não renderiza o botão de menu (temporariamente desativado)', () => {
-    render(<HeaderLayout />);
-    expect(screen.queryByLabelText('Abrir menu')).not.toBeInTheDocument();
-  });
-
   it('renderiza a marca "FinanceGuy" visível', () => {
     render(<HeaderLayout />);
     expect(screen.getByText('FinanceGuy')).toBeInTheDocument();

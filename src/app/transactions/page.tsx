@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Plus } from 'lucide-react';
 import { HeaderLayout } from '@/features/dashboard/components/HeaderLayout';
-import { MobileDrawer } from '@/features/dashboard/components/MobileDrawer';
 import { MobileNavBar } from '@/features/dashboard/components/MobileNavBar';
 import { SummaryCard } from '@/features/dashboard/components/SummaryCard';
 import { EmptyState } from '@/features/dashboard/components/EmptyState';
@@ -16,8 +15,6 @@ import useTransactions from '@/features/transactions/hooks/useTransactions';
 import type { TransactionFormData } from '@/features/transactions/types';
 
 export default function TransactionsPage() {
-  const [drawerOpen, setDrawerOpen] = useState(false);
-
   const {
     transactions,
     summary,
@@ -96,11 +93,9 @@ export default function TransactionsPage() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-
       {/* Main Content Area */}
       <div className="flex flex-col pb-16 md:pb-0">
-        <HeaderLayout onOpenMobileDrawer={() => setDrawerOpen(true)} />
+        <HeaderLayout />
 
         <main className="flex-1 p-4 md:p-6">
           <div className="max-w-6xl mx-auto">
