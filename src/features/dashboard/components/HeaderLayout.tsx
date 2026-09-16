@@ -2,23 +2,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, LayoutDashboard, ArrowLeftRight } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, TrendingUp } from 'lucide-react';
 import { HeaderBrand } from './HeaderBrand';
 import { HeaderActions } from './HeaderActions';
-import { HeaderIconButton } from './HeaderIconButton';
 import { logoutAction } from '@/features/auth/actions/logoutAction';
 import { cn } from '@/lib/utils';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight },
+  { label: 'Investimentos', href: '/investimentos', icon: TrendingUp },
 ];
 
-interface HeaderLayoutProps {
-  onOpenMobileDrawer?: () => void;
-}
-
-export function HeaderLayout({ onOpenMobileDrawer }: HeaderLayoutProps) {
+export function HeaderLayout() {
   const pathname = usePathname();
 
   async function handleLogout() {
@@ -30,15 +26,9 @@ export function HeaderLayout({ onOpenMobileDrawer }: HeaderLayoutProps) {
 
   return (
     <header className="sticky top-0 z-30 bg-surface-container">
-      <div className="max-w-6xl mx-auto px-4 py-3 grid grid-cols-3 items-center">
-        {/* Left: hamburger (mobile) + brand */}
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between md:grid md:grid-cols-3">
+        {/* Left: brand */}
         <div className="flex items-center gap-2">
-          <HeaderIconButton
-            icon={<Menu className="w-5 h-5" />}
-            label="Abrir menu"
-            onClick={onOpenMobileDrawer}
-            className="md:hidden"
-          />
           <HeaderBrand />
         </div>
 

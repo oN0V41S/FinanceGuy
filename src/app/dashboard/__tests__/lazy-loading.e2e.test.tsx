@@ -5,7 +5,7 @@
  *   - SummaryCards: always rendered (isLoading passed as prop, no LazyLoad gate)
  *   - MonthlyChart: wrapped in <LazyLoad isReady={!chartLoading}>
  *   - CategoryBreakdown: wrapped in <LazyLoad isReady={!isLoading}>
- *   - GoalsCard, AIInsightCard: always rendered (static)
+ *   - InvestmentsGoalsCard, AIInsightCard: always rendered (static)
  */
 
 import React from 'react';
@@ -37,8 +37,8 @@ jest.mock('@/features/dashboard/components/CategoryBreakdown', () => ({
   CategoryBreakdown: () => <div data-testid="category-breakdown">CategoryBreakdown</div>,
 }));
 
-jest.mock('@/features/dashboard/components/GoalsCard', () => ({
-  GoalsCard: () => <div data-testid="goals-card">GoalsCard</div>,
+jest.mock('@/features/dashboard/components/InvestmentsGoalsCard', () => ({
+  InvestmentsGoalsCard: () => <div data-testid="investments-goals-card">InvestmentsGoalsCard</div>,
 }));
 
 jest.mock('@/features/dashboard/components/AIInsightCard', () => ({
@@ -130,12 +130,12 @@ describe('Dashboard LazyLoad gates (E2E)', () => {
     expect(cards).toHaveLength(3);
   });
 
-  it('always renders GoalsCard and AIInsightCard (static content)', () => {
+  it('always renders InvestmentsGoalsCard and AIInsightCard (static content)', () => {
     mockUseDashboardData.mockReturnValue({ ...baseData, isLoading: true });
     mockUseMonthlySummary.mockReturnValue({ ...baseMonthlySummary, isLoading: true });
     render(<DashboardPage />);
 
-    expect(screen.getByTestId('goals-card')).toBeInTheDocument();
+    expect(screen.getByTestId('investments-goals-card')).toBeInTheDocument();
     expect(screen.getByTestId('ai-insight-card')).toBeInTheDocument();
   });
 });

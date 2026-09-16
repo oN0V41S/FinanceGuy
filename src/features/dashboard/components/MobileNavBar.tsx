@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ArrowLeftRight } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -15,6 +15,11 @@ const navItems = [
     label: 'Transações',
     href: '/transactions',
     icon: ArrowLeftRight,
+  },
+  {
+    label: 'Investimentos',
+    href: '/investimentos',
+    icon: TrendingUp,
   },
 ];
 
@@ -29,8 +34,21 @@ export function MobileNavBar() {
   };
 
   return (
-    <nav className="md:hidden fixed bottom-4 left-4 right-4 z-40 bg-surface-container rounded-xl shadow-lg">
-      <div className="flex justify-around items-center h-14">
+    <nav
+      className={cn(
+        'md:hidden fixed bottom-4 left-4 right-4 z-40 rounded-full',
+        'bg-surface-container/70 backdrop-blur-xl backdrop-saturate-150',
+        'border border-outline-variant/20',
+        'shadow-soft',
+      )}
+    >
+      <div className="relative flex justify-around items-center h-16 px-1.5">
+        {/* specular highlight along the top edge of the glass pill */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-on-surface/40 to-transparent"
+        />
+
         {navItems.map((item) => {
           const active = isActive(item.href);
           const Icon = item.icon;
@@ -40,27 +58,15 @@ export function MobileNavBar() {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-col items-center justify-center flex-1 h-full gap-1',
-                'transition-colors',
+                'flex flex-col items-center justify-center gap-1 rounded-full transition-colors',
+                'h-12 w-12',
                 active
-                  ? 'text-secondary bg-surface-container-low rounded-xl'
-                  : 'text-on-surface-variant hover:bg-surface-container-low'
+                  ? 'bg-primary text-on-primary shadow-soft'
+                  : 'text-on-surface-variant hover:text-on-surface',
               )}
             >
-              <Icon
-                className={cn(
-                  'w-6 h-6 transition-colors',
-                  active ? 'text-secondary' : 'text-on-surface-variant'
-                )}
-              />
-              <span
-                className={cn(
-                  'text-xs font-medium',
-                  active ? 'text-secondary' : 'text-on-surface-variant'
-                )}
-              >
-                {item.label}
-              </span>
+              <Icon className="w-5 h-5" />
+              <span className="sr-only">{item.label}</span>
             </Link>
           );
         })}

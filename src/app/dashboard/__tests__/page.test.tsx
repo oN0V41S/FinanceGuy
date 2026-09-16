@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
@@ -21,13 +21,7 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/features/dashboard/components/HeaderLayout', () => ({
-  HeaderLayout: ({ onOpenMobileDrawer }: { onOpenMobileDrawer?: () => void }) => (
-    <header data-testid="header">
-      <button aria-label="Abrir menu" onClick={onOpenMobileDrawer}>
-        Menu
-      </button>
-    </header>
-  ),
+  HeaderLayout: () => <header data-testid="header">Header</header>,
 }));
 
 jest.mock('@/features/dashboard/components/MobileNavBar', () => ({
@@ -110,46 +104,6 @@ describe('DashboardPage Integration', () => {
     it('renderiza MobileNavBar', () => {
       render(<DashboardPage />);
       expect(screen.getByTestId('mobile-navbar')).toBeInTheDocument();
-    });
-  });
-
-  describe('Drawer behavior', () => {
-    it('clicking menu button opens drawer', async () => {
-      const user = userEvent.setup();
-      render(<DashboardPage />);
-
-      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-
-      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
-      expect(screen.getByRole('dialog', { name: 'Menu de navegação' })).toHaveClass('translate-x-0');
-    });
-
-    it('clicking overlay closes drawer', async () => {
-      const user = userEvent.setup();
-      render(<DashboardPage />);
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('drawer-overlay'));
-
-      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-      expect(screen.getByRole('dialog', { name: 'Menu de navegação' })).toHaveClass('-translate-x-full');
-    });
-
-    it('clicking close button closes drawer', async () => {
-      const user = userEvent.setup();
-      render(<DashboardPage />);
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
-
-      await user.click(within(screen.getByRole('dialog', { name: 'Menu de navegação' })).getByRole('button', { name: 'Fechar menu' }));
-
-      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-      expect(screen.getByRole('dialog', { name: 'Menu de navegação' })).toHaveClass('-translate-x-full');
     });
   });
 
