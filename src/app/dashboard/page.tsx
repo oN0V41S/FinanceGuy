@@ -3,14 +3,14 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Wallet, LayoutDashboard, ArrowLeftRight, Settings, X } from 'lucide-react';
+import { Wallet, LayoutDashboard, ArrowLeftRight, TrendingUp, Settings, X } from 'lucide-react';
 import { HeaderLayout } from '@/features/dashboard/components/HeaderLayout';
 import { MobileNavBar } from '@/features/dashboard/components/MobileNavBar';
 import { SummaryCard } from '@/features/dashboard/components/SummaryCard';
 import { MonthFilter } from '@/features/dashboard/components/MonthFilter';
 import { MonthlyChart } from '@/features/dashboard/components/MonthlyChart';
 import { CategoryBreakdown } from '@/features/dashboard/components/CategoryBreakdown';
-import { GoalsCard } from '@/features/dashboard/components/GoalsCard';
+import { InvestmentsGoalsCard } from '@/features/dashboard/components/InvestmentsGoalsCard';
 import { AIInsightCard } from '@/features/dashboard/components/AIInsightCard';
 import { useDashboardData } from '@/features/dashboard/hooks/useDashboardData';
 import { useMonthlySummary } from '@/features/dashboard/hooks/useMonthlySummary';
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 const navigationItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight },
+  { label: 'Investimentos', href: '/investimentos', icon: TrendingUp },
 ];
 
 const footerItem = { label: 'Configurações', href: '/settings', icon: Settings };
@@ -185,7 +186,7 @@ export default function DashboardPage() {
               <LazyLoad isReady={!isLoading} message="Carregando categorias...">
                 <CategoryBreakdown transactions={recentTransactions} />
               </LazyLoad>
-              <GoalsCard />
+              <InvestmentsGoalsCard />
               <AIInsightCard />
             </div>
           </div>
