@@ -37,7 +37,7 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
-          "rounded-xl border border-outline-variant/30 bg-surface-container p-6 shadow-2xl",
+          "rounded-xl bg-surface-container p-6 shadow-2xl",
           "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
