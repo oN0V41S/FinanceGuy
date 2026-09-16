@@ -121,9 +121,9 @@ function GoalsSummary() {
 export function InvestmentsGoalsCard() {
   return (
     <Card>
-      <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:divide-x sm:divide-outline-variant/20">
+      <CardContent className="flex flex-col gap-6 divide-y divide-outline-variant/20">
         <InvestmentsSummary />
-        <div className="sm:pl-6">
+        <div className="pt-6">
           <GoalsSummary />
         </div>
       </CardContent>
