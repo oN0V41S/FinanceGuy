@@ -11,6 +11,7 @@ import { MonthFilter } from '@/features/dashboard/components/MonthFilter';
 import { MonthlyChart } from '@/features/dashboard/components/MonthlyChart';
 import { CategoryBreakdown } from '@/features/dashboard/components/CategoryBreakdown';
 import { GoalsCard } from '@/features/dashboard/components/GoalsCard';
+import { InvestmentsCard } from '@/features/dashboard/components/InvestmentsCard';
 import { AIInsightCard } from '@/features/dashboard/components/AIInsightCard';
 import { useDashboardData } from '@/features/dashboard/hooks/useDashboardData';
 import { useMonthlySummary } from '@/features/dashboard/hooks/useMonthlySummary';
@@ -186,6 +187,7 @@ export default function DashboardPage() {
               <LazyLoad isReady={!isLoading} message="Carregando categorias...">
                 <CategoryBreakdown transactions={recentTransactions} />
               </LazyLoad>
+              <InvestmentsCard />
               <GoalsCard />
               <AIInsightCard />
             </div>
