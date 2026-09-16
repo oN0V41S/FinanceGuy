@@ -93,6 +93,12 @@
   --radius: 0.75rem;
 }
 
+html,
+body {
+  height: 100%;
+  overscroll-behavior-y: none;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

@@ -31,15 +31,17 @@ export function HeaderLayout({ onOpenMobileDrawer }: HeaderLayoutProps) {
 
   return (
     <header className="sticky top-0 z-30 bg-surface-container">
-      <div className="max-w-6xl mx-auto px-4 py-3 grid grid-cols-3 items-center">
-        {/* Left: hamburger (mobile) + brand */}
+      <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between md:grid md:grid-cols-3">
+        {/* Left: hamburger (mobile, temporarily disabled — pending liquid-glass floating menu) + brand */}
         <div className="flex items-center gap-2">
-          <HeaderIconButton
-            icon={<Menu className="w-5 h-5" />}
-            label="Abrir menu"
-            onClick={onOpenMobileDrawer}
-            className="md:hidden"
-          />
+          {false && (
+            <HeaderIconButton
+              icon={<Menu className="w-5 h-5" />}
+              label="Abrir menu"
+              onClick={onOpenMobileDrawer}
+              className="md:hidden"
+            />
+          )}
           <HeaderBrand />
         </div>
 

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { HeaderLayout } from '../HeaderLayout';
 
 jest.mock('next/navigation', () => ({
@@ -18,21 +18,16 @@ jest.mock('../ConfigModal', () => ({
 }));
 
 describe('HeaderLayout', () => {
-  it('renderiza botão de menu', () => {
+  // Botão de menu mobile temporariamente desativado até a nova navegação
+  // flutuante (liquid glass) substituir o drawer atual.
+  it('não renderiza o botão de menu (temporariamente desativado)', () => {
     render(<HeaderLayout />);
-    expect(screen.getByLabelText('Abrir menu')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Abrir menu')).not.toBeInTheDocument();
   });
 
   it('renderiza a marca "FinanceGuy" visível', () => {
     render(<HeaderLayout />);
     expect(screen.getByText('FinanceGuy')).toBeInTheDocument();
-  });
-
-  it('chama onOpenMobileDrawer ao clicar no botão de menu', () => {
-    const mockOpen = jest.fn();
-    render(<HeaderLayout onOpenMobileDrawer={mockOpen} />);
-    fireEvent.click(screen.getByLabelText('Abrir menu'));
-    expect(mockOpen).toHaveBeenCalledTimes(1);
   });
 
   it('renderiza botão de Configurações', () => {

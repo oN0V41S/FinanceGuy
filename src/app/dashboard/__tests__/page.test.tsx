@@ -136,7 +136,7 @@ describe('DashboardPage Integration', () => {
       await user.click(screen.getByTestId('drawer-overlay'));
 
       expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-      expect(screen.getByRole('dialog', { name: 'Menu de navegação' })).toHaveClass('-translate-x-full');
+      expect(screen.queryByRole('dialog', { name: 'Menu de navegação' })).not.toBeInTheDocument();
     });
 
     it('clicking close button closes drawer', async () => {
@@ -149,7 +149,7 @@ describe('DashboardPage Integration', () => {
       await user.click(within(screen.getByRole('dialog', { name: 'Menu de navegação' })).getByRole('button', { name: 'Fechar menu' }));
 
       expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-      expect(screen.getByRole('dialog', { name: 'Menu de navegação' })).toHaveClass('-translate-x-full');
+      expect(screen.queryByRole('dialog', { name: 'Menu de navegação' })).not.toBeInTheDocument();
     });
   });
 

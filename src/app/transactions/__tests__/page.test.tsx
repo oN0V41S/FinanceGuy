@@ -72,7 +72,10 @@ jest.mock('lucide-react', () => {
   const Settings = (props: React.SVGProps<SVGSVGElement>) => (
     <svg data-testid="icon-settings" {...props} />
   );
-  return { Plus, Wallet, ArrowLeftRight, X, LayoutDashboard, Settings };
+  const TrendingUp = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-trending-up" {...props} />
+  );
+  return { Plus, Wallet, ArrowLeftRight, X, LayoutDashboard, Settings, TrendingUp };
 });
 
 // ---------------------------------------------------------------------------
@@ -860,8 +863,8 @@ describe('TransactionsPage Integration', () => {
 
       expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
       expect(
-        screen.getByRole('dialog', { name: 'Menu de navegação' }),
-      ).toHaveClass('-translate-x-full');
+        screen.queryByRole('dialog', { name: 'Menu de navegação' }),
+      ).not.toBeInTheDocument();
     });
 
     it('clique no botão fechar drawer fecha drawer', async () => {
@@ -879,8 +882,8 @@ describe('TransactionsPage Integration', () => {
 
       expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
       expect(
-        screen.getByRole('dialog', { name: 'Menu de navegação' }),
-      ).toHaveClass('-translate-x-full');
+        screen.queryByRole('dialog', { name: 'Menu de navegação' }),
+      ).not.toBeInTheDocument();
     });
   });
 

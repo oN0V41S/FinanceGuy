@@ -121,7 +121,7 @@ function GoalsSummary() {
 export function InvestmentsGoalsCard() {
   return (
     <Card>
-      <CardContent className="flex flex-col gap-6 divide-y divide-outline-variant/20">
+      <CardContent className="pt-6 flex flex-col gap-6 divide-y divide-outline-variant/20">
         <InvestmentsSummary />
         <div className="pt-6">
           <GoalsSummary />
