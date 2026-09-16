@@ -3,9 +3,9 @@
 import React from 'react';
 import { Search } from 'lucide-react';
 import { useTransactionYears } from '@/shared/hooks/useTransactionYears';
-import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { SegmentedToggle } from '@/components/ui/segmented-toggle';
 import {
   Select,
   SelectContent,
@@ -209,43 +209,25 @@ const FilterControls: React.FC<FilterControlsProps> = ({
       {/* Row 2: type tabs + quinzenal tabs */}
       <div className="flex flex-wrap items-center gap-3">
         {/* Type tabs */}
-        <div data-testid="type-tabs" className="flex items-center gap-1 rounded-lg bg-muted p-1">
-          {TYPE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              data-testid={`type-tab-${opt.value}`}
-              onClick={() => onTypeFilterChange(opt.value as 'all' | 'income' | 'expense')}
-              className={cn(
-                'rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                typeFilter === opt.value
-                  ? 'bg-primary text-on-primary shadow-sm'
-                  : 'text-muted-foreground hover:text-on-surface',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+        <div data-testid="type-tabs">
+          <SegmentedToggle
+            options={TYPE_OPTIONS}
+            value={typeFilter}
+            onChange={onTypeFilterChange}
+            getTestId={(value) => `type-tab-${value}`}
+          />
         </div>
 
         {/* Quinzenal tabs */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Quinzena:</span>
-          <div data-testid="select-quinzenal" className="flex items-center gap-1 rounded-lg bg-muted p-1">
-            {QUINZENAL_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                data-testid={`quinzenal-tab-${opt.value}`}
-                onClick={() => onQuinzenalFilterChange(opt.value)}
-                className={cn(
-                  'rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                  quinzenalFilter === opt.value
-                    ? 'bg-primary text-on-primary shadow-sm'
-                    : 'text-muted-foreground hover:text-on-surface',
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
+          <div data-testid="select-quinzenal">
+            <SegmentedToggle
+              options={QUINZENAL_OPTIONS}
+              value={quinzenalFilter}
+              onChange={onQuinzenalFilterChange}
+              getTestId={(value) => `quinzenal-tab-${value}`}
+            />
           </div>
         </div>
       </div>

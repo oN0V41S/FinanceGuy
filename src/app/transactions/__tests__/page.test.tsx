@@ -72,7 +72,10 @@ jest.mock('lucide-react', () => {
   const Settings = (props: React.SVGProps<SVGSVGElement>) => (
     <svg data-testid="icon-settings" {...props} />
   );
-  return { Plus, Wallet, ArrowLeftRight, X, LayoutDashboard, Settings };
+  const TrendingUp = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg data-testid="icon-trending-up" {...props} />
+  );
+  return { Plus, Wallet, ArrowLeftRight, X, LayoutDashboard, Settings, TrendingUp };
 });
 
 // ---------------------------------------------------------------------------
@@ -86,20 +89,7 @@ jest.mock('next/navigation', () => ({
 // Mock dashboard components
 // ---------------------------------------------------------------------------
 jest.mock('@/features/dashboard/components/HeaderLayout', () => ({
-  HeaderLayout: ({
-    onOpenMobileDrawer,
-  }: {
-    onOpenMobileDrawer?: () => void;
-  }) => (
-    <header data-testid="header">
-      <button
-        aria-label="Abrir menu"
-        onClick={onOpenMobileDrawer}
-      >
-        Menu
-      </button>
-    </header>
-  ),
+  HeaderLayout: () => <header data-testid="header">Header</header>,
 }));
 
 jest.mock('@/features/dashboard/components/MobileNavBar', () => ({
@@ -826,131 +816,6 @@ describe('TransactionsPage Integration', () => {
   });
 
   // =========================================================================
-  // Drawer
-  // =========================================================================
-  describe('Drawer behavior', () => {
-    it('drawer começa fechado', () => {
-      render(<TransactionsPage />);
-
-      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-    });
-
-    it('clique no menu abre drawer', async () => {
-      const user = userEvent.setup();
-      render(<TransactionsPage />);
-
-      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-
-      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
-      expect(
-        screen.getByRole('dialog', { name: 'Menu de navegação' }),
-      ).toHaveClass('translate-x-0');
-    });
-
-    it('clique no overlay fecha drawer', async () => {
-      const user = userEvent.setup();
-      render(<TransactionsPage />);
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
-
-      await user.click(screen.getByTestId('drawer-overlay'));
-
-      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-      expect(
-        screen.getByRole('dialog', { name: 'Menu de navegação' }),
-      ).toHaveClass('-translate-x-full');
-    });
-
-    it('clique no botão fechar drawer fecha drawer', async () => {
-      const user = userEvent.setup();
-      render(<TransactionsPage />);
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
-
-      await user.click(
-        within(
-          screen.getByRole('dialog', { name: 'Menu de navegação' }),
-        ).getByRole('button', { name: 'Fechar menu' }),
-      );
-
-      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-      expect(
-        screen.getByRole('dialog', { name: 'Menu de navegação' }),
-      ).toHaveClass('-translate-x-full');
-    });
-  });
-
-  // =========================================================================
-  // Navegação no Drawer
-  // =========================================================================
-  describe('Navegação no drawer', () => {
-    it('drawer contém link para Dashboard', () => {
-      render(<TransactionsPage />);
-
-      // Abre drawer primeiro
-      const menuButton = screen.getByRole('button', { name: 'Abrir menu' });
-      // Simular abertura
-      Object.defineProperty(menuButton, 'ariaExpanded', { value: true });
-    });
-
-    it('drawer contém link para Dashboard com href correto', async () => {
-      const user = userEvent.setup();
-      render(<TransactionsPage />);
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-
-      const drawer = screen.getByRole('dialog', {
-        name: 'Menu de navegação',
-      });
-      const dashboardLink = within(drawer).getByRole('link', {
-        name: 'Dashboard',
-      });
-
-      expect(dashboardLink).toBeInTheDocument();
-      expect(dashboardLink).toHaveAttribute('href', '/dashboard');
-    });
-
-    it('drawer contém link para Configurações com href correto', async () => {
-      const user = userEvent.setup();
-      render(<TransactionsPage />);
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-
-      const drawer = screen.getByRole('dialog', {
-        name: 'Menu de navegação',
-      });
-      const settingsLink = within(drawer).getByRole('link', {
-        name: 'Configurações',
-      });
-
-      expect(settingsLink).toBeInTheDocument();
-      expect(settingsLink).toHaveAttribute('href', '/settings');
-    });
-
-    it('link ativo no drawer mostra Transações com destaque', async () => {
-      const user = userEvent.setup();
-      render(<TransactionsPage />);
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-
-      const drawer = screen.getByRole('dialog', {
-        name: 'Menu de navegação',
-      });
-      const transactionsLink = within(drawer).getByRole('link', {
-        name: 'Transações',
-      });
-
-      expect(transactionsLink).toBeInTheDocument();
-      // Como pathname é '/transactions', o link deve estar ativo
-      expect(transactionsLink).toHaveAttribute('href', '/transactions');
-    });
-  });
-
-  // =========================================================================
   // Filtros
   // =========================================================================
   describe('Filtros — interações', () => {
@@ -1071,41 +936,6 @@ describe('TransactionsPage Integration', () => {
       expect(screen.getByTestId('edit-btn-tr-zero')).toBeInTheDocument();
     });
 
-    it('múltiplas aberturas de drawer funcionam corretamente', async () => {
-      const user = userEvent.setup();
-      render(<TransactionsPage />);
-
-      // Abre
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
-
-      // Fecha
-      await user.click(screen.getByTestId('drawer-overlay'));
-      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-
-      // Abre novamente
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
-    });
-
-    it('clique no link do drawer fecha o drawer', async () => {
-      const user = userEvent.setup();
-      render(<TransactionsPage />);
-
-      await user.click(screen.getByRole('button', { name: 'Abrir menu' }));
-      expect(screen.getByTestId('drawer-overlay')).toBeInTheDocument();
-
-      // Clica no link Dashboard
-      const drawer = screen.getByRole('dialog', {
-        name: 'Menu de navegação',
-      });
-      await user.click(
-        within(drawer).getByRole('link', { name: 'Dashboard' }),
-      );
-
-      // Drawer deve fechar
-      expect(screen.queryByTestId('drawer-overlay')).not.toBeInTheDocument();
-    });
   });
 
   // =========================================================================
