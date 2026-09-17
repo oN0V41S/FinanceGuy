@@ -52,11 +52,23 @@ main ── feat/nova-feature ──► PR ──► main ── feat/outra ─�
 
 ## Regras do GitHub Flow
 
-- **Toda branch nasce de `main`** e mergeia de volta em `main` via PR.
+- **Toda branch nasce de `main`** e mergeia de volta em `main` via PR (passando por `staging` — ver abaixo).
 - **Squash merge** para manter histórico linear.
 - **Branches são temporárias**: deletar após merge (local + remoto).
 - Sempre manter `main` deployável (testes + build passando).
 - **Conventional Commits** obrigatório: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`.
+
+## Gate de `staging`
+
+Feature branches abrem PR contra **`staging`** (não direto em `main`). Depois de validado em staging (CI verde + preview Vercel), abre-se um PR `staging` → `main` para promover para produção.
+
+```
+feat/minha-feature ──► PR ──► staging ──► PR ──► main
+```
+
+## Exclusão automática de branches após merge
+
+O repositório tem **`delete_branch_on_merge: true`** ativado (GitHub → Settings → General → "Automatically delete head branches"). Isso apaga a branch remota automaticamente assim que o PR é mergeado — seja o PR contra `staging` ou contra `main`. Não é preciso rodar `git push origin --delete` manualmente após o merge; só limpar a referência local com `git branch -d`.
 
 ## Fluxo de Desenvolvimento Recomendado
 
