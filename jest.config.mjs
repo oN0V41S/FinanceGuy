@@ -40,6 +40,7 @@ const config = {
     "/node_modules/",
     "/.next/",
     "/.claude/",
+    "/e2e/",
     // Pre-existing failures to be fixed in follow-up PRs
     "src/features/dashboard/__tests__/layout.spec.tsx",
     "src/features/dashboard/__tests__/responsive.spec.tsx",

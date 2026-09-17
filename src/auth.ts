@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Credentials from "next-auth/providers/credentials";
+import Resend from "next-auth/providers/resend";
 import { prisma } from "@/lib/prisma";
 import { LoginSchema } from "@/features/auth/schemas/auth.schema";
 import { PrismaUserRepository } from "@/features/auth/PrismaUserRepository";
@@ -36,6 +37,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
       },
+    }),
+    Resend({
+      apiKey: process.env.RESEND_API_KEY,
+      from: process.env.EMAIL_FROM,
     }),
   ],
   callbacks: {
