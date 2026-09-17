@@ -13,7 +13,7 @@ const originalResendKey = process.env.RESEND_API_KEY;
 const originalEmailFrom = process.env.EMAIL_FROM;
 
 describe("src/lib/email/resend-client — Wrapper de Envio de E-mail via Resend", () => {
-  let mockFetch: jest.Mock;
+  let mockFetch: jest.SpiedFunction<typeof global.fetch>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -22,7 +22,7 @@ describe("src/lib/email/resend-client — Wrapper de Envio de E-mail via Resend"
     mockFetch = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       json: async () => mockResendResponse,
-    });
+    } as Response);
   });
 
   afterEach(() => {
@@ -52,7 +52,7 @@ describe("src/lib/email/resend-client — Wrapper de Envio de E-mail via Resend"
       await sendEmail(mockTo, mockSubject, mockHtml);
 
       const callArgs = mockFetch.mock.calls[0];
-      const body = JSON.parse(callArgs[1].body);
+      const body = JSON.parse(callArgs[1]!.body as string);
       expect(body.from).toBe("noreply@financeguy.com");
       expect(body.to).toBe(mockTo);
       expect(body.subject).toBe(mockSubject);
@@ -64,7 +64,7 @@ describe("src/lib/email/resend-client — Wrapper de Envio de E-mail via Resend"
       await sendEmail(mockTo, mockSubject, mockHtml);
 
       const callArgs = mockFetch.mock.calls[0];
-      const body = JSON.parse(callArgs[1].body);
+      const body = JSON.parse(callArgs[1]!.body as string);
       expect(body.from).toBe("custom@example.com");
     });
 
@@ -116,7 +116,7 @@ describe("src/lib/email/resend-client — Wrapper de Envio de E-mail via Resend"
         ok: false,
         status: 401,
         json: async () => ({ message: "Invalid API key" }),
-      });
+      } as Response);
 
       await expect(sendEmail(mockTo, mockSubject, mockHtml)).rejects.toThrow(
         /Resend API error|Invalid API key/i
@@ -128,7 +128,7 @@ describe("src/lib/email/resend-client — Wrapper de Envio de E-mail via Resend"
         ok: false,
         status: 429,
         json: async () => ({ message: "Rate limit exceeded" }),
-      });
+      } as Response);
 
       await expect(sendEmail(mockTo, mockSubject, mockHtml)).rejects.toThrow(
         /Resend API error|Rate limit/i
@@ -140,7 +140,7 @@ describe("src/lib/email/resend-client — Wrapper de Envio de E-mail via Resend"
         ok: false,
         status: 500,
         json: async () => ({ message: "Internal server error" }),
-      });
+      } as Response);
 
       await expect(sendEmail(mockTo, mockSubject, mockHtml)).rejects.toThrow(
         /Resend API error|Internal server error/i
@@ -152,7 +152,7 @@ describe("src/lib/email/resend-client — Wrapper de Envio de E-mail via Resend"
         ok: false,
         status: 400,
         json: async () => ({}),
-      });
+      } as Response);
 
       await expect(sendEmail(mockTo, mockSubject, mockHtml)).rejects.toThrow(
         /HTTP 400/
@@ -180,7 +180,7 @@ describe("src/lib/email/resend-client — Wrapper de Envio de E-mail via Resend"
         ok: false,
         status: 400,
         json: async () => ({ message: "Invalid request", code: "invalid_request" }),
-      });
+      } as Response);
 
       try {
         await sendEmail(mockTo, mockSubject, mockHtml);
