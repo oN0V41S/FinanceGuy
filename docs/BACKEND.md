@@ -1,6 +1,6 @@
 # Documentação Backend – FinanceGuy
 
-**Versão**: 1.1 | **Status**: Concluído (Auth + Transactions + Cache) | **Last Updated**: Agosto 2026
+**Versão**: 1.2 | **Status**: Concluído (Auth + Transactions + Cache) | **Last Updated**: Setembro 2026
 
 ## Arquitetura da API
 
@@ -20,7 +20,7 @@ A API utiliza o padrão **Next.js Route Handler Proxy** em `src/app/api/` que de
 { "name": "Nome", "nickname": "nick", "email": "e@mail.com", "password": "..." }
 ```
 
-**Resposta 201**: Usuário criado.
+**Resposta 201**: Usuário criado. Após o registro, um e-mail de verificação é enviado automaticamente.
 
 ---
 
@@ -32,6 +32,79 @@ A API utiliza o padrão **Next.js Route Handler Proxy** em `src/app/api/` que de
 ```
 
 **Resposta 200**: Define cookie `auth_token` (HttpOnly).
+
+---
+
+### 3. **POST /api/auth/magic-link** – Login por E-mail (Magic Link)
+
+Fluxo de autenticação sem senha via Resend (NextAuth v5 provider `resend`).
+
+**Body (JSON)**:
+```json
+{ "email": "e@mail.com" }
+```
+
+**Resposta 200**: Link mágico enviado para o e-mail. O usuário recebe um e-mail com link de acesso.
+
+**Nota**: A ação server-side `signIn("resend", { email, redirect: false })` é invocada a partir do componente `src/features/auth/components/MagicLinkLogin.tsx`.
+
+---
+
+### 4. **POST /api/auth/forgot-password** – Solicitar Redefinição de Senha
+
+Server Action: `forgotPasswordAction` (`src/app/(auth)/forgot-password/actions.ts`).
+
+**Body (FormData)**:
+```
+email: "e@mail.com"
+```
+
+**Comportamento**:
+- Gera um token de reset via `PasswordResetService.generateResetToken(email)`.
+- Token armazenado no Prisma `VerificationToken` com `identifier: "reset:<email>"`, expiração de **1 hora**.
+- Envia e-mail com link de reset via `sendEmail` (Resend).
+- **Mensagem genérica**: nunca revela se o e-mail existe no sistema.
+
+**Resposta**: `{ success: true }` ou `{ error: "..." }` com mensagem genérica.
+
+---
+
+### 5. **POST /api/auth/reset-password** – Redefinir Senha
+
+Server Action: `resetPasswordAction` (`src/app/(auth)/reset-password/actions.ts`).
+
+**Body (FormData)**:
+```
+token: "<token_do_reset>"
+password: "<nova_senha>"
+confirmPassword: "<confirmar_senha>"
+```
+
+**Comportamento**:
+- `PasswordResetService.validateResetToken(token)` valida o token (existência, expiração, prefixo `reset:`).
+- `PasswordResetService.consumeResetToken(token, newPassword)` atualiza a senha no Prisma User e **deleta o token** (uso único).
+- A nova senha deve seguir a política `passwordSchema` (mínimo 8 chars, maiúscula, minúscula, número, símbolo).
+
+**Resposta**: `{ success: true }` ou `{ error: "..." }`.
+
+---
+
+### 6. **GET /api/auth/verify-email** – Verificação de E-mail
+
+Fluxo disparado após cadastro. O link de verificação contém um token com `identifier: "verify:<email>"`.
+
+**Comportamento**:
+- `EmailVerificationService.consumeVerificationToken(token)` marca `emailVerified = NOW()` no Prisma User e deleta o token.
+
+---
+
+## Serviços de Autenticação
+
+| Serviço | Caminho | Responsabilidade |
+|---------|---------|-----------------|
+| `PasswordResetService` | `src/features/auth/services/password-reset.service.ts` | Geração, validação e consumo de tokens de reset de senha |
+| `EmailVerificationService` | `src/features/auth/services/email-verification.service.ts` | Geração, validação e consumo de tokens de verificação de e-mail |
+| `sendEmail` | `src/lib/email/resend-client.ts` | Envio de e-mails transacionais via API Resend |
 
 ---
 
@@ -87,3 +160,6 @@ Requisições autenticadas (Header `x-user-id` injetado pelo middleware).
 1. **Middleware**: Valida `auth_token` e injeta `x-user-id` em todas as rotas de API.
 2. **Repository Isolation**: Todos os métodos de repositório de transação filtram dados por `userId`.
 3. **Singleton Prisma**: `src/lib/prisma.ts` garante uma única conexão ao banco.
+4. **Rate Limiting**: **Ausente** nos endpoints de autenticação (forgot-password, reset-password, magic link). Risco conhecido documentado na auditoria de segurança — ver [docs/security.md](docs/security.md).
+5. **Proteção contra Enumeração**: O fluxo de forgot-password sempre retorna mensagens genéricas, sem revelar existência de e-mails.
+6. **Tokens de Uso Único**: Todos os tokens de reset/verificação são deletados após o consumo ou após expiração.

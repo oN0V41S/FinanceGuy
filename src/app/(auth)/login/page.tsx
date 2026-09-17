@@ -1,4 +1,5 @@
 import { LoginForm } from "@/features/auth/components/LoginForm";
+import { MagicLinkLogin } from "@/features/auth/components/MagicLinkLogin";
 import Link from "next/link";
 import { CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
@@ -10,6 +11,7 @@ export default function LoginPage() {
         <CardDescription className="text-on-surface-variant">Entre na sua conta para continuar</CardDescription>
       </CardHeader>
       <LoginForm />
+      <MagicLinkLogin />
       <div className="text-on-surface-variant mt-4 text-center text-sm">
         Não tem uma conta?{" "}
         <Link href="/register" className="text-primary hover:underline font-medium">
