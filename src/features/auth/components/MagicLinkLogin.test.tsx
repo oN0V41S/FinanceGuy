@@ -3,10 +3,10 @@
  */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MagicLinkLogin } from "@/features/auth/components/MagicLinkLogin";
-import { signIn } from "@/auth";
+import { signIn } from "next-auth/react";
 import '@testing-library/jest-dom';
 
-jest.mock("@/auth", () => ({
+jest.mock("next-auth/react", () => ({
   signIn: jest.fn(),
 }));
 
@@ -182,7 +182,7 @@ describe("MagicLinkLogin", () => {
 
   describe("Loading State", () => {
     it("should show Enviando text when submitting", async () => {
-      mockSignIn.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve(undefined), 100)));
+      mockSignIn.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({ ok: true, error: undefined, status: 200, url: null, code: undefined }), 100)));
       render(<MagicLinkLogin />);
 
       const toggleButton = screen.getByRole("button", { name: /Fazer Login por E-mail/i });
