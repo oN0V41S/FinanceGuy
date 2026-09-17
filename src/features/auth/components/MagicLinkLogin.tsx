@@ -15,11 +15,20 @@ const MagicLinkSchema = z.object({
 });
 type MagicLinkInput = z.infer<typeof MagicLinkSchema>;
 
-export function MagicLinkLogin() {
+interface MagicLinkLoginProps {
+  onToggle?: (visible: boolean) => void;
+}
+
+export function MagicLinkLogin({ onToggle }: MagicLinkLoginProps = {}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  const toggleForm = (visible: boolean) => {
+    setShowForm(visible);
+    onToggle?.(visible);
+  };
 
   const {
     register,
@@ -65,9 +74,9 @@ export function MagicLinkLogin() {
     return (
       <Button
         type="button"
-        onClick={() => setShowForm(true)}
-        variant="link"
-        className="w-full h-12 rounded-xl text-brand-primary font-medium transition-colors hover:bg-accent disabled:cursor-not-allowed"
+        onClick={() => toggleForm(true)}
+        variant="outline"
+        className="w-full h-12 rounded-xl font-medium transition-colors disabled:cursor-not-allowed"
       >
         Fazer Login por E-mail
       </Button>
@@ -107,6 +116,15 @@ export function MagicLinkLogin() {
         ) : (
           "Enviar link de acesso"
         )}
+      </Button>
+
+      <Button
+        type="button"
+        onClick={() => toggleForm(false)}
+        variant="link"
+        className="w-full text-on-surface-variant font-normal"
+      >
+        Voltar para login com senha
       </Button>
     </form>
   );

@@ -10,6 +10,7 @@ import { FormAlert, ValidatedInput } from "./ui";
 import type { FieldStatus } from "./ui/FieldStatusIcon";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
 
 export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +84,17 @@ export function LoginForm() {
             {...register("password")}
           />
         </div>
+
+        <div className="text-right">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-primary hover:underline font-medium"
+          >
+            Esqueci minha senha
+          </Link>
+        </div>
       </div>
-      
+
       <FormAlert type="error" message={error || ""}/>
       
       <Button

@@ -17,7 +17,12 @@ jest.mock("@/components/ui/button", () => ({
     type,
     ...props
   }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children: React.ReactNode }) => (
-    <button type={type} disabled={disabled} data-testid="submit-button" {...props}>
+    <button
+      type={type}
+      disabled={disabled}
+      data-testid={type === "submit" ? "submit-button" : "secondary-button"}
+      {...props}
+    >
       {children}
     </button>
   ),
