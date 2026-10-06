@@ -34,7 +34,22 @@ interface InvestmentFormState {
   value: string;
   quantity: string;
   term: string;
+  ticker: string;
+  market: string;
+  purchaseDate: string;
+  unitPrice: string;
+  shares: string;
 }
+
+const MARKET_LABELS: Record<string, string> = {
+  BR: 'Brasil (B3)',
+  US: 'Estados Unidos',
+  CRYPTO: 'Criptomoedas',
+  FX: 'Câmbio',
+  OTHER: 'Outros mercados',
+};
+
+const MARKET_CURRENCY: Record<string, string> = { BR: 'BRL', US: 'USD', CRYPTO: 'USD', FX: 'USD', OTHER: 'USD' };
 
 const TYPE_LABELS: Record<string, string> = {
   'Renda Fixa': 'Renda Fixa',
@@ -47,6 +62,11 @@ const emptyForm: InvestmentFormState = {
   value: '',
   quantity: '',
   term: '',
+  ticker: '',
+  market: 'BR',
+  purchaseDate: '',
+  unitPrice: '',
+  shares: '',
 };
 
 export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit }: InvestmentFormDialogProps) {
@@ -56,6 +76,9 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const isEditing = Boolean(investment);
+  const [isMarketAsset, setIsMarketAsset] = useState(false);
+  const editingMarketAsset = Boolean(investment?.ticker);
+  const showMarketFields = isMarketAsset && !isEditing;
 
   useEffect(() => {
     if (open) {
@@ -67,9 +90,15 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
               value: String(investment.value),
               quantity: investment.quantity ?? '',
               term: investment.term ?? '',
+              ticker: investment.ticker ?? '',
+              market: investment.market ?? 'BR',
+              purchaseDate: investment.purchaseDate ? new Date(investment.purchaseDate).toISOString().slice(0, 10) : '',
+              unitPrice: investment.unitPrice !== undefined ? String(investment.unitPrice) : '',
+              shares: investment.shares !== undefined ? String(investment.shares) : '',
             }
           : emptyForm
       );
+      setIsMarketAsset(Boolean(investment?.ticker));
       setErrors({});
       setSubmitError(null);
     }
@@ -83,13 +112,29 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
     event.preventDefault();
     setSubmitError(null);
 
-    const parsed = CreateInvestmentSchema.safeParse({
-      name: form.name,
-      type: form.type,
-      value: Number(form.value),
-      quantity: form.quantity || undefined,
-      term: form.term || undefined,
-    });
+    const marketPayload = {
+      ticker: form.ticker || undefined,
+      market: form.market,
+      currency: investment?.currency ?? MARKET_CURRENCY[form.market],
+      purchaseDate: form.purchaseDate || undefined,
+      unitPrice: form.unitPrice ? Number(form.unitPrice) : undefined,
+      shares: form.shares ? Number(form.shares) : undefined,
+    };
+
+    const parsed = CreateInvestmentSchema.safeParse(
+      editingMarketAsset
+        ? // ativo de mercado: só nome e prazo são editáveis; a posição muda apenas por compra/resgate
+          { name: form.name, type: form.type, value: investment?.value, term: form.term || undefined, ...marketPayload }
+        : isMarketAsset
+          ? { name: form.name, type: 'Renda Variável', term: form.term || undefined, ...marketPayload }
+          : {
+              name: form.name,
+              type: form.type,
+              value: Number(form.value),
+              quantity: form.quantity || undefined,
+              term: form.term || undefined,
+            }
+    );
 
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
@@ -127,6 +172,17 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="flex flex-col gap-4">
+            {!isEditing && (
+              <div className="flex gap-2" role="group" aria-label="Tipo de cadastro">
+                <Button type="button" variant={isMarketAsset ? 'outline' : 'default'} onClick={() => setIsMarketAsset(false)}>
+                  Manual
+                </Button>
+                <Button type="button" variant={isMarketAsset ? 'default' : 'outline'} onClick={() => setIsMarketAsset(true)}>
+                  Ativo de mercado
+                </Button>
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
               <Label htmlFor="investment-name">Nome</Label>
               <Input
@@ -139,6 +195,79 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
               {errors.name && <p className="text-sm text-finance-expense">{errors.name}</p>}
             </div>
 
+            {showMarketFields && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="investment-ticker">Ticker</Label>
+                  <Input
+                    id="investment-ticker"
+                    className="h-12 px-4 rounded-xl"
+                    value={form.ticker}
+                    onChange={(e) => handleChange('ticker', e.target.value)}
+                    placeholder="Ex: PETR4, AAPL"
+                  />
+                  {errors.ticker && <p className="text-sm text-finance-expense">{errors.ticker}</p>}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="investment-market">Mercado</Label>
+                  <Select value={form.market} onValueChange={(value) => handleChange('market', value as string)}>
+                    <SelectTrigger id="investment-market" className="w-full h-12 px-4 rounded-xl">
+                      <SelectValue>{MARKET_LABELS[form.market] ?? form.market}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="bg-surface-container">
+                      {Object.entries(MARKET_LABELS).map(([key, label]) => (
+                        <SelectItem key={key} value={key}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="investment-date">Data da compra</Label>
+                  <Input
+                    id="investment-date"
+                    type="date"
+                    className="h-12 px-4 rounded-xl"
+                    value={form.purchaseDate}
+                    onChange={(e) => handleChange('purchaseDate', e.target.value)}
+                  />
+                  {errors.purchaseDate && <p className="text-sm text-finance-expense">{errors.purchaseDate}</p>}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="investment-shares">Quantidade comprada</Label>
+                  <Input
+                    id="investment-shares"
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="h-12 px-4 rounded-xl"
+                    value={form.shares}
+                    onChange={(e) => handleChange('shares', e.target.value)}
+                  />
+                  {errors.shares && <p className="text-sm text-finance-expense">{errors.shares}</p>}
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="investment-unit-price">Preço por unidade ({MARKET_CURRENCY[form.market]})</Label>
+                  <Input
+                    id="investment-unit-price"
+                    type="number"
+                    step="any"
+                    min="0"
+                    className="h-12 px-4 rounded-xl"
+                    value={form.unitPrice}
+                    onChange={(e) => handleChange('unitPrice', e.target.value)}
+                  />
+                  {errors.unitPrice && <p className="text-sm text-finance-expense">{errors.unitPrice}</p>}
+                </div>
+              </>
+            )}
+
+            {!isMarketAsset && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="investment-type">Tipo</Label>
               <Select
@@ -158,7 +287,9 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
               </Select>
               {errors.type && <p className="text-sm text-finance-expense">{errors.type}</p>}
             </div>
+            )}
 
+            {!isMarketAsset && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="investment-value">Valor</Label>
               <Input
@@ -173,7 +304,9 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
               />
               {errors.value && <p className="text-sm text-finance-expense">{errors.value}</p>}
             </div>
+            )}
 
+            {!isMarketAsset && (
             <div className="flex flex-col gap-2">
               <Label htmlFor="investment-quantity">Quantidade (opcional)</Label>
               <Input
@@ -184,6 +317,7 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
                 placeholder="Ex: 10 cotas"
               />
             </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="investment-term">Prazo (opcional)</Label>

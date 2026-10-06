@@ -1,18 +1,26 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, TrendingUp } from 'lucide-react';
+import { History, Plus, TrendingUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LazyLoad } from '@/shared/components/LazyLoad';
 import { ConfirmDeleteDialog } from '@/shared/components/ConfirmDeleteDialog';
 import { InvestmentCard } from '@/features/investments/components/InvestmentCard';
 import { InvestmentFormDialog } from '@/features/investments/components/InvestmentFormDialog';
+import { RedeemDialog } from '@/features/investments/components/RedeemDialog';
+import { InvestmentHistory } from '@/features/investments/components/InvestmentHistory';
 import { useInvestments } from '@/features/investments/hooks/useInvestments';
+import { useMarketPortfolio } from '@/features/investments/hooks/useMarketPortfolio';
 import type { Investment } from '@/features/investments/validations';
 
 export function InvestmentsSection() {
-  const { investments, isLoading, error, create, update, remove } = useInvestments();
+  const { investments, isLoading, error, create, update, remove, refresh } = useInvestments();
+  const { byId: portfolioById, isLoading: isQuotesLoading, error: quotesError, refresh: refreshQuotes } =
+    useMarketPortfolio(investments);
+  const [redeemingInvestment, setRedeemingInvestment] = useState<Investment | null>(null);
+  const [historyKey, setHistoryKey] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [deletingInvestment, setDeletingInvestment] = useState<Investment | null>(null);
@@ -34,7 +42,14 @@ export function InvestmentsSection() {
       await update(editingInvestment.id, input);
     } else {
       await create(input);
+      setHistoryKey((k) => k + 1);
     }
+  }
+
+  function handleRedeemed() {
+    refresh();
+    refreshQuotes();
+    setHistoryKey((k) => k + 1);
   }
 
   async function handleConfirmDelete() {
@@ -66,6 +81,12 @@ export function InvestmentsSection() {
         </div>
       )}
 
+      {quotesError && (
+        <div role="status" className="p-3 rounded-md bg-surface-container-low text-on-surface-variant text-sm">
+          {quotesError} Seus investimentos continuam salvos.
+        </div>
+      )}
+
       <LazyLoad isReady={!isLoading} message="Carregando investimentos...">
         {investments.length === 0 ? (
           <Card className="p-8">
@@ -85,13 +106,33 @@ export function InvestmentsSection() {
               <InvestmentCard
                 key={investment.id}
                 investment={investment}
+                portfolio={portfolioById[investment.id]}
+                isQuoteLoading={isQuotesLoading}
                 onEdit={handleEditClick}
                 onDelete={setDeletingInvestment}
+                onRedeem={setRedeemingInvestment}
               />
             ))}
           </div>
         )}
       </LazyLoad>
+
+      <div className="flex flex-col gap-3">
+        <Button variant="outline" className="self-start gap-2" onClick={() => setShowHistory((v) => !v)}>
+          <History className="w-4 h-4" />
+          {showHistory ? 'Ocultar histórico' : 'Ver histórico de investimentos'}
+        </Button>
+        {showHistory && <InvestmentHistory refreshKey={historyKey} />}
+      </div>
+
+      <RedeemDialog
+        open={Boolean(redeemingInvestment)}
+        onOpenChange={(open) => {
+          if (!open) setRedeemingInvestment(null);
+        }}
+        investment={redeemingInvestment}
+        onRedeemed={handleRedeemed}
+      />
 
       <InvestmentFormDialog
         open={formOpen}
