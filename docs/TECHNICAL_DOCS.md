@@ -394,6 +394,7 @@ Consulte [docs/BACKEND.md](docs/BACKEND.md) para detalhes completos de payloads 
 | POST | `/api/transactions` | ✅ Implementado |
 | PUT | `/api/transactions/[id]` | ✅ Implementado |
 | DELETE | `/api/transactions/[id]` | ✅ Implementado |
+| GET | `/api/transactions/opening-balance` | ✅ Implementado (saldo previsto por dia, #30) |
 
 ---
 
