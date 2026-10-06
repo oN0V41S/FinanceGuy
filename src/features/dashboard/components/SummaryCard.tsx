@@ -65,7 +65,7 @@ export function SummaryCard({ label, value, type, isLoading }: SummaryCardProps)
         <span className="text-sm text-on-surface-variant font-medium">{label}</span>
       </div>
       <p className={cn('text-2xl md:text-3xl font-semibold font-mono', config.color)}>
-        {type === 'expense' && value > 0 ? '- ' : ''}
+        {(type === 'expense' && value > 0) || (type === 'balance' && value < 0) ? '- ' : ''}
         {formatCurrency(value)}
       </p>
     </Card>
