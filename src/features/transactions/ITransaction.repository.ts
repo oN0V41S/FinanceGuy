@@ -1,5 +1,5 @@
 import { Transaction, FinancialSummary, TransactionInput } from '@/types/finance';
-import { MonthlyPoint } from './types';
+import { MonthlyPoint, OpeningBalanceFilters } from './types';
 
 export interface ITransactionRepository {
   // CRUD básico
@@ -17,4 +17,5 @@ export interface ITransactionRepository {
   getSummary(filters?: Record<string, any>): Promise<FinancialSummary>;
   getMonthlySummary(userId: string, period: string): Promise<MonthlyPoint[]>;
   getAvailableYears(userId: string): Promise<number[]>;
+  getOpeningBalance(filters: OpeningBalanceFilters): Promise<number>;
 }
