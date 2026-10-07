@@ -146,6 +146,17 @@ Requisições autenticadas (Header `x-user-id` injetado pelo middleware).
 ### 4. **DELETE /api/transactions/[id]** – Deletar
 ---
 
+### 5. **GET /api/transactions/opening-balance** – Saldo inicial do período (issue #30)
+Saldo (receitas − despesas, incluindo pendentes) das transações **estritamente anteriores** a `before`. Alimenta o "Saldo previsto" por dia na lista.
+
+**Query**: `before` (obrigatório, `YYYY-MM-DD` real); opcionais `type` (`income|expense`), `category`, `responsible`, `search`, `paid` (`true|false`) — mesmos filtros da lista.
+**Resposta**: `{ "data": number }` · `Cache-Control: private, max-age=300` · `X-Cache: HIT|MISS`.
+**Erros**: `401` sem `x-user-id`; `400` parâmetros inválidos (Zod); `500` genérico.
+**Segurança**: `userId` vem só do header `x-user-id` (nunca da query). Soma feita no banco (`groupBy` por `type`) e em centavos no cálculo diário.
+**Cache**: chave `transactions:{userId}:opening:{md5(filtros)}` — invalidada junto com as demais por `delByPattern('transactions:{userId}:*')`.
+**Front**: `useOpeningBalance` (2ª quinzena usa `before` = dia 16; mês/1ª quinzena = dia 01) + `computeRunningBalances` (`features/transactions/utils/runningBalance.ts`) → `CardTransaction` (`openingBalance`, `isBalanceLoading`). Falha no endpoint não derruba a lista: só o total do dia é exibido.
+---
+
 ## Cache Server-side (Redis/Upstash)
 
 - **Singleton**: `src/lib/cache.ts` segue o padrão do `src/lib/prisma.ts` — uma única instância por processo.

@@ -12,6 +12,7 @@ import CardTransaction from '@/features/transactions/components/CardTransaction'
 import TransactionModal from '@/features/transactions/components/TransactionModal';
 import ConfirmDeleteModal from '@/features/transactions/components/ConfirmDeleteModal';
 import useTransactions from '@/features/transactions/hooks/useTransactions';
+import useOpeningBalance from '@/features/transactions/hooks/useOpeningBalance';
 import type { TransactionFormData } from '@/features/transactions/types';
 
 export default function TransactionsPage() {
@@ -50,6 +51,19 @@ export default function TransactionsPage() {
     closeConfirmModal,
     confirmDeleteTransaction,
   } = useTransactions();
+
+  // Saldo previsto por dia (issue #30). Hook isolado: se falhar, a lista segue
+  // exibindo apenas o total do dia (openingBalance null).
+  const { openingBalance, isLoading: isBalanceLoading } = useOpeningBalance({
+    quinzenalFilter,
+    selectedYear,
+    selectedMonth,
+    paidFilter,
+    typeFilter,
+    categoryFilter,
+    searchFilter,
+    mutationKey,
+  });
 
   const handleOpenModal = (transaction: Parameters<typeof openEditModal>[0]) => {
     openEditModal(transaction);
@@ -209,6 +223,8 @@ export default function TransactionsPage() {
                   isLoading={isLoading}
                   onEdit={handleOpenModal}
                   onDelete={handleDeleteRequest}
+                  openingBalance={openingBalance}
+                  isBalanceLoading={isBalanceLoading}
                 />
               ) : null}
             </LazyLoad>
