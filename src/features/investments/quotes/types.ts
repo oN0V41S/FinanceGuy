@@ -37,3 +37,29 @@ export class QuoteUnavailableError extends Error {
     this.name = 'QuoteUnavailableError';
   }
 }
+
+export const HistoryRangeEnum = z.enum(['1mo', '3mo', '1y', '5y']);
+export type HistoryRange = z.infer<typeof HistoryRangeEnum>;
+
+export const QuoteHistoryQuerySchema = QuoteQuerySchema.extend({
+  range: HistoryRangeEnum.default('3mo'),
+});
+
+export interface HistoryPoint {
+  /** Dia do pregão (YYYY-MM-DD). */
+  date: string;
+  close: number;
+}
+
+export interface QuoteHistory {
+  symbol: string;
+  currency: string;
+  range: HistoryRange;
+  points: HistoryPoint[];
+  fetchedAt: string;
+  stale?: boolean;
+}
+
+export interface IQuoteHistoryProvider {
+  getHistory(symbol: string, market: Market, range: HistoryRange): Promise<QuoteHistory>;
+}

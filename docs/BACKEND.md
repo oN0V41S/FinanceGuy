@@ -90,7 +90,8 @@ Requisições autenticadas (`x-user-id` do `proxy.ts`). Handlers em `src/feature
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| GET | `/api/investments/quotes?ticker=&market=` | Cotação atual (brapi.dev → Yahoo Finance p/ BR; Yahoo p/ demais) |
+| GET | `/api/investments/quotes?symbol=&market=` | Cotação atual (brapi.dev → Yahoo Finance p/ BR; Yahoo p/ demais) |
+| GET | `/api/investments/quotes/history?symbol=&market=&range=` | Histórico de fechamentos diários (`range`: 1mo, 3mo, 1y, 5y; Yahoo; cache 1h + último valor conhecido com `stale: true`) |
 | GET | `/api/investments/portfolio` | Investimentos enriquecidos com cotação, valor atual e rentabilidade |
 | GET | `/api/investments/history` | Histórico (`{ entries, summaries }`) de compras e resgates |
 | POST | `/api/investments/[id]/redeem/preview` | Simula resgate (imposto **estimado**, `isEstimate: true`) |

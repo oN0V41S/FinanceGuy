@@ -13,6 +13,7 @@ import { IInvestmentHistoryRepository } from '../features/investments/IInvestmen
 import { PostgresInvestmentHistoryRepository } from '../features/investments/postgresInvestmentHistory.repository';
 import { MarketInvestmentService } from '../features/investments/marketInvestment.service';
 import { QuoteService } from '../features/investments/quotes/quote.service';
+import { QuoteHistoryService } from '../features/investments/quotes/quoteHistory.service';
 import { BrapiQuoteProvider } from '../features/investments/quotes/brapiQuote.provider';
 import { YahooQuoteProvider } from '../features/investments/quotes/yahooQuote.provider';
 
@@ -39,6 +40,8 @@ export const quoteService: QuoteService = new QuoteService(
   { brapi: new BrapiQuoteProvider(), yahoo: new YahooQuoteProvider() },
   cacheRepository
 );
+const yahooProvider = new YahooQuoteProvider();
+export const quoteHistoryService: QuoteHistoryService = new QuoteHistoryService(yahooProvider, cacheRepository);
 export const marketInvestmentService: MarketInvestmentService = new MarketInvestmentService(
   investmentRepository,
   investmentHistoryRepository,
