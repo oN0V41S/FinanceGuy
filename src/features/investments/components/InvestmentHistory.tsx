@@ -9,6 +9,11 @@ import { useInvestmentHistory } from '@/features/investments/hooks/useInvestment
 const money = (value: number, currency = 'BRL') =>
   value.toLocaleString('pt-BR', { style: 'currency', currency });
 
+// A compra vem de um <input type="date"> (meia-noite UTC): formatar em UTC evita exibir o dia anterior em UTC-3.
+// O resgate usa o instante real da operação, então segue o fuso local.
+const formatEntryDate = (entry: { kind: string; date: string | Date }) =>
+  new Date(entry.date).toLocaleDateString('pt-BR', entry.kind === 'BUY' ? { timeZone: 'UTC' } : undefined);
+
 export function InvestmentHistory({ refreshKey }: { refreshKey: number }) {
   const { entries, isLoading, error, refresh } = useInvestmentHistory();
 
@@ -38,7 +43,7 @@ export function InvestmentHistory({ refreshKey }: { refreshKey: number }) {
                   {entry.kind === 'BUY' ? 'Compra' : 'Resgate'} · {asset}
                 </p>
                 <p className="text-on-surface-variant">
-                  {new Date(entry.date).toLocaleDateString('pt-BR')} · {entry.quantity} un. a {money(entry.unitPrice, currency)}
+                  {formatEntryDate(entry)} ·{entry.quantity} un. a {money(entry.unitPrice, currency)}
                 </p>
                 {entry.kind === 'REDEEM' && (
                   <p className="text-on-surface-variant">
