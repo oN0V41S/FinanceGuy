@@ -47,3 +47,50 @@ describe('InvestmentCard', () => {
     expect(onDelete).toHaveBeenCalledWith(investment);
   });
 });
+
+describe('InvestmentCard market asset', () => {
+  const asset = {
+    id: 'inv-9',
+    name: 'Petrobras',
+    type: 'Renda Variável' as const,
+    value: 350,
+    ticker: 'PETR4',
+    market: 'BR' as const,
+    currency: 'BRL',
+    unitPrice: 35,
+    shares: 10,
+    status: 'ACTIVE' as const,
+  };
+
+  it('shows quote-based profit and a redeem button', () => {
+    const onRedeem = jest.fn();
+    render(
+      <InvestmentCard
+        investment={asset}
+        portfolio={{ ...asset, metrics: { cost: 350, currentValue: 400, profit: 50, profitPct: 14.29 } }}
+        onEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onRedeem={onRedeem}
+      />
+    );
+
+    expect(screen.getByTestId('investment-metrics')).toHaveTextContent('14.29%');
+    screen.getByRole('button', { name: /Resgatar/ }).click();
+    expect(onRedeem).toHaveBeenCalledWith(asset);
+  });
+
+  it('shows a calm message when the quote is unavailable', () => {
+    render(<InvestmentCard investment={asset} onEdit={jest.fn()} onDelete={jest.fn()} />);
+
+    expect(screen.getByText('Cotação indisponível no momento.')).toBeInTheDocument();
+  });
+
+  it('hides redeem for already redeemed assets', () => {
+    render(
+      <InvestmentCard investment={{ ...asset, status: 'REDEEMED' }} onEdit={jest.fn()} onDelete={jest.fn()} onRedeem={jest.fn()} />
+    );
+
+    expect(screen.queryByRole('button', { name: /Resgatar/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Resgatado')).toBeInTheDocument();
+  });
+});

@@ -146,6 +146,34 @@ Requisições autenticadas (Header `x-user-id` injetado pelo middleware).
 ### 4. **DELETE /api/transactions/[id]** – Deletar
 ---
 
+### 5. **GET /api/transactions/opening-balance** – Saldo inicial do período (issue #30)
+Saldo (receitas − despesas, incluindo pendentes) das transações **estritamente anteriores** a `before`. Alimenta o "Saldo previsto" por dia na lista.
+
+**Query**: `before` (obrigatório, `YYYY-MM-DD` real); opcionais `type` (`income|expense`), `category`, `responsible`, `search`, `paid` (`true|false`) — mesmos filtros da lista.
+**Resposta**: `{ "data": number }` · `Cache-Control: private, max-age=300` · `X-Cache: HIT|MISS`.
+**Erros**: `401` sem `x-user-id`; `400` parâmetros inválidos (Zod); `500` genérico.
+**Segurança**: `userId` vem só do header `x-user-id` (nunca da query). Soma feita no banco (`groupBy` por `type`) e em centavos no cálculo diário.
+**Cache**: chave `transactions:{userId}:opening:{md5(filtros)}` — invalidada junto com as demais por `delByPattern('transactions:{userId}:*')`.
+**Front**: `useOpeningBalance` (2ª quinzena usa `before` = dia 16; mês/1ª quinzena = dia 01) + `computeRunningBalances` (`features/transactions/utils/runningBalance.ts`) → `CardTransaction` (`openingBalance`, `isBalanceLoading`). Falha no endpoint não derruba a lista: só o total do dia é exibido.
+---
+
+## Endpoints de Investimentos — ativos de mercado (issue #34 · FING-22)
+
+Requisições autenticadas (`x-user-id` do `proxy.ts`). Handlers em `src/features/investments/api/**`, re-exportados em `src/app/api/investments/**`. `GET/POST /api/investments` e `PUT/DELETE /api/investments/[id]` seguem como antes; o POST aceita ativo de mercado (`ticker`, `market`, `purchaseDate`, `unitPrice`, `shares`) e calcula o valor investido.
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/api/investments/quotes?ticker=&market=` | Cotação atual (brapi.dev → Yahoo Finance p/ BR; Yahoo p/ demais) |
+| GET | `/api/investments/portfolio` | Investimentos enriquecidos com cotação, valor atual e rentabilidade |
+| GET | `/api/investments/history` | Histórico (`{ entries, summaries }`) de compras e resgates |
+| POST | `/api/investments/[id]/redeem/preview` | Simula resgate (imposto **estimado**, `isEstimate: true`) |
+| POST | `/api/investments/[id]/redeem` | Confirma resgate (atômico) |
+
+**Resgate** — body `{ quantity, unitPrice?, taxRate (0–100), date?, note? }`. Imposto = max(lucro, 0) × alíquota informada pelo usuário; custo proporcional em resgate parcial. Em uma `prisma.$transaction` atualiza `shares`/`value`/`status` e grava a linha em `investment_transactions`. **Não cria `Transaction`**: o histórico é a fonte única de verdade (snapshot imutável, `onDelete: SetNull`, escopo por `userId`, pronto para RAG).
+**Cache de cotações**: 15 min fresco; até 7 dias como "última conhecida" (`stale: true`) quando os provedores caem.
+**Erros**: `400` Zod · `401` sem usuário · `404` não encontrado · `422` regra de negócio (ex.: quantidade acima da posição) · `503` cotação indisponível · `500` genérico.
+---
+
 ## Cache Server-side (Redis/Upstash)
 
 - **Singleton**: `src/lib/cache.ts` segue o padrão do `src/lib/prisma.ts` — uma única instância por processo.
