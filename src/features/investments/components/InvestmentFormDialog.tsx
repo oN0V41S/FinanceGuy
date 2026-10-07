@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useRecentTickers } from '@/features/investments/hooks/useRecentTickers';
 import { CreateInvestmentSchema, InvestmentTypeEnum, type CreateInvestmentInput, type Investment } from '@/features/investments/validations';
 
 interface InvestmentFormDialogProps {
@@ -70,6 +71,7 @@ const emptyForm: InvestmentFormState = {
 };
 
 export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit }: InvestmentFormDialogProps) {
+  const { recent, add: addRecent, clear: clearRecent } = useRecentTickers();
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -150,6 +152,7 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
     setIsSubmitting(true);
     try {
       await onSubmit(parsed.data);
+      if (showMarketFields && parsed.data.ticker) addRecent({ ticker: parsed.data.ticker, market: form.market });
       onOpenChange(false);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Erro ao salvar investimento');
@@ -207,6 +210,25 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
                     placeholder="Ex: PETR4, AAPL"
                   />
                   {errors.ticker && <p className="text-sm text-finance-expense">{errors.ticker}</p>}
+                  {recent.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2" data-testid="recent-tickers">
+                      <span className="text-xs text-on-surface-variant">Recentes:</span>
+                      {recent.map((item) => (
+                        <Button
+                          key={item.ticker}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setForm((prev) => ({ ...prev, ticker: item.ticker, market: item.market }))}
+                        >
+                          {item.ticker}
+                        </Button>
+                      ))}
+                      <Button type="button" variant="ghost" size="sm" onClick={clearRecent}>
+                        Limpar
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-2">
