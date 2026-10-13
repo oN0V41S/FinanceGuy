@@ -134,3 +134,13 @@ body {
 .animate-slide-in {
   animation: slide-in 0.2s ease-out forwards;
 }
+
+/*
+ * Suppresses the browser's own native password-reveal/clear icon so it
+ * doesn't stack next to our custom show/hide toggle when a saved
+ * credential is autofilled (Edge/IE ::-ms-reveal, some Chromium builds).
+ */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}

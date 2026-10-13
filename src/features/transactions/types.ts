@@ -8,6 +8,17 @@ export interface MonthlyPoint {
   expense: number;
 }
 
+/** Filtros do saldo inicial (issue #30): transações ESTRITAMENTE anteriores a `before`. */
+export interface OpeningBalanceFilters {
+  userId: string;
+  before: string; // YYYY-MM-DD
+  type?: 'income' | 'expense';
+  category?: string;
+  responsible?: string;
+  paid?: boolean;
+  search?: string;
+}
+
 // O valor é string no formulário para facilitar a manipulação de input
 // e é convertido para number no handler de submissão.
 export type TransactionFormData = Omit<Transaction, 'id' | 'value' | 'created_at' | 'updated_at' | 'installment_number' | 'total_installments' | 'parent_transaction_id'> & {

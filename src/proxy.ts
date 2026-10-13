@@ -4,7 +4,8 @@ import { NextResponse } from "next/server";
 // Rotas públicas que não precisam de autenticação
 const PUBLIC_ROUTES = ["/", "/login", "/register"];
 // Rotas que devem redirecionar usuários autenticados para o dashboard
-const AUTH_PAGES = ["/login", "/register"];
+// "/" (landing) também redireciona: quem já está logado não precisa ver a home de marketing
+const AUTH_PAGES = ["/", "/login", "/register"];
 
 export default auth((req) => {
   const { nextUrl } = req;
@@ -50,7 +51,7 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
-  // Se o usuário já está logado e tenta acessar /login ou /register, redireciona para o dashboard
+  // Se o usuário já está logado e tenta acessar /, /login ou /register, redireciona para o dashboard
   if (isLoggedIn && isAuthPage) {
     return NextResponse.redirect(new URL("/dashboard", nextUrl));
   }

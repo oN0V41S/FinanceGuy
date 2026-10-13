@@ -73,6 +73,11 @@ describe('SummaryCard', () => {
       expect(p.textContent).toContain('5.000,00');
       expect(p.className).toContain('text-primary');
     });
+
+    it('prefixes negative balance with "- " (issue #31)', () => {
+      render(<SummaryCard label="Saldo" value={-300} type="balance" />);
+      expect(getValueP().textContent).toMatch(/^-\s+R\$\s*300,00$/);
+    });
   });
 
   describe('currency formatting', () => {

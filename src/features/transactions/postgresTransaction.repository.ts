@@ -1,6 +1,6 @@
 import { ITransactionRepository } from './ITransaction.repository';
 import { Transaction, FinancialSummary, TransactionInput } from '@/types/finance';
-import { MonthlyPoint } from './types';
+import { MonthlyPoint, OpeningBalanceFilters } from './types';
 import { prisma } from '@/lib/prisma';
 
 /** Mapa de número de mês (0-based) para abreviação pt-BR. */
@@ -169,6 +169,40 @@ export class PostgresTransactionRepository implements ITransactionRepository {
       data: updateData,
     });
     return result.count;
+  }
+
+  /**
+   * Saldo acumulado (receitas − despesas) das transações estritamente
+   * anteriores a `before`, respeitando os mesmos filtros da lista. A soma é
+   * feita no banco (groupBy) — nenhuma linha é trazida para a aplicação.
+   */
+  async getOpeningBalance(filters: OpeningBalanceFilters): Promise<number> {
+    const where: Record<string, unknown> = {
+      userId: filters.userId,
+      date: { lt: new Date(filters.before) },
+    };
+    if (filters.type) where.type = filters.type;
+    if (filters.category) where.category = filters.category;
+    if (filters.responsible) where.responsible = filters.responsible;
+    if (filters.paid !== undefined) where.paid = filters.paid;
+
+    const search = filters.search?.trim();
+    if (search) {
+      where.OR = (['description', 'title', 'responsible', 'category'] as const).map((field) => ({
+        [field]: { contains: search, mode: 'insensitive' },
+      }));
+    }
+
+    const groups = await prisma.transaction.groupBy({
+      by: ['type'],
+      where,
+      _sum: { value: true },
+    });
+
+    return groups.reduce((balance, group) => {
+      const sum = Number(group._sum.value ?? 0);
+      return group.type === 'income' ? balance + sum : balance - sum;
+    }, 0);
   }
 
   async getSummary(filters?: Record<string, any>): Promise<FinancialSummary> {

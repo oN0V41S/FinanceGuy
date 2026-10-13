@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-const passwordSchema = z.string()
+export const passwordSchema = z.string()
   .min(8, 'Senha deve ter pelo menos 8 caracteres')
   .regex(
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,

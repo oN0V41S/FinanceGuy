@@ -9,7 +9,30 @@ import {
 import type { Transaction, FinancialSummary } from '@/features/transactions/validations';
 import type { TransactionFormData } from '@/features/transactions/types';
 
-const TRANSACTIONS_CACHE_PREFIX = 'financeguy:cache:transactions:';
+/**
+ * Interpreta a busca como valor monetário (ex.: "300", "300,00", "R$ 5.000,00").
+ * Retorna null quando o texto não parece um número.
+ */
+export function parseSearchAmount(query: string): number | null {
+  const cleaned = query.replace(/r\$/gi, '').replace(/\s/g, '');
+  if (!/^\d[\d.,]*$/.test(cleaned)) return null;
+  let normalized = cleaned;
+  if (cleaned.includes(',')) {
+    normalized = cleaned.replace(/\./g, '').replace(',', '.');
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(cleaned)) {
+    normalized = cleaned.replace(/\./g, '');
+  }
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function summarize(list: Transaction[]): FinancialSummary {
+  const income = list.filter((t) => t.type === 'income').reduce((s, t) => s + t.value, 0);
+  const expense = list.filter((t) => t.type === 'expense').reduce((s, t) => s + t.value, 0);
+  return { income, expense, balance: income - expense };
+}
+
+const TRANSACTIONS_CACHE_PREFIX ='financeguy:cache:transactions:';
 const TRANSACTIONS_TTL_MS = 30 * 60 * 1000; // 30 minutos
 
 interface TransactionsSnapshot {
@@ -323,16 +346,27 @@ export default function useTransactions(): UseTransactionsReturn {
     if (categoryFilter) result = result.filter((tx) => tx.category === categoryFilter);
     if (searchFilter.trim()) {
       const q = searchFilter.trim().toLowerCase();
+      const numericQuery = parseSearchAmount(q);
       result = result.filter(
         (tx) =>
           tx.description?.toLowerCase().includes(q) ||
           (tx.title ?? '').toLowerCase().includes(q) ||
           tx.responsible?.toLowerCase().includes(q) ||
-          tx.category?.toLowerCase().includes(q),
+          tx.category?.toLowerCase().includes(q) ||
+          (numericQuery !== null && Math.abs(tx.value - numericQuery) < 0.005),
       );
     }
     return result;
   }, [allTransactions, typeFilter, categoryFilter, searchFilter]);
+
+  // O resumo dos cards acompanha os filtros do cliente (tipo/categoria/busca).
+  // Sem filtro ativo, usa o resumo oficial devolvido pela API.
+  const hasClientFilter =
+    typeFilter !== 'all' || Boolean(categoryFilter) || searchFilter.trim() !== '';
+  const filteredSummary = useMemo<FinancialSummary>(() => {
+    if (!hasClientFilter) return summary;
+    return summarize(transactions);
+  }, [hasClientFilter, summary, transactions]);
 
   const setTypeFilter = useCallback((value: 'all' | 'income' | 'expense') => {
     setTypeFilterState(value);
@@ -504,7 +538,7 @@ export default function useTransactions(): UseTransactionsReturn {
 
   return {
     transactions,
-    summary,
+    summary: filteredSummary,
     isLoading,
     isFetching,
     error,
