@@ -53,6 +53,22 @@ describe('YahooQuoteProvider.getHistory', () => {
     expect(result.points[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it('não acrescenta .SA em índices (^BVSP) nem em pares (BRL=X)', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        chart: { result: [{ meta: { currency: 'BRL' }, timestamp: [1788264000], indicators: { quote: [{ close: [130000] }] } }] },
+      }),
+    } as Response);
+    const provider = new YahooQuoteProvider();
+
+    await provider.getHistory('^BVSP', 'BR', '1mo');
+    await provider.getHistory('BRL=X', 'BR', '1mo');
+
+    expect(String(fetchMock.mock.calls.at(-2)![0])).toContain('%5EBVSP?interval');
+    expect(String(fetchMock.mock.calls.at(-1)![0])).toContain('BRL%3DX?interval');
+  });
+
   it('lança QuoteUnavailableError quando não há série', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValue({ ok: true, json: async () => ({ chart: { result: null } }) } as Response);
     await expect(new YahooQuoteProvider().getHistory('XXXX', 'US', '1mo')).rejects.toBeInstanceOf(QuoteUnavailableError);

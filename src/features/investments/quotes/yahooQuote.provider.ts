@@ -27,9 +27,9 @@ interface YahooChartResponse {
   };
 }
 
-// B3 no Yahoo usa o sufixo ".SA" (ex.: PETR4.SA).
+// B3 no Yahoo usa o sufixo ".SA" (ex.: PETR4.SA); índices (^BVSP) e pares (BRL=X) já vêm completos.
 const toYahooSymbol = (symbol: string, market: Market) =>
-  market === 'BR' && !symbol.endsWith('.SA') ? `${symbol}.SA` : symbol;
+  market === 'BR' && !symbol.endsWith('.SA') && !/^[\^]|=/.test(symbol) ? `${symbol}.SA` : symbol;
 
 /** Cotações EUA e demais mercados via endpoint público do Yahoo Finance (sem API oficial; mantido isolado). */
 export class YahooQuoteProvider implements IQuoteProvider, IQuoteHistoryProvider {
