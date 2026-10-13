@@ -46,6 +46,21 @@ Contexto do app: Um App que Te leva a Estabilidade Financeira; Um Nubank com IA 
 - **Tratamento de Erros/UX**: É CRÍTICO o código tratar de exceções de erro, trazendo tranquilidade no fluxo para o Usuário. 
 - **Planejamento**: SEMPRE que o usuário quiser planejar algo, ao consolidar o plano, crie um mapa completo de execução com sub-agents, etapas, sequências (tasks cruzadas).
 
+## 🧰 CLI `fg` (ferramentas do agente)
+
+Use `pnpm fg <grupo>` em vez de comandos ad-hoc para tarefas recorrentes. Detalhes: skill `.claude/skills/fg-cli/SKILL.md` · spec `docs/specs/fg-cli.md`.
+
+| Grupo | Uso |
+|---|---|
+| `route` | `pnpm fg route componente modal` → doc + sub-agente |
+| `spec` | `pnpm fg spec new <slug> --write` |
+| `scaffold` | `feature`, `component`, `hook`, `api-route`, `page`, `service`, `repository`, `test` (TDD: stubs + `it.todo`) |
+| `find` / `grep` | busca por nome / regex (`--area frontend`, `backend`, `tests`, `db`) |
+| `mv` / `replace` | mover com reescrita de imports / substituição em lote (≤50 arquivos) |
+| `test` · `dev` · `db` · `pr` · `audit` | jest filtrado · lint/build · prisma (`push --yes`) · pipeline pré-PR · context-audit |
+
+Segurança: **dry-run por padrão** (`--write` grava, `--force` sobrescreve); escrita só em `src/`, `docs/`, `.claude/skills/`; `--json` para saída estruturada.
+
 ## 🤖 Sub-Agentes
 
 Consulte `.opencode/AGENTS.md` para a lista completa de agentes (frontend, backend, database, QA, security, docs, project-review, devops, etc.) e o fluxo Spec-first + TDD.

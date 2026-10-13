@@ -32,6 +32,7 @@ Contexto do app: Um App que Te leva a Estabilidade Financeira; Um Nubank com IA 
 
 - `pnpm dev` · `pnpm build` · `pnpm lint`
 - `npm run test` · `npx jest <arquivo>` · `npm run test:coverage`
+- `pnpm fg --help` · CLI do projeto (scaffold, find/grep, mv, replace, route…) — ver skill `fg-cli`
 - `npx prisma generate` · `npx prisma db push` · `npx prisma studio`
 
 ## ⚖️ Regras Críticas (resumo)
