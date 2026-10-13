@@ -109,6 +109,10 @@ pnpm prisma:push      # Sincronizar schema (dev)
 pnpm prisma:studio    # UI do banco de dados
 ```
 
+## CLI `fg`
+
+Tarefas recorrentes (scaffold, find/grep, mv, replace, route, test, db, pr) via `pnpm fg <grupo>` — dry-run por padrão. Ver `.claude/skills/fg-cli/SKILL.md`.
+
 ## Contratos
 
 > **NENHUM PR pode ser aberto sem que TODOS os passos abaixo sejam executados e validados.**
