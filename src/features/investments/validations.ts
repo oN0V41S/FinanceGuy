@@ -38,6 +38,13 @@ export const CreateInvestmentSchema = InvestmentSchema.omit({ id: true, createdA
   .extend({ value: z.number().positive('Valor deve ser positivo').optional() })
   .superRefine((data, ctx) => {
     if (data.ticker) {
+      if (data.ticker.startsWith('^')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ticker'],
+          message: 'Índices não são negociáveis. Para investir, cadastre um ETF que o replique, como BOVA11.',
+        });
+      }
       const required = ['market', 'purchaseDate', 'unitPrice', 'shares'] as const;
       for (const field of required) {
         if (data[field] === undefined) {
