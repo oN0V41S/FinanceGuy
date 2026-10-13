@@ -84,3 +84,20 @@ describe('UpdateInvestmentSchema', () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe('CreateInvestmentSchema — índices não são negociáveis', () => {
+  const base = { name: 'Ibovespa', type: 'Renda Variável', market: 'BR', purchaseDate: '2026-09-01', unitPrice: 130000, shares: 1 };
+
+  it('rejeita ticker de índice (^BVSP) com mensagem orientando a usar um ETF', () => {
+    const result = CreateInvestmentSchema.safeParse({ ...base, ticker: '^BVSP' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(['ticker']);
+      expect(result.error.issues[0].message).toContain('BOVA11');
+    }
+  });
+
+  it('continua aceitando ações e ETFs', () => {
+    expect(CreateInvestmentSchema.safeParse({ ...base, ticker: 'BOVA11' }).success).toBe(true);
+  });
+});
