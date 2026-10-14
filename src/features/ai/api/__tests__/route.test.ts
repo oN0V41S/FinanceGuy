@@ -101,7 +101,7 @@ describe('POST /api/ai/ask', () => {
     expect(res.headers.get('Cache-Control')).toBe('no-store');
     expect(await res.json()).toEqual({ answer: 'Resposta', truncated: false });
     expect(mockConsume).toHaveBeenCalledWith('user-1');
-    expect(mockAsk).toHaveBeenCalledWith('user-1', 'Quanto gastei?');
+    expect(mockAsk).toHaveBeenCalledWith('user-1', 'Quanto gastei?', { history: [], profile: '' });
   });
 
   it('repassa truncated', async () => {
@@ -113,7 +113,7 @@ describe('POST /api/ai/ask', () => {
   it('ignora userId enviado no corpo', async () => {
     await POST(makeRequest({ question: 'oi', userId: 'atacante' }));
     expect(mockConsume).toHaveBeenCalledWith('user-1');
-    expect(mockAsk).toHaveBeenCalledWith('user-1', 'oi');
+    expect(mockAsk).toHaveBeenCalledWith('user-1', 'oi', { history: [], profile: '' });
   });
 
   it.each([

@@ -22,7 +22,7 @@ class FakeRepo implements IChatSessionRepository {
   }
   async create(userId: string) {
     const s: ChatSessionRecord = {
-      id: `s${++this.seq}`, userId, summary: null, tokenCount: 0, status: 'active',
+      id: `s${++this.seq}`, userId, title: null, summary: null, tokenCount: 0, status: 'active',
       createdAt: new Date(), updatedAt: new Date(),
     };
     this.sessions.push(s);
@@ -55,6 +55,37 @@ class FakeRepo implements IChatSessionRepository {
   async setSummary(sessionId: string, userId: string, summary: string, tokenCount: number) {
     const s = this.sessions.find((x) => x.id === sessionId && x.userId === userId);
     if (s) Object.assign(s, { summary, tokenCount });
+  }
+  profiles = new Map<string, string | null>();
+  async listSessions(userId: string) {
+    return this.sessions.filter((s) => s.userId === userId).sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }
+  async getById(sessionId: string, userId: string) {
+    return this.sessions.find((s) => s.id === sessionId && s.userId === userId) ?? null;
+  }
+  async activate(sessionId: string, userId: string) {
+    const target = await this.getById(sessionId, userId);
+    if (!target) return false;
+    this.sessions.filter((s) => s.userId === userId).forEach((s) => (s.status = s.id === sessionId ? 'active' : 'archived'));
+    return true;
+  }
+  async setTitle(sessionId: string, userId: string, title: string, onlyIfEmpty = false) {
+    const s = await this.getById(sessionId, userId);
+    if (!s || (onlyIfEmpty && s.title)) return false;
+    s.title = title;
+    return true;
+  }
+  async remove(sessionId: string, userId: string) {
+    const before = this.sessions.length;
+    this.sessions = this.sessions.filter((s) => !(s.id === sessionId && s.userId === userId));
+    this.messages = this.messages.filter((m) => m.sessionId !== sessionId || m.userId !== userId);
+    return this.sessions.length < before;
+  }
+  async getProfile(userId: string) {
+    return this.profiles.get(userId) ?? null;
+  }
+  async setProfile(userId: string, profile: string | null) {
+    this.profiles.set(userId, profile);
   }
 }
 
@@ -346,5 +377,102 @@ describe('compactSession / maybeCompact', () => {
     s.tokenCount = 20;
     expect(await compactSession(deps, 'u1', s.id)).toEqual({ compacted: true });
     expect(repo.messages[0].compacted).toBe(true);
+  });
+});
+
+describe('SessionService — conversas, título e perfil', () => {
+  const setup = (llmText = 'Gastos com mercado') => {
+    const repo = new FakeRepo();
+    const { llm, complete } = makeLlm(llmText);
+    const svc = new SessionService({ repo, llm, config });
+    return { repo, svc, complete };
+  };
+
+  it('listSessions devolve só as do usuário, marcando a ativa', async () => {
+    const { svc, repo } = setup();
+    const a = await svc.getOrCreateActive('u1');
+    await svc.startNew('u1');
+    await repo.create('u2');
+    const list = await svc.listSessions('u1');
+    expect(list).toHaveLength(2);
+    expect(list.find((s) => s.id === a.sessionId)?.active).toBe(false);
+    expect(list.filter((s) => s.active)).toHaveLength(1);
+  });
+
+  it('activateSession troca a ativa e devolve as mensagens dela; de outro usuário retorna null', async () => {
+    const { svc, repo } = setup();
+    const a = await svc.getOrCreateActive('u1');
+    await svc.appendMessage('u1', a.sessionId, { role: 'user', kind: 'text', content: 'oi' });
+    await svc.startNew('u1');
+    const dto = await svc.activateSession('u1', a.sessionId);
+    expect(dto?.sessionId).toBe(a.sessionId);
+    expect(dto?.messages.map((m) => m.content)).toEqual(['oi']);
+    expect((await repo.getActive('u1'))?.id).toBe(a.sessionId);
+    expect(await svc.activateSession('u2', a.sessionId)).toBeNull();
+  });
+
+  it('renameSession limpa o texto, rejeita vazio e respeita o dono', async () => {
+    const { svc, repo } = setup();
+    const a = await svc.getOrCreateActive('u1');
+    expect(await svc.renameSession('u1', a.sessionId, '  "Meu\nplano"  ')).toBe(true);
+    expect(repo.sessions[0].title).toBe('Meu plano');
+    expect(await svc.renameSession('u1', a.sessionId, '   ')).toBe(false);
+    expect(await svc.renameSession('u2', a.sessionId, 'x')).toBe(false);
+    await svc.renameSession('u1', a.sessionId, 'a'.repeat(200));
+    expect(repo.sessions[0].title).toHaveLength(60);
+  });
+
+  it('deleteSession remove só do dono', async () => {
+    const { svc, repo } = setup();
+    const a = await svc.getOrCreateActive('u1');
+    expect(await svc.deleteSession('u2', a.sessionId)).toBe(false);
+    expect(await svc.deleteSession('u1', a.sessionId)).toBe(true);
+    expect(repo.sessions).toHaveLength(0);
+  });
+
+  it('ensureTitle usa o LLM na 1ª mensagem do usuário e não sobrescreve título existente', async () => {
+    const { svc, repo, complete } = setup('"Gastos com mercado."');
+    const a = await svc.getOrCreateActive('u1');
+    await svc.appendMessage('u1', a.sessionId, { role: 'user', kind: 'text', content: 'Quanto gastei no mercado?' });
+    await svc.ensureTitle('u1', a.sessionId);
+    expect(repo.sessions[0].title).toBe('Gastos com mercado');
+    expect(complete).toHaveBeenCalledTimes(1);
+    await svc.ensureTitle('u1', a.sessionId);
+    expect(complete).toHaveBeenCalledTimes(1);
+  });
+
+  it('ensureTitle cai para a mensagem truncada quando o LLM falha e nunca lança', async () => {
+    const { svc, repo, complete } = setup();
+    complete.mockRejectedValue(new Error('quota'));
+    const a = await svc.getOrCreateActive('u1');
+    await svc.appendMessage('u1', a.sessionId, { role: 'user', kind: 'text', content: 'Criar despesa de 50 no mercado hoje, por favor' });
+    await expect(svc.ensureTitle('u1', a.sessionId)).resolves.toBeUndefined();
+    expect(repo.sessions[0].title).toBe('Criar despesa de 50 no mercado hoje, por…');
+  });
+
+  it('ensureTitle sem mensagem do usuário não faz nada', async () => {
+    const { svc, repo, complete } = setup();
+    const a = await svc.getOrCreateActive('u1');
+    await svc.ensureTitle('u1', a.sessionId);
+    expect(repo.sessions[0].title).toBeNull();
+    expect(complete).not.toHaveBeenCalled();
+  });
+
+  it('perfil: salva aparado, vazio vira null, leitura devolve string', async () => {
+    const { svc, repo } = setup();
+    expect(await svc.getProfile('u1')).toBe('');
+    await svc.setProfile('u1', '  Renda de 5 mil  ');
+    expect(await svc.getProfile('u1')).toBe('Renda de 5 mil');
+    await svc.setProfile('u1', '   ');
+    expect(repo.profiles.get('u1')).toBeNull();
+  });
+
+  it('getSessionDto(sessionId) devolve título e mensagens da conversa pedida', async () => {
+    const { svc } = setup();
+    const a = await svc.getOrCreateActive('u1');
+    await svc.renameSession('u1', a.sessionId, 'Plano');
+    await svc.startNew('u1');
+    const dto = await svc.getSessionDto('u1', a.sessionId);
+    expect(dto).toMatchObject({ sessionId: a.sessionId, title: 'Plano' });
   });
 });

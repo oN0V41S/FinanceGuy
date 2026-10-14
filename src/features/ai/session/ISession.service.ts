@@ -1,4 +1,4 @@
-import type { ChatMessage, FinancialContextDto, LlmMessage, SessionDto } from '../types';
+import type { ChatMessage, FinancialContextDto, LlmMessage, SessionDto, SessionSummaryDto } from '../types';
 
 /** Contrato da sessão de chat (FING-18). Implementado por SessionService; consumido pelo agente. */
 export interface ISessionService {
@@ -15,7 +15,17 @@ export interface ISessionService {
   /** Histórico para o LLM: [resumo?] + últimas N mensagens não compactadas (texto). */
   getLlmHistory(userId: string, sessionId: string): Promise<LlmMessage[]>;
   /** Hidratação da UI após reload. */
-  getSessionDto(userId: string): Promise<SessionDto>;
+  getSessionDto(userId: string, sessionId?: string): Promise<SessionDto>;
+  /** Barra lateral: todas as conversas do usuário, mais recentes primeiro. */
+  listSessions(userId: string): Promise<SessionSummaryDto[]>;
+  /** Troca para outra conversa (ela vira a ativa). Retorna null se não for do usuário. */
+  activateSession(userId: string, sessionId: string): Promise<SessionDto | null>;
+  renameSession(userId: string, sessionId: string, title: string): Promise<boolean>;
+  deleteSession(userId: string, sessionId: string): Promise<boolean>;
+  /** Gera (Gemini, com fallback local) o título curto a partir da 1ª mensagem. Nunca lança. */
+  ensureTitle(userId: string, sessionId: string): Promise<void>;
+  getProfile(userId: string): Promise<string>;
+  setProfile(userId: string, profile: string): Promise<void>;
   /** Compacta se tokenCount >= AI_COMPACT_TOKENS; nunca lança (falha não derruba a conversa). */
   maybeCompact(userId: string, sessionId: string): Promise<{ compacted: boolean }>;
 }

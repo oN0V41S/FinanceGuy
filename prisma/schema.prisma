@@ -43,6 +43,7 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   password      String? // Preenchido se usar Credentials (email/senha)
+  aiProfile     String? // Descrição livre do usuário para personalizar o assistente (FING-18)
 
   // Relacionamentos
   accounts       Account[]
@@ -63,6 +64,7 @@ model ChatSession {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String?
   summary    String?
   tokenCount Int      @default(0)
   status     String   @default("active") // 'active' | 'archived' (validated in code)

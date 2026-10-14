@@ -32,11 +32,15 @@ describe('AssistentePage', () => {
     }
     fetchSpy = jest.spyOn(global, 'fetch');
     askSpy = jest.fn();
-    fetchSpy.mockImplementation(async (input, init) =>
-      String(input) === '/api/ai/session' && (init?.method ?? 'GET') === 'GET'
-        ? jsonResponse({ sessionId: 's1', messages: [], tokenCount: 0 })
-        : (askSpy(input, init) as Promise<Response>),
-    );
+    fetchSpy.mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+      if (url === '/api/ai/session' && method === 'GET') {
+        return jsonResponse({ sessionId: 's1', messages: [], tokenCount: 0 });
+      }
+      if (url === '/api/ai/sessions' && method === 'GET') return jsonResponse({ sessions: [] });
+      return askSpy(input, init) as Promise<Response>;
+    });
   });
 
   afterEach(() => fetchSpy.mockRestore());
@@ -152,11 +156,15 @@ describe('AssistentePage', () => {
     const nextSteps = { total: 1, done: 0, failed: 0, cancelled: 0, canConfirmAll: false };
 
     function mockSession(messages: unknown[]) {
-      fetchSpy.mockImplementation(async (input, init) =>
-        String(input) === '/api/ai/session' && (init?.method ?? 'GET') === 'GET'
-          ? jsonResponse({ sessionId: 's1', messages, tokenCount: 10 })
-          : (askSpy(input, init) as Promise<Response>),
-      );
+      fetchSpy.mockImplementation(async (input, init) => {
+        const url = String(input);
+        const method = init?.method ?? 'GET';
+        if (url === '/api/ai/session' && method === 'GET') {
+          return jsonResponse({ sessionId: 's1', messages, tokenCount: 10 });
+        }
+        if (url === '/api/ai/sessions' && method === 'GET') return jsonResponse({ sessions: [] });
+        return askSpy(input, init) as Promise<Response>;
+      });
     }
 
     it('hidrata mensagens, cards e divisor ao carregar', async () => {
@@ -174,7 +182,11 @@ describe('AssistentePage', () => {
 
     it('mostra skeleton enquanto hidrata', async () => {
       let resolve!: (r: Response) => void;
-      fetchSpy.mockImplementation(() => new Promise<Response>((r) => (resolve = r)));
+      fetchSpy.mockImplementation((input) =>
+        String(input) === '/api/ai/sessions'
+          ? Promise.resolve(jsonResponse({ sessions: [] }))
+          : new Promise<Response>((r) => (resolve = r)),
+      );
       render(<AssistentePage />);
       expect(screen.getByTestId('history-skeleton')).toBeInTheDocument();
       resolve(jsonResponse({ sessionId: 's1', messages: [], tokenCount: 0 }));
@@ -182,9 +194,12 @@ describe('AssistentePage', () => {
     });
 
     it('falha ao hidratar mostra aviso calmo e permite perguntar', async () => {
-      fetchSpy.mockRejectedValue(new TypeError('Failed to fetch'));
+      fetchSpy.mockImplementation(async (input) => {
+        if (String(input) === '/api/ai/sessions') return jsonResponse({ sessions: [] });
+        throw new TypeError('Failed to fetch');
+      });
       render(<AssistentePage />);
-      expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar a conversa anterior');
+      expect(await screen.findByText(/Não foi possível carregar a conversa anterior/)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /nova conversa/i })).toBeEnabled();
     });
 
@@ -193,12 +208,16 @@ describe('AssistentePage', () => {
       render(<AssistentePage />);
       await screen.findByText('Oi antigo');
 
-      fetchSpy.mockImplementation(async () => jsonResponse({ sessionId: 's2', messages: [], tokenCount: 0 }));
+      fetchSpy.mockImplementation(async (input) =>
+        String(input) === '/api/ai/sessions'
+          ? jsonResponse({ sessions: [] })
+          : jsonResponse({ sessionId: 's2', messages: [], tokenCount: 0 }),
+      );
       fireEvent.click(screen.getByRole('button', { name: /nova conversa/i }));
 
       await waitFor(() => expect(screen.queryByText('Oi antigo')).not.toBeInTheDocument());
-      const [, init] = fetchSpy.mock.calls[fetchSpy.mock.calls.length - 1];
-      expect(init?.method).toBe('POST');
+      const post = fetchSpy.mock.calls.find(([url, init]) => String(url) === '/api/ai/session' && init?.method === 'POST');
+      expect(post).toBeDefined();
       expect(screen.getByText(/Faça uma pergunta para receber/)).toBeInTheDocument();
     });
 
@@ -207,10 +226,12 @@ describe('AssistentePage', () => {
       render(<AssistentePage />);
       await screen.findByText('Oi antigo');
 
-      fetchSpy.mockImplementation(async () => jsonResponse({ error: 'x' }, 500));
+      fetchSpy.mockImplementation(async (input) =>
+        String(input) === '/api/ai/sessions' ? jsonResponse({ sessions: [] }) : jsonResponse({ error: 'x' }, 500),
+      );
       fireEvent.click(screen.getByRole('button', { name: /nova conversa/i }));
 
-      expect(await screen.findByRole('alert')).toHaveTextContent('Sua conversa atual foi mantida');
+      expect(await screen.findByText(/Sua conversa atual foi mantida/)).toBeInTheDocument();
       expect(screen.getByText('Oi antigo')).toBeInTheDocument();
     });
 

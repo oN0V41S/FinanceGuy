@@ -16,6 +16,8 @@ const REQUEST_TIMEOUT_MS = 65_000;
 const NETWORK_ERROR_MESSAGE = 'Não foi possível obter a resposta. Tente novamente.';
 const HYDRATE_ERROR_MESSAGE =
   'Não foi possível carregar a conversa anterior. Você pode começar uma nova pergunta.';
+const OPEN_SESSION_ERROR_MESSAGE =
+  'Não foi possível abrir essa conversa. Sua conversa atual foi mantida.';
 const NEW_SESSION_ERROR_MESSAGE =
   'Não foi possível iniciar uma nova conversa. Sua conversa atual foi mantida.';
 const ACTIONS_FALLBACK_TEXT = 'Preparei as ações abaixo para você revisar e confirmar.';
@@ -52,6 +54,7 @@ export function useAssistant(): UseAssistantResult {
   const [error, setError] = useState<string | null>(null);
   const [isHydrating, setIsHydrating] = useState(false);
   const [isStartingNew, setIsStartingNew] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const inFlight = useRef(false);
   const startingNew = useRef(false);
   const sessionIdRef = useRef<string | null>(null);
@@ -99,7 +102,10 @@ export function useAssistant(): UseAssistantResult {
 
       const body = (await response.json()) as Partial<AskResponseBody>;
       if (controllerRef.current !== controller) return;
-      if (typeof body.sessionId === 'string' && body.sessionId) sessionIdRef.current = body.sessionId;
+      if (typeof body.sessionId === 'string' && body.sessionId) {
+        sessionIdRef.current = body.sessionId;
+        setSessionId(body.sessionId);
+      }
 
       const cards = Array.isArray(body.actions) ? body.actions : [];
       if (body.kind === 'actions' && cards.length > 0) {
@@ -143,6 +149,7 @@ export function useAssistant(): UseAssistantResult {
       const dto: unknown = await response.json();
       if (!isSessionDto(dto)) return;
       sessionIdRef.current = dto.sessionId;
+      setSessionId(dto.sessionId);
       // Se o usuário já interagiu enquanto carregava, não sobrescreve a conversa.
       if (!touchedRef.current) setMessages(dto.messages);
     } catch {
@@ -166,11 +173,39 @@ export function useAssistant(): UseAssistantResult {
       controllerRef.current = null;
       inFlight.current = false;
       sessionIdRef.current = dto.sessionId;
+      setSessionId(dto.sessionId);
       touchedRef.current = true;
       setMessages(dto.messages);
       setStatus('idle');
     } catch {
       setError(NEW_SESSION_ERROR_MESSAGE);
+    } finally {
+      startingNew.current = false;
+      setIsStartingNew(false);
+    }
+  }, []);
+
+  /** Troca para outra conversa (POST /api/ai/sessions/[id]/activate) e carrega as mensagens dela. */
+  const openConversation = useCallback(async (id: string): Promise<void> => {
+    if (startingNew.current || id === sessionIdRef.current) return;
+    startingNew.current = true;
+    setIsStartingNew(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/ai/sessions/${encodeURIComponent(id)}/activate`, { method: 'POST' });
+      if (!response.ok) throw new Error('open-session');
+      const dto: unknown = await response.json();
+      if (!isSessionDto(dto)) throw new Error('open-session');
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+      inFlight.current = false;
+      sessionIdRef.current = dto.sessionId;
+      setSessionId(dto.sessionId);
+      touchedRef.current = true;
+      setMessages(dto.messages);
+      setStatus('idle');
+    } catch {
+      setError(OPEN_SESSION_ERROR_MESSAGE);
     } finally {
       startingNew.current = false;
       setIsStartingNew(false);
@@ -194,6 +229,8 @@ export function useAssistant(): UseAssistantResult {
     reset,
     hydrate,
     newConversation,
+    openConversation,
+    sessionId,
     isHydrating,
     isStartingNew,
     actions,

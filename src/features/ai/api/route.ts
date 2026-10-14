@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { aiAgent, aiRateLimiter, aiService } from '@/core/container';
+import { aiAgent, aiRateLimiter, aiService, aiSessionService } from '@/core/container';
 import { AskSchema } from '../validations';
-import type { AskErrorBody, AskResponseBody } from '../types';
+import type { AskErrorBody, AskResponseBody, LlmMessage } from '../types';
 import { aiErrorResponse, rateLimitedResponse } from './errors';
 
 const MAX_BODY_BYTES = 4096;
@@ -9,6 +9,16 @@ const INVALID_BODY_MESSAGE = 'Corpo da requisição inválido.';
 
 function badRequest(message: string): NextResponse<AskErrorBody> {
   return NextResponse.json({ error: message }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+}
+
+async function loadHistory(userId: string, requestedId?: string): Promise<LlmMessage[]> {
+  try {
+    if (!aiSessionService) return [];
+    const sessionId = requestedId ?? (await aiSessionService.getOrCreateActive(userId)).sessionId;
+    return await aiSessionService.getLlmHistory(userId, sessionId);
+  } catch {
+    return [];
+  }
 }
 
 // POST /api/ai/ask - Pergunta ao assistente financeiro (contexto: dados do próprio usuário)
@@ -41,6 +51,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<AskRespon
     // Retorna null para perguntas, que seguem o fluxo de leitura abaixo.
     const proposal = await aiAgent?.propose(userId, parsed.data.question, parsed.data.sessionId);
     if (proposal) {
+      if (proposal.sessionId) await aiSessionService?.ensureTitle(userId, proposal.sessionId);
       return NextResponse.json(proposal, { headers: { 'Cache-Control': 'no-store' } });
     }
 
@@ -50,11 +61,18 @@ export async function POST(request: NextRequest): Promise<NextResponse<AskRespon
       return rateLimitedResponse(limit.scope, limit.retryAfterSeconds);
     }
 
-    const result = await aiService.ask(userId, parsed.data.question);
+    // Perfil e histórico da conversa são contexto opcional: falha aqui nunca derruba a resposta.
+    const [profile, history] = await Promise.all([
+      (aiSessionService?.getProfile(userId) ?? Promise.resolve('')).catch(() => ''),
+      loadHistory(userId, parsed.data.sessionId),
+    ]);
+    const result = await aiService.ask(userId, parsed.data.question, { profile, history });
 
     // Registra o turno na sessão (best-effort; nunca falha a resposta).
     const sessionId = await aiAgent?.recordTurn(userId, parsed.data.sessionId, parsed.data.question, result);
     if (sessionId) {
+      // Título (Gemini, com fallback local) só na 1ª interação; best-effort e sem consumir cota.
+      await aiSessionService?.ensureTitle(userId, sessionId);
       return NextResponse.json(
         { ...result, kind: 'answer' as const, sessionId },
         { headers: { 'Cache-Control': 'no-store' } },

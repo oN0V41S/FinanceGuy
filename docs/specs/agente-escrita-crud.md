@@ -113,7 +113,7 @@ interface ActionCardDto {
 `AI_COMPACT_TOKENS=80000`, `AI_ACTION_TTL_MINUTES=10`, `AI_CONTEXT_CACHE_TTL_SECONDS=60`, `AI_SESSION_KEEP_MESSAGES=10`, `AI_MAX_QUEUE=5`, `AI_MAX_PENDING=20`.
 
 ### 3.5 Regras de campos (transação)
-Obrigatórios: `type`, `value > 0`, `date` (padrão hoje), `category`, `responsible` (padrão igual ao `TransactionModal`; confirmar). `title` opcional (≤ 100). `paid` padrão `true`. Tipo inferido por verbos ("recebi" → income; "gastei/paguei" → expense). Categoria: palavra-chave; senão a IA sugere entre as existentes.
+Obrigatórios: `type`, `value > 0`, `date` (padrão hoje), `category`, `responsible` (padrão igual ao `TransactionModal`; confirmar). `title` opcional (≤ 100). `paid` padrão `false` (pendente; só vira pago se o usuário disser). Tipo inferido por verbos ("recebi" → income; "gastei/paguei" → expense). Categoria: palavra-chave; senão a IA sugere entre as existentes.
 
 ### 3.6 Utilitários
 `formatDateBR` (sem `new Date('YYYY-MM-DD')`), `parseBRL` (extraído de `parseSearchAmount`, com re-export).

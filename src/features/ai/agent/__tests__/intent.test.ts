@@ -18,6 +18,10 @@ describe('classifyIntent', () => {
       expect(classifyIntent(msg)).toEqual({ kind: 'read' });
     });
 
+    it.each(['novo mês começou bem', 'Meu novo salário caiu', 'O novo saldo ficou ok'])('"%s" com "novo" solto é leitura', (msg) => {
+      expect(classifyIntent(msg)).toEqual({ kind: 'read' });
+    });
+
     it('verbo no começo com "?" continua sendo comando', () => {
       expect(classifyIntent('Crie uma despesa de 50?').kind).toBe('write');
     });
@@ -36,6 +40,15 @@ describe('classifyIntent', () => {
     });
 
     it.each([
+      ['Nova Transação "Aniversário Rafael", "50", "Rafael", "28/11", "Não paga".', 'create', 'transaction'],
+      ['Quero uma nova despesa de 30', 'create', 'transaction'],
+      ['Novo investimento em CDB', 'create', 'investment'],
+      ['Inclua uma receita de 100', 'create', 'transaction'],
+      ['Anote um gasto de 20', 'create', 'transaction'],
+      ['Ganhei 200 de freela', 'create', 'transaction'],
+      ['Troque o valor da despesa do uber', 'update', 'transaction'],
+      ['Ajuste a transação do mercado', 'update', 'transaction'],
+      ['Tire a despesa do uber', 'delete', 'transaction'],
       ['Lançar uma receita de 100', 'create', 'transaction'],
       ['Registre um gasto de 20', 'create', 'transaction'],
       ['Cadastrar investimento em CDB', 'create', 'investment'],

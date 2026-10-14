@@ -50,6 +50,7 @@ export function resolveQuestionPeriod(question: string, now: Date): QuestionPeri
   if (m) return make(current - Number(m[1]), current - Number(m[1]));
 
   if (/\bmes passado\b|\bultimo mes\b/.test(text)) return make(current - 1, current - 1);
+  if (/\b(?:proximo mes|mes que vem|mes seguinte)\b/.test(text)) return make(current + 1, current + 1);
   if (/\bano passado\b/.test(text)) return make(idx(cy - 1, 1), idx(cy - 1, 12));
   if (/\b(este|esse|neste|nesse|deste|desse) ano\b/.test(text)) return make(idx(cy, 1), idx(cy, 12));
 

@@ -18,6 +18,8 @@ describe('resolveQuestionPeriod', () => {
     ['quanto vou gastar em dezembro de 2026?', ['2026-12', '2026-12']],
     ['e em 2027?', ['2027-01', '2027-12']],
     ['e no mês passado?', ['2026-09', '2026-09']],
+    ['Quanto vou gastar no próximo mês?', ['2026-11', '2026-11']],
+    ['e no mês que vem?', ['2026-11', '2026-11']],
     ['últimos 12 meses', ['2025-11', '2026-10']],
     ['há 8 meses atrás', ['2026-02', '2026-02']],
     ['de março a maio de 2025', ['2025-03', '2025-05']],

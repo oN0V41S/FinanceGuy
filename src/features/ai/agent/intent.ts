@@ -21,14 +21,26 @@ export const MAX_SEGMENTS = 5;
 const VERBS: Record<IntentOp, string[]> = {
   create: [
     'criar', 'crie', 'adicionar', 'adicione', 'registrar', 'registre', 'lancar', 'lance',
-    'cadastrar', 'cadastre', 'gastei', 'paguei', 'recebi', 'comprei',
+    'cadastrar', 'cadastre', 'gastei', 'paguei', 'recebi', 'comprei', 'ganhei',
+    'incluir', 'inclua', 'inserir', 'insira', 'anotar', 'anote', 'salvar', 'salve', 'colocar', 'coloque',
+    'gerar', 'gere', 'nova', 'novo', 'novas', 'novos',
   ],
-  update: ['alterar', 'altere', 'mudar', 'mude', 'editar', 'edite', 'atualizar', 'atualize', 'corrigir', 'corrija'],
-  delete: ['remover', 'remova', 'excluir', 'exclua', 'apagar', 'apague', 'deletar', 'delete'],
+  update: [
+    'alterar', 'altere', 'mudar', 'mude', 'editar', 'edite', 'atualizar', 'atualize', 'corrigir', 'corrija',
+    'modificar', 'modifique', 'trocar', 'troque', 'ajustar', 'ajuste', 'renomear', 'renomeie',
+  ],
+  delete: [
+    'remover', 'remova', 'excluir', 'exclua', 'apagar', 'apague', 'deletar', 'delete',
+    'eliminar', 'elimine', 'tirar', 'tire',
+  ],
 };
 
 /** Verbos no passado já implicam uma transação ("gastei 50 no mercado"). */
-const IMPLICIT_TRANSACTION_VERBS = ['gastei', 'paguei', 'recebi', 'comprei'];
+const IMPLICIT_TRANSACTION_VERBS = ['gastei', 'paguei', 'recebi', 'comprei', 'ganhei'];
+
+/** "nova/novo" só vale como criar quando acompanha a entidade ("nova transação"), não em "novo mês". */
+const NEW_WORDS = new Set(['nova', 'novo', 'novas', 'novos']);
+const NEW_ENTITY = /\bnov[ao]s?\s+(?:transacao|transacoes|despesa|despesas|receita|receitas|gasto|gastos|lancamento|lancamentos|investimento|investimentos|ativo|ativos|categoria|categorias)\b/;
 
 const ENTITIES: Record<IntentEntity, string[]> = {
   transaction: [
@@ -66,6 +78,14 @@ function findFirst<T extends string>(norm: string, table: Record<T, string[]>): 
   return best;
 }
 
+function findVerb(norm: string): Found<IntentOp> | undefined {
+  const found = findFirst(norm, VERBS);
+  if (!found || !NEW_WORDS.has(found.word) || NEW_ENTITY.test(norm)) return found;
+  // "novo" solto (ex.: "novo mês"): ignora e procura outro verbo.
+  const stripped = norm.replace(new RegExp(`\\b(?:${[...NEW_WORDS].join('|')})\\b`, 'g'), ' ');
+  return findFirst(stripped, VERBS);
+}
+
 function startsWithVerb(norm: string): boolean {
   const first = norm.replace(/^(?:por favor|favor)[\s,]+/, '').split(/[\s,.:!?]+/)[0];
   return Object.values(VERBS).some((list) => list.includes(first));
@@ -99,7 +119,7 @@ export function classifyIntent(message: string): Intent {
   const parts = splitSegments(message);
   const analysed = parts.map((text) => {
     const n = normalize(text);
-    return { text, n, verb: findFirst(n, VERBS), entity: findFirst(n, ENTITIES) };
+    return { text, n, verb: findVerb(n), entity: findFirst(n, ENTITIES) };
   });
 
   if (!analysed.some((s) => s.verb)) return { kind: 'read' };

@@ -1,24 +1,74 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { HeaderLayout } from '@/features/dashboard/components/HeaderLayout';
 import { MobileNavBar } from '@/features/dashboard/components/MobileNavBar';
-import { Plus } from 'lucide-react';
+import { PanelLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AskForm } from '@/features/ai/components/AskForm';
 import { ChatMessage } from '@/features/ai/components/ChatMessage';
+import { ConversationSidebar } from '@/features/ai/components/ConversationSidebar';
+import { ProfileEditor } from '@/features/ai/components/ProfileEditor';
 import { useAssistant } from '@/features/ai/hooks/useAssistant';
+import { useConversations } from '@/features/ai/hooks/useConversations';
 
 export default function AssistentePage() {
-  const { status, messages, error, ask, hydrate, newConversation, isHydrating, isStartingNew, actions } =
-    useAssistant();
+  const {
+    status,
+    messages,
+    error,
+    ask,
+    hydrate,
+    newConversation,
+    openConversation,
+    sessionId,
+    isHydrating,
+    isStartingNew,
+    actions,
+  } = useAssistant();
+  const conversations = useConversations();
+  const { refresh: refreshSessions, remove: removeSession, loadProfile } = conversations;
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const isLoading = status === 'loading';
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void hydrate();
   }, [hydrate]);
+
+  // Mantém a lista em dia: ao carregar, ao trocar de conversa e após cada resposta (título novo).
+  useEffect(() => {
+    void refreshSessions();
+  }, [refreshSessions, sessionId, status]);
+
+  const handleSelect = (id: string) => {
+    setProfileOpen(false);
+    setSidebarOpen(false);
+    void openConversation(id);
+  };
+
+  const handleNew = () => {
+    setProfileOpen(false);
+    setSidebarOpen(false);
+    void newConversation();
+  };
+
+  const handleOpenProfile = () => {
+    setProfileOpen(true);
+    void loadProfile();
+  };
+
+  const handleDelete = useCallback(
+    async (id: string): Promise<boolean> => {
+      const ok = await removeSession(id);
+      // Excluiu a conversa aberta: abre uma nova em vez de deixar a tela com mensagens órfãs.
+      if (ok && id === sessionId) await newConversation();
+      return ok;
+    },
+    [removeSession, sessionId, newConversation],
+  );
 
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' });
@@ -30,7 +80,34 @@ export default function AssistentePage() {
         <HeaderLayout />
 
         <main className="flex-1 p-4 md:p-6">
-          <div className="max-w-3xl mx-auto space-y-6">
+          <div className="max-w-5xl mx-auto md:grid md:grid-cols-[17rem_minmax(0,1fr)] md:gap-6">
+          <aside
+            aria-label="Barra lateral de conversas"
+            className={`${sidebarOpen ? 'block' : 'hidden'} md:block mb-4 md:mb-0 space-y-4`}
+          >
+            <ConversationSidebar
+              sessions={conversations.sessions}
+              activeId={sessionId}
+              isLoading={conversations.isLoading}
+              error={conversations.error}
+              disabled={isLoading || isStartingNew}
+              onSelect={handleSelect}
+              onNew={handleNew}
+              onRename={conversations.rename}
+              onDelete={handleDelete}
+              onOpenProfile={handleOpenProfile}
+            />
+            {profileOpen && (
+              <ProfileEditor
+                initial={conversations.profile}
+                error={conversations.profileError}
+                isBusy={conversations.isProfileBusy}
+                onSave={conversations.saveProfile}
+                onClose={() => setProfileOpen(false)}
+              />
+            )}
+          </aside>
+          <div className="min-w-0 space-y-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-semibold text-on-surface font-display">Assistente</h1>
@@ -42,12 +119,12 @@ export default function AssistentePage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => void newConversation()}
-                disabled={isLoading || isStartingNew}
-                className="shrink-0"
+                onClick={() => setSidebarOpen((v) => !v)}
+                aria-expanded={sidebarOpen}
+                className="shrink-0 md:hidden"
               >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                Nova conversa
+                <PanelLeft className="h-4 w-4" aria-hidden="true" />
+                Conversas
               </Button>
             </div>
 
@@ -102,6 +179,7 @@ export default function AssistentePage() {
                 Google para gerar a resposta. O assistente não oferece aconselhamento profissional.
               </p>
             </div>
+          </div>
           </div>
         </main>
       </div>

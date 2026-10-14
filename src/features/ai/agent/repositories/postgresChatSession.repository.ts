@@ -63,6 +63,46 @@ export class PostgresChatSessionRepository implements IChatSessionRepository {
     });
   }
 
+  async listSessions(userId: string): Promise<ChatSessionRecord[]> {
+    return prisma.chatSession.findMany({ where: { userId }, orderBy: { updatedAt: 'desc' }, take: 100 });
+  }
+
+  async getById(sessionId: string, userId: string): Promise<ChatSessionRecord | null> {
+    return prisma.chatSession.findFirst({ where: { id: sessionId, userId } });
+  }
+
+  async activate(sessionId: string, userId: string): Promise<boolean> {
+    const target = await prisma.chatSession.findFirst({ where: { id: sessionId, userId }, select: { id: true } });
+    if (!target) return false;
+    await prisma.$transaction([
+      prisma.chatSession.updateMany({ where: { userId, status: 'active', NOT: { id: sessionId } }, data: { status: 'archived' } }),
+      prisma.chatSession.updateMany({ where: { id: sessionId, userId }, data: { status: 'active' } }),
+    ]);
+    return true;
+  }
+
+  async setTitle(sessionId: string, userId: string, title: string, onlyIfEmpty = false): Promise<boolean> {
+    const result = await prisma.chatSession.updateMany({
+      where: { id: sessionId, userId, ...(onlyIfEmpty ? { title: null } : {}) },
+      data: { title },
+    });
+    return result.count > 0;
+  }
+
+  async remove(sessionId: string, userId: string): Promise<boolean> {
+    const result = await prisma.chatSession.deleteMany({ where: { id: sessionId, userId } });
+    return result.count > 0;
+  }
+
+  async getProfile(userId: string): Promise<string | null> {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { aiProfile: true } });
+    return user?.aiProfile ?? null;
+  }
+
+  async setProfile(userId: string, profile: string | null): Promise<void> {
+    await prisma.user.update({ where: { id: userId }, data: { aiProfile: profile } });
+  }
+
   async setSummary(
     sessionId: string,
     userId: string,

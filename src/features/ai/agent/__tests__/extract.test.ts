@@ -175,6 +175,21 @@ describe('extractTransactionFields', () => {
     });
   });
 
+  describe('negação de pago', () => {
+    it.each(['Nova Transação "Aniversário Rafael", "50", "Rafael", "28/11", "Não paga".', 'luz 100 não foi paga', 'luz 100 em aberto'])(
+      '%s -> paid=false',
+      (text) => {
+        expect(extractTransactionFields(text, NOW).paid).toBe(false);
+      },
+    );
+
+    it('título não carrega "Nova" nem "Não"', () => {
+      expect(extractTransactionFields('Nova Transação "Aniversário Rafael", "50", "28/11", "Não paga".', NOW).title).toBe(
+        'Aniversário Rafael',
+      );
+    });
+  });
+
   describe('responsável', () => {
     it('extrai uma palavra e não a mistura no título', () => {
       const r = extractTransactionFields('gastei 50 no mercado responsável Maria', NOW);
@@ -190,6 +205,16 @@ describe('extractTransactionFields', () => {
       const r = extractTransactionFields('gastei 50 responsável Maria no mercado', NOW);
       expect(r.responsible).toBe('Maria');
       expect(r.title).toBe('Mercado');
+    });
+
+    it('aceita nome entre aspas e "Responsável" decomposto (NFD)', () => {
+      const msg = 'Quero criar uma transação chamada "Aniversário Rafael" Responsável "Rafael", Valor 50, data 28/11';
+      for (const text of [msg, msg.normalize('NFD')]) {
+        const r = extractTransactionFields(text, NOW);
+        expect(r.responsible).toBe('Rafael');
+        expect(r.value).toBe(50);
+        expect(r.date).toBe('2026-11-28');
+      }
     });
 
     it('ausente => undefined', () => {

@@ -52,7 +52,7 @@ function validCategory(v: unknown): boolean {
 
 /**
  * Calcula campos obrigatórios faltantes e aplica padrões.
- * create/transaction: type, value>0, category, responsible obrigatórios; date padrão hoje; paid padrão true.
+ * create/transaction: type, value>0, category, responsible obrigatórios; date padrão hoje; paid padrão false (só vira pago se o usuário disser).
  * update: ao menos um campo alterado. delete: nada.
  */
 export function computeMissing(
@@ -73,7 +73,7 @@ export function computeMissing(
   }
 
   if (isBlank(result.date)) result.date = opts.today ?? todayBRT(opts.now ?? new Date());
-  if (result.paid === undefined || result.paid === null) result.paid = true;
+  if (result.paid === undefined || result.paid === null) result.paid = false;
   if (isBlank(result.responsible) && !isBlank(opts.defaultResponsible)) {
     result.responsible = opts.defaultResponsible!.trim();
   }

@@ -26,9 +26,10 @@ export function requireUserId(request: NextRequest): string | NextResponse<AskEr
 export async function readBody<S extends z.ZodType>(
   request: NextRequest,
   schema: S,
+  maxBytes: number = MAX_BODY_BYTES,
 ): Promise<{ data: z.infer<S> } | { error: NextResponse<AskErrorBody> }> {
   const raw = await request.text();
-  if (!raw || Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
+  if (!raw || Buffer.byteLength(raw, 'utf8') > maxBytes) {
     return { error: jsonError(INVALID_BODY_MESSAGE, 400) };
   }
   let body: unknown;

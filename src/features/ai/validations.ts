@@ -40,3 +40,24 @@ export const ConfirmActionsSchema = z.object({
 });
 
 export const CancelQueueSchema = z.object({ queueId: ID });
+
+// ── Conversas e perfil ──
+
+export const MAX_SESSION_TITLE_LENGTH = 60;
+export const MAX_PROFILE_LENGTH = 2000;
+
+export const RenameSessionSchema = z.object({
+  title: z
+    .string({ error: 'Informe um título' })
+    .trim()
+    .min(1, 'Informe um título')
+    .max(MAX_SESSION_TITLE_LENGTH, `O título deve ter no máximo ${MAX_SESSION_TITLE_LENGTH} caracteres`),
+});
+
+/** Perfil vazio limpa a descrição. */
+export const ProfileSchema = z.object({
+  profile: z
+    .string({ error: 'Descrição inválida' })
+    .trim()
+    .max(MAX_PROFILE_LENGTH, `A descrição deve ter no máximo ${MAX_PROFILE_LENGTH} caracteres`),
+});

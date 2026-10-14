@@ -13,6 +13,13 @@ function setup(overrides: { maxPending?: number; maxQueue?: number; defaultRespo
     appendMessage: jest.fn().mockResolvedValue({}),
     getLlmHistory: jest.fn(),
     getSessionDto: jest.fn(),
+    listSessions: jest.fn(),
+    activateSession: jest.fn(),
+    renameSession: jest.fn(),
+    deleteSession: jest.fn(),
+    ensureTitle: jest.fn(),
+    getProfile: jest.fn(),
+    setProfile: jest.fn(),
     maybeCompact: jest.fn().mockResolvedValue({ compacted: false }),
   };
   const llm: jest.Mocked<ILlmProvider> = { complete: jest.fn() };

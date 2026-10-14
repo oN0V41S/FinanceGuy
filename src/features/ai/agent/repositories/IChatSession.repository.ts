@@ -6,6 +6,7 @@ export type ChatMessageKind = 'text' | 'actions' | 'pick' | 'compacted';
 export interface ChatSessionRecord {
   id: string;
   userId: string;
+  title: string | null;
   summary: string | null;
   tokenCount: number;
   status: string;
@@ -47,6 +48,17 @@ export interface IChatSessionRepository {
   listMessages(sessionId: string, userId: string): Promise<ChatMessageRecord[]>;
   updateTokenCount(sessionId: string, userId: string, increment: number): Promise<void>;
   markCompacted(sessionId: string, userId: string, messageIds: string[]): Promise<void>;
+  /** Todas as conversas do usuário (ativa e arquivadas), mais recentes primeiro. */
+  listSessions(userId: string): Promise<ChatSessionRecord[]>;
+  getById(sessionId: string, userId: string): Promise<ChatSessionRecord | null>;
+  /** Torna `sessionId` a única ativa. Retorna false se não for do usuário. */
+  activate(sessionId: string, userId: string): Promise<boolean>;
+  /** Define o título; com `onlyIfEmpty` não sobrescreve um título existente (renomeado pelo usuário). */
+  setTitle(sessionId: string, userId: string, title: string, onlyIfEmpty?: boolean): Promise<boolean>;
+  /** Exclui a conversa (mensagens e ações em cascata). Retorna false se não for do usuário. */
+  remove(sessionId: string, userId: string): Promise<boolean>;
+  getProfile(userId: string): Promise<string | null>;
+  setProfile(userId: string, profile: string | null): Promise<void>;
   setSummary(
     sessionId: string,
     userId: string,

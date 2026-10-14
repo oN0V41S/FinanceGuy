@@ -6,7 +6,7 @@ describe('computeMissing', () => {
   it('create completo aplica data e paid padrão', () => {
     const r = computeMissing('transaction', 'create', full, { today: '2026-10-14' });
     expect(r.missing).toEqual([]);
-    expect(r.fields).toMatchObject({ date: '2026-10-14', paid: true });
+    expect(r.fields).toMatchObject({ date: '2026-10-14', paid: false });
   });
 
   it('mantém data e paid informados', () => {
@@ -47,8 +47,8 @@ describe('computeMissing', () => {
     expect(computeMissing('transaction', 'create', { ...full, responsible: '' }, { defaultResponsible: '  ' }).missing).toHaveLength(1);
   });
 
-  it('paid nulo vira true', () => {
-    expect(computeMissing('transaction', 'create', { ...full, paid: null }).fields.paid).toBe(true);
+  it('paid nulo vira false (pendente por padrão)', () => {
+    expect(computeMissing('transaction', 'create', { ...full, paid: null }).fields.paid).toBe(false);
   });
 
   it('update exige ao menos um campo alterado', () => {

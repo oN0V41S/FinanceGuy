@@ -5,7 +5,7 @@ import { AiContextLoadError } from './errors';
 import { buildFinancialContext, getBrtPeriod } from './financialContext';
 import { resolveQuestionPeriod } from './questionPeriod';
 import { buildSystemPrompt, buildUserMessage } from './systemPrompt';
-import type { AskResult, ILlmProvider } from './types';
+import type { AskResult, ILlmProvider, LlmMessage } from './types';
 
 export interface AiServiceDeps {
   transactions: Pick<TransactionService, 'getAllTransactions'>;
@@ -13,6 +13,12 @@ export interface AiServiceDeps {
   investments: Pick<InvestmentService, 'getAllInvestments'>;
   llm: ILlmProvider;
   now?: () => Date;
+}
+
+/** Contexto da conversa: histórico (sem dados financeiros) e perfil descrito pelo usuário. */
+export interface AskOptions {
+  history?: LlmMessage[];
+  profile?: string | null;
 }
 
 const NO_DATA_ANSWER =
@@ -25,7 +31,7 @@ export class AiService {
     this.now = deps.now ?? (() => new Date());
   }
 
-  async ask(userId: string, question: string): Promise<AskResult> {
+  async ask(userId: string, question: string, options: AskOptions = {}): Promise<AskResult> {
     // Sem userId o repositório devolveria dados de TODOS os usuários: barra antes de qualquer consulta.
     if (!userId) {
       throw new Error('Usuário não identificado');
@@ -57,7 +63,10 @@ export class AiService {
     const startedAt = Date.now();
     const response = await this.deps.llm.complete({
       system: buildSystemPrompt(),
-      messages: [{ role: 'user', content: buildUserMessage(JSON.stringify(context), question) }],
+      messages: [
+        ...(options.history ?? []),
+        { role: 'user', content: buildUserMessage(JSON.stringify(context), question, options.profile) },
+      ],
     });
 
     console.info('[ai.service] Pergunta respondida', {

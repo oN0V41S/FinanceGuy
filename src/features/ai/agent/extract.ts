@@ -12,7 +12,7 @@ export interface ExtractedTransactionFields {
 }
 
 const MAX_RESPONSIBLE = 50;
-const RESPONSIBLE_RE = /\bresp(?:onsavel|onsável|\.)?\s*(?:[:=-]|é|e|sera|será)?\s*(\p{L}[\p{L}'-]*)(?:\s+(\p{L}[\p{L}'-]*))?/iu;
+const RESPONSIBLE_RE = /\bresp(?:onsavel|onsável|\.)?\s*(?:[:=-]|é|e|sera|será)?\s*["“'‘]?(\p{L}[\p{L}'-]*)(?:\s+(\p{L}[\p{L}'-]*))?["”’']?/iu;
 
 /** "responsável Maria" / "resp: João Silva" -> nome (1 palavra; 2ª só se capitalizada). Retorna o texto sem o trecho. */
 function extractResponsible(text: string): { name?: string; rest: string } {
@@ -20,8 +20,9 @@ function extractResponsible(text: string): { name?: string; rest: string } {
   if (!m) return { rest: text };
   const second = m[2] && /^\p{Lu}/u.test(m[2]) ? m[2] : undefined;
   const name = [m[1], second].filter(Boolean).join(' ').slice(0, MAX_RESPONSIBLE);
-  const consumed = second ? m[0] : m[0].slice(0, m[0].length - (m[2] ? m[2].length : 0)).trimEnd();
-  const rest = `${text.slice(0, m.index)} ${text.slice(m.index + consumed.length)}`.replace(/\s+/g, ' ').trim();
+  let end = second ? m.index + m[0].length : m.index + m[0].indexOf(m[1]) + m[1].length;
+  if (!second && /["”’']/.test(text.charAt(end))) end += 1;
+  const rest = `${text.slice(0, m.index)} ${text.slice(end)}`.replace(/\s+/g, ' ').trim();
   return { name, rest };
 }
 
@@ -149,7 +150,13 @@ function extractType(norm: string): 'income' | 'expense' | undefined {
 }
 
 function extractPaid(norm: string): boolean | undefined {
-  if (/\b(?:pendente|a pagar|vence|vencimento|ainda nao (?:paguei|pago))\b/.test(norm)) return false;
+  if (
+    /\b(?:pendente|a pagar|vence|vencimento|em aberto|(?:ainda )?nao (?:paguei|pago)|nao (?:esta |foi )?(?:paga|pago|pagas|pagos))\b/.test(
+      norm,
+    )
+  ) {
+    return false;
+  }
   if (/\b(?:paguei|pago|paga|pagos)\b/.test(norm)) return true;
   return undefined;
 }
@@ -161,7 +168,8 @@ const NOISE_WORDS = new Set(
     'despesa', 'despesas', 'receita', 'receitas', 'gasto', 'gastos', 'transacao', 'transacoes',
     'lancamento', 'lancamentos', 'compra', 'recebimento',
     'hoje', 'ontem', 'anteontem', 'reais', 'real', 'contos', 'conto', 'pila', 'pilas', 'pendente', 'vence',
-    'vencimento',
+    'vencimento', 'nova', 'novo', 'novas', 'novos', 'nao', 'incluir', 'inclua', 'inserir', 'insira', 'anotar',
+    'anote', 'salvar', 'salve', 'colocar', 'coloque', 'gerar', 'gere',
   ],
 );
 
@@ -203,7 +211,7 @@ function extractTitle(text: string): string | undefined {
  * Data ausente => undefined (o padrão "hoje" é aplicado em computeMissing).
  */
 export function extractTransactionFields(text: string, now: Date): ExtractedTransactionFields {
-  const { name: responsible, rest } = extractResponsible(sanitizeText(text));
+  const { name: responsible, rest } = extractResponsible(sanitizeText(text).normalize('NFC'));
   const clean = rest;
   const norm = normalize(clean);
   const fields: ExtractedTransactionFields = {};

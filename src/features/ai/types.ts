@@ -203,6 +203,10 @@ export interface UseAssistantResult {
   hydrate: () => Promise<void>;
   /** FING-18: arquiva a conversa ativa e inicia outra (POST /api/ai/session). */
   newConversation: () => Promise<void>;
+  /** Troca para outra conversa da barra lateral. */
+  openConversation: (id: string) => Promise<void>;
+  /** Id da conversa ativa (null até hidratar). */
+  sessionId: string | null;
   isHydrating: boolean;
   isStartingNew: boolean;
   /** API de ações dos cards (confirmar, editar, escolher, cancelar). */
@@ -309,8 +313,17 @@ export interface CancelQueueRequest {
 
 export interface SessionDto {
   sessionId: string;
+  title?: string | null;
   messages: ChatMessage[];
   tokenCount: number;
+}
+
+/** Item da barra lateral de conversas. */
+export interface SessionSummaryDto {
+  id: string;
+  title: string | null;
+  active: boolean;
+  updatedAt: string;
 }
 
 export interface AgentConfig {
