@@ -44,3 +44,37 @@ describe('getAiConfig', () => {
     expect(c.rateLimitPerDay).toBe(50);
   });
 });
+
+describe('getAgentConfig', () => {
+  const { getAgentConfig } = jest.requireActual('../config') as typeof import('../config');
+
+  it('usa defaults 10/5/20/80000/60/10 sem env', () => {
+    expect(getAgentConfig({})).toEqual({
+      actionTtlMinutes: 10,
+      maxQueue: 5,
+      maxPending: 20,
+      compactTokens: 80000,
+      contextCacheTtlSeconds: 60,
+      sessionKeepMessages: 10,
+    });
+  });
+
+  it('lê da env e cai no default quando inválido', () => {
+    const c = getAgentConfig({
+      AI_ACTION_TTL_MINUTES: '3',
+      AI_MAX_QUEUE: 'abc',
+      AI_MAX_PENDING: '-1',
+      AI_COMPACT_TOKENS: '1000',
+      AI_CONTEXT_CACHE_TTL_SECONDS: '0',
+      AI_SESSION_KEEP_MESSAGES: '4',
+    });
+    expect(c).toEqual({
+      actionTtlMinutes: 3,
+      maxQueue: 5,
+      maxPending: 20,
+      compactTokens: 1000,
+      contextCacheTtlSeconds: 60,
+      sessionKeepMessages: 4,
+    });
+  });
+});

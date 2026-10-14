@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { aiRateLimiter, aiService } from '@/core/container';
+import { aiAgent, aiRateLimiter, aiService } from '@/core/container';
 import { AskSchema } from '../validations';
 import type { AskErrorBody, AskResponseBody } from '../types';
 import { aiErrorResponse, rateLimitedResponse } from './errors';
@@ -37,6 +37,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<AskRespon
       return badRequest(parsed.error.issues[0]?.message ?? INVALID_BODY_MESSAGE);
     }
 
+    // FING-18: pedidos de escrita são tratados pelo agente (a cota só é consumida se houver chamada ao LLM).
+    // Retorna null para perguntas, que seguem o fluxo de leitura abaixo.
+    const proposal = await aiAgent?.propose(userId, parsed.data.question, parsed.data.sessionId);
+    if (proposal) {
+      return NextResponse.json(proposal, { headers: { 'Cache-Control': 'no-store' } });
+    }
+
     // Requisição inválida não consome cota: o limiter vem depois da validação.
     const limit = await aiRateLimiter.consume(userId);
     if (!limit.allowed) {
@@ -44,6 +51,15 @@ export async function POST(request: NextRequest): Promise<NextResponse<AskRespon
     }
 
     const result = await aiService.ask(userId, parsed.data.question);
+
+    // Registra o turno na sessão (best-effort; nunca falha a resposta).
+    const sessionId = await aiAgent?.recordTurn(userId, parsed.data.sessionId, parsed.data.question, result);
+    if (sessionId) {
+      return NextResponse.json(
+        { ...result, kind: 'answer' as const, sessionId },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
 
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {

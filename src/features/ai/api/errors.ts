@@ -9,6 +9,12 @@ import {
   AiUnavailableError,
   AiUpstreamError,
 } from '../errors';
+import {
+  ActionConflictError,
+  ActionExpiredError,
+  ActionInvalidError,
+  ActionNotFoundError,
+} from '../agent/errors';
 import type { AskErrorBody, RateLimitScope } from '../types';
 
 export const RATE_LIMIT_MESSAGES: Record<RateLimitScope, string> = {
@@ -30,6 +36,11 @@ export function rateLimitedResponse(scope: RateLimitScope, retryAfterSeconds: nu
 
 /** Traduz erros de domínio em HTTP + mensagem amigável. Erros desconhecidos nunca vazam a mensagem. */
 export function aiErrorResponse(error: unknown): NextResponse<AskErrorBody> {
+  // FING-18: ações do agente. 404 vale para inexistente e para ação de outro usuário (sem vazar existência).
+  if (error instanceof ActionNotFoundError) return errorResponse('Ação não encontrada.', 404);
+  if (error instanceof ActionConflictError) return errorResponse(error.message, 409);
+  if (error instanceof ActionExpiredError) return errorResponse(error.message, 410);
+  if (error instanceof ActionInvalidError) return errorResponse(error.message, 400);
   if (error instanceof AiRateLimitedError) return rateLimitedResponse(error.scope, error.retryAfterSeconds);
   if (error instanceof AiUnavailableError) return errorResponse('O assistente está indisponível no momento.', 503);
   if (error instanceof AiBusyError) {
