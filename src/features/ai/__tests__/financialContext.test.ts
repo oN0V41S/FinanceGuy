@@ -174,7 +174,7 @@ describe('buildFinancialContext', () => {
       const dto = buildFinancialContext({ ...empty, transactions: [tx({})] }, NOW);
       expect(Object.keys(dto.recentTransactions[0]).sort()).toEqual(['category', 'date', 'paid', 'title', 'type', 'value']);
       expect(Object.keys(dto).sort()).toEqual(
-        ['currency', 'currentMonth', 'goals', 'investments', 'last6Months', 'omitted', 'recentTransactions', 'today'].sort(),
+        ['currency', 'currentMonth', 'goals', 'investments', 'last6Months', 'omitted', 'previousMonths', 'recentTransactions', 'today'].sort(),
       );
     });
 
@@ -223,6 +223,51 @@ describe('buildFinancialContext', () => {
       const dto = buildFinancialContext({ transactions: txs, goals, investments }, NOW);
       expect(JSON.stringify(dto).length).toBeLessThanOrEqual(12000);
       expect(dto.omitted.transactions).toBeGreaterThan(0);
+    });
+  });
+
+
+  describe('meses anteriores (detalhe)', () => {
+    const prev = [
+      tx({ date: '2026-08-10', type: 'expense', value: 300, paid: true, category: 'Casa', title: 'Aluguel' }),
+      tx({ date: '2026-08-12', type: 'expense', value: 80, paid: false, category: 'Lazer', title: 'Cinema' }),
+      tx({ date: '2026-08-01', type: 'income', value: 2000, paid: true, category: 'Salário', title: 'Pagamento' }),
+      tx({ date: '2026-09-03', type: 'expense', value: 50, paid: true, category: 'Alimentação', title: 'Feira' }),
+    ];
+
+    it('detalha separação pago/pendente, saldo e categorias de cada mês anterior', () => {
+      const dto = buildFinancialContext({ transactions: prev, goals: [], investments: [] }, NOW);
+      expect(dto.previousMonths.map((m) => m.month)).toEqual(['2026-05', '2026-06', '2026-07', '2026-08', '2026-09']);
+      const aug = dto.previousMonths.find((m) => m.month === '2026-08')!;
+      expect(aug.income).toEqual({ paid: 2000, pending: 0, total: 2000 });
+      expect(aug.expense).toEqual({ paid: 300, pending: 80, total: 380 });
+      expect(aug.balance).toEqual({ realized: 1700, projected: 1620 });
+      expect(aug.byCategory[0]).toEqual({ category: 'Salário', type: 'income', total: 2000 });
+      expect(aug.topTransactions.map((t) => t.title)).toEqual(['Pagamento', 'Aluguel', 'Cinema']);
+    });
+
+    it('não vaza campos sensíveis nos meses anteriores', () => {
+      const dto = buildFinancialContext({ transactions: prev, goals: [], investments: [] }, NOW);
+      const json = JSON.stringify(dto.previousMonths);
+      for (const s of ['SENTINELA', 'tx-secret-id', 'description', 'responsible']) expect(json).not.toContain(s);
+      expect(Object.keys(dto.previousMonths[3].topTransactions[0]).sort()).toEqual(['category', 'date', 'paid', 'title', 'type', 'value']);
+    });
+
+    it('limita top transações (5) e categorias (8) por mês anterior', () => {
+      const many = Array.from({ length: 12 }, (_, i) => tx({ date: '2026-07-10', value: i + 1, category: 'Cat' + i }));
+      const dto = buildFinancialContext({ transactions: many, goals: [], investments: [] }, NOW);
+      const jul = dto.previousMonths.find((m) => m.month === '2026-07')!;
+      expect(jul.topTransactions).toHaveLength(5);
+      expect(jul.byCategory).toHaveLength(8);
+      expect(jul.topTransactions[0].value).toBe(12);
+    });
+
+    it('mantém o teto de 12k caracteres com muitos meses cheios', () => {
+      const many = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'].flatMap((m) =>
+        Array.from({ length: 30 }, (_, i) => tx({ date: m + '-10', value: i + 1, category: 'Cat' + i, title: 'T'.repeat(59) + i })),
+      );
+      const dto = buildFinancialContext({ transactions: many, goals: [], investments: [] }, NOW);
+      expect(JSON.stringify(dto).length).toBeLessThanOrEqual(12000);
     });
   });
 

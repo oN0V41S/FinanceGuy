@@ -12,10 +12,30 @@ export interface LlmMessage {
   content: string;
 }
 
+/** Tool exposta ao LLM (FING-18). `parameters` é um JSON Schema (gerado via z.toJSONSchema). */
+export interface LlmToolDeclaration {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface LlmToolCall {
+  name: string;
+  args: Record<string, unknown>;
+}
+
+/** `any` força uma tool call dentre `allowedNames`; `none` desliga tools. */
+export interface LlmToolChoice {
+  mode: 'any' | 'none';
+  allowedNames?: string[];
+}
+
 export interface LlmRequest {
   system: string;
   /** Lista de mensagens: o MVP envia uma só; FING-18 enviará o histórico da sessão. */
   messages: LlmMessage[];
+  tools?: LlmToolDeclaration[];
+  toolChoice?: LlmToolChoice;
 }
 
 export type LlmStopReason = 'stop' | 'max_tokens';
@@ -24,6 +44,8 @@ export interface LlmResponse {
   text: string;
   stopReason: LlmStopReason;
   usage?: { inputTokens?: number; outputTokens?: number };
+  /** Single-turn: a tool call é o resultado final; nunca devolvemos functionResponse ao modelo. */
+  toolCalls?: LlmToolCall[];
 }
 
 export interface ILlmProvider {
@@ -49,6 +71,22 @@ export interface FinancialContextDto {
     byCategory: Array<{ category: string; type: 'income' | 'expense'; total: number }>;
   };
   last6Months: Array<{ month: string; income: number; expense: number; balance: number }>;
+  /** Detalhe dos meses anteriores da janela (ascendente, sem o mês atual): permite responder sobre qualquer mês. */
+  previousMonths: Array<{
+    month: string; // YYYY-MM
+    income: MoneySplit;
+    expense: MoneySplit;
+    balance: { realized: number; projected: number };
+    byCategory: Array<{ category: string; type: 'income' | 'expense'; total: number }>;
+    topTransactions: Array<{
+      date: string;
+      type: 'income' | 'expense';
+      category: string;
+      value: number;
+      paid: boolean;
+      title: string;
+    }>;
+  }>;
   /** Whitelist: sem description, responsible, ids, userId, e-mail. */
   recentTransactions: Array<{
     date: string;
@@ -85,6 +123,12 @@ export interface FinancialContextSource {
 export interface AskResult {
   answer: string;
   truncated: boolean;
+  /** FING-18 (opcionais; clientes antigos ignoram). */
+  kind?: AskKind;
+  sessionId?: string;
+  queueId?: string;
+  actions?: ActionCardDto[];
+  nextSteps?: NextStepsDto;
 }
 
 export type AskResponseBody = AskResult;
@@ -107,13 +151,31 @@ export interface IRateLimiter {
 
 export type AssistantStatus = 'idle' | 'loading' | 'success' | 'error';
 
-export interface ChatMessage {
+interface ChatMessageBase {
   id: string;
   role: 'user' | 'assistant';
+  /** Sempre presente (texto ou resumo acessível do conteúdo estruturado). */
   content: string;
+}
+
+export interface TextChatMessage extends ChatMessageBase {
+  kind?: 'text';
   /** Apenas em respostas do assistente cortadas por limite de tokens. */
   truncated?: boolean;
 }
+
+export interface ActionCardsChatMessage extends ChatMessageBase {
+  kind: 'action_cards';
+  queueId: string;
+  actions: ActionCardDto[];
+  nextSteps: NextStepsDto;
+}
+
+export interface CompactedChatMessage extends ChatMessageBase {
+  kind: 'compacted';
+}
+
+export type ChatMessage = TextChatMessage | ActionCardsChatMessage | CompactedChatMessage;
 
 export interface UseAssistantResult {
   status: AssistantStatus;
@@ -136,4 +198,103 @@ export interface AiConfig {
   rateLimitPerMinute: number;
   rateLimitWindowSeconds: number;
   rateLimitPerDay: number;
+}
+
+// ── FING-18: agente de escrita (contratos congelados) ──
+
+export type AgentEntity = 'transaction' | 'investment' | 'category';
+export type AgentOp = 'create' | 'update' | 'delete';
+export type ActionStatus =
+  | 'needs_input'
+  | 'ready'
+  | 'awaiting_pick'
+  | 'confirming'
+  | 'confirmed'
+  | 'failed'
+  | 'cancelled'
+  | 'expired';
+export type AskKind = 'answer' | 'clarify' | 'actions' | 'not_found' | 'refused';
+
+export interface ActionFieldDto {
+  key: string;
+  label: string;
+  value: unknown;
+  display: string;
+  editable: boolean;
+  missing: boolean;
+  error?: string;
+}
+
+export interface MissingFieldDto {
+  key: string;
+  label: string;
+  example: string;
+}
+
+export interface ActionCardDto {
+  id: string;
+  queueId: string;
+  position: number;
+  entity: AgentEntity;
+  op: AgentOp;
+  status: ActionStatus;
+  destructive: boolean;
+  fields: ActionFieldDto[];
+  before?: ActionFieldDto[];
+  missingFields: MissingFieldDto[];
+  candidates?: Array<{ index: number; label: string }>;
+  expiresAt: string;
+  message?: string;
+}
+
+export interface NextStepsDto {
+  total: number;
+  done: number;
+  failed: number;
+  cancelled: number;
+  next?: string;
+  canConfirmAll: boolean;
+}
+
+export interface ConfirmActionsRequest {
+  ids: string[];
+}
+
+export interface ConfirmItemResult {
+  id: string;
+  status: ActionStatus;
+  message?: string;
+  card: ActionCardDto;
+}
+
+export interface ConfirmActionsResponse {
+  results: ConfirmItemResult[];
+  nextSteps: NextStepsDto;
+}
+
+export interface UpdateActionRequest {
+  fields: Record<string, unknown>;
+}
+
+export interface SelectCandidateRequest {
+  index: number;
+}
+
+export interface CancelQueueRequest {
+  queueId: string;
+}
+
+export interface SessionDto {
+  sessionId: string;
+  messages: ChatMessage[];
+  tokenCount: number;
+}
+
+export interface AgentConfig {
+  compactTokens: number;
+  actionTtlMinutes: number;
+  contextCacheTtlSeconds: number;
+  sessionKeepMessages: number;
+  maxQueue: number;
+  maxPending: number;
 }

@@ -22,7 +22,7 @@ export function ChatMessage({ message }: { message: ChatMessageData }) {
       </span>
       <div className="min-w-0 max-w-[90%] rounded-2xl rounded-tl-md bg-surface-container px-4 py-3">
         <MarkdownContent content={message.content} />
-        {message.truncated && (
+        {"truncated" in message && message.truncated && (
           <p className="mt-2 text-xs text-on-surface-variant">
             A resposta foi encurtada. Faça uma pergunta mais específica para ver os detalhes.
           </p>

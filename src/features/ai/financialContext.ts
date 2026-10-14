@@ -8,6 +8,8 @@ const MAX_LABEL_LENGTH = 60;
 // Controles C0/C1 e separadores de linha/parágrafo Unicode.
 const CONTROL_CHARS = new RegExp("[\u0000-\u001F\u007F-\u009F\u2028\u2029]", "g");
 const MAX_RECENT_TRANSACTIONS = 40;
+const MAX_PREVIOUS_CATEGORIES = 8;
+const MAX_PREVIOUS_TOP_TRANSACTIONS = 5;
 const MAX_GOALS = 20;
 const MAX_INVESTMENTS = 30;
 export const MAX_CONTEXT_JSON_CHARS = 12000;
@@ -98,6 +100,20 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date): 
   const expense = emptySplit();
   const categories = new Map<string, { category: string; type: 'income' | 'expense'; total: number }>();
   const monthly = new Map<string, { income: number; expense: number }>(period.months.map((m) => [m, { income: 0, expense: 0 }]));
+  type TxItem = FinancialContextDto['recentTransactions'][number];
+  const prevDetail = new Map(
+    period.months
+      .filter((m) => m !== period.month)
+      .map((m) => [
+        m,
+        {
+          income: emptySplit(),
+          expense: emptySplit(),
+          categories: new Map<string, { category: string; type: 'income' | 'expense'; total: number }>(),
+          txs: [] as Array<{ date: string; value: number; item: TxItem }>,
+        },
+      ]),
+  );
   const currentMonthTransactions: Array<{ date: string; value: number; item: FinancialContextDto['recentTransactions'][number] }> = [];
 
   for (const t of input.transactions) {
@@ -111,7 +127,26 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date): 
     if (isIncome) bucket.income += value;
     else bucket.expense += value;
 
-    if (monthKey !== period.month) continue;
+    if (monthKey !== period.month) {
+      const d = prevDetail.get(monthKey);
+      if (d) {
+        const paidPrev = Boolean(t.paid);
+        const typePrev = isIncome ? 'income' : 'expense';
+        const splitPrev = isIncome ? d.income : d.expense;
+        if (paidPrev) splitPrev.paid += value;
+        else splitPrev.pending += value;
+        const key = `${typePrev}:${t.category}`;
+        const ex = d.categories.get(key);
+        if (ex) ex.total += value;
+        else d.categories.set(key, { category: t.category, type: typePrev, total: value });
+        d.txs.push({
+          date,
+          value,
+          item: { date, type: typePrev, category: t.category, value: round2(value), paid: paidPrev, title: sanitizeLabel(t.title) ?? t.category },
+        });
+      }
+      continue;
+    }
 
     const paid = Boolean(t.paid);
     const split = isIncome ? income : expense;
@@ -140,6 +175,24 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date): 
 
   currentMonthTransactions.sort((a, b) => (a.date === b.date ? b.value - a.value : a.date < b.date ? 1 : -1));
   const recent = currentMonthTransactions.slice(0, MAX_RECENT_TRANSACTIONS).map((e) => e.item);
+
+  const previousMonths: FinancialContextDto['previousMonths'] = [...prevDetail.entries()].map(([month, d]) => {
+    d.txs.sort((a, b) => (a.value === b.value ? (a.date < b.date ? 1 : -1) : b.value - a.value));
+    return {
+      month,
+      income: finishSplit(d.income),
+      expense: finishSplit(d.expense),
+      balance: {
+        realized: round2(d.income.paid - d.expense.paid),
+        projected: round2(d.income.paid + d.income.pending - (d.expense.paid + d.expense.pending)),
+      },
+      byCategory: [...d.categories.values()]
+        .map((c) => ({ ...c, total: round2(c.total) }))
+        .sort((a, b) => b.total - a.total)
+        .slice(0, MAX_PREVIOUS_CATEGORIES),
+      topTransactions: d.txs.slice(0, MAX_PREVIOUS_TOP_TRANSACTIONS).map((e) => e.item),
+    };
+  });
 
   const goalsAll = input.goals.map((g) => {
     const target = Number(g.targetValue) || 0;
@@ -182,6 +235,7 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date): 
       const b = monthly.get(m) ?? { income: 0, expense: 0 };
       return { month: m, income: round2(b.income), expense: round2(b.expense), balance: round2(b.income - b.expense) };
     }),
+    previousMonths,
     recentTransactions: recent,
     goals: goalsAll.slice(0, MAX_GOALS),
     investments: investmentsAll.slice(0, MAX_INVESTMENTS),
@@ -201,6 +255,13 @@ function enforceSizeLimit(dto: FinancialContextDto): FinancialContextDto {
 
   while (size() > MAX_CONTEXT_JSON_CHARS && dto.recentTransactions.length > 0) {
     dto.recentTransactions.pop();
+    dto.omitted.transactions += 1;
+  }
+  // Meses anteriores: remove a menor transação do mês mais antigo primeiro.
+  while (size() > MAX_CONTEXT_JSON_CHARS) {
+    const target = dto.previousMonths.find((m) => m.topTransactions.length > 0);
+    if (!target) break;
+    target.topTransactions.pop();
     dto.omitted.transactions += 1;
   }
   while (size() > MAX_CONTEXT_JSON_CHARS && dto.investments.length > 0) {
