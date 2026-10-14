@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(
       { data: years },
-      { headers: { 'Cache-Control': 'private, max-age=300' } },
+      { headers: { 'Cache-Control': 'private, no-store' } },
     );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro interno do servidor';
