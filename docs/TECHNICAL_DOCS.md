@@ -395,14 +395,52 @@ Consulte [docs/BACKEND.md](docs/BACKEND.md) para detalhes completos de payloads 
 | PUT | `/api/transactions/[id]` | ✅ Implementado |
 | DELETE | `/api/transactions/[id]` | ✅ Implementado |
 | GET | `/api/transactions/opening-balance` | ✅ Implementado (saldo previsto por dia, #30) |
+| POST | `/api/ai/ask` | 🔄 Em implementação (assistente de IA, FING-7) |
 
 ---
 
 ## Integração com IA
 
-**Nota**: A integração com IA é uma funcionalidade planejada para futuras versões e ainda não foi implementada. As seções abaixo descrevem a arquitetura proposta.
+> **ATENÇÃO — rotação de chave**: a `GEMINI_API_KEY` anterior foi exposta em um commit antigo. **Revogue/rotacione a chave no Google AI Studio antes de usar a integração**, gere uma nova e coloque-a apenas em `.env.local` (local) e nas variáveis de ambiente da Vercel (produção). Nunca commite chaves; defina um teto de gasto na chave.
 
-Agente de IA executará análises internas e comandos simples de CRUD.
+**Status (FING-7 — MVP)**: o assistente de perguntas e respostas (`POST /api/ai/ask` + página `/assistente`) está em implementação em `src/features/ai/`. Categorização automática, comandos de alteração (CRUD por IA), chatbot com sessões/tools (FING-18) e RAG/pgvector (FING-16) seguem planejados. O contrato do módulo já deixa *seams* para eles: `LlmRequest.messages[]` (histórico de sessão) e `FinancialContextSource` (recuperação vetorial).
+
+**Decisão de provedor**: o provedor é **Google Gemini**, via SDK oficial `@google/genai` (o `@google/generative-ai` está deprecated). Isso **diverge da spec original do FING-7 no Notion, que citava Claude**; a spec deve ser atualizada. O provedor fica atrás da interface `ILlmProvider`, então uma troca futura não afeta serviço, rota ou UI.
+
+### Arquitetura do MVP
+
+| Arquivo (`src/features/ai/`) | Responsabilidade |
+|---|---|
+| `types.ts` / `errors.ts` / `validations.ts` | Contrato congelado: `ILlmProvider`, DTO, erros de domínio, `AskSchema` |
+| `config.ts` | Lê/valida env (Zod) de forma *lazy*; chave opcional (sem chave → 503 amigável) |
+| `financialContext.ts` | Funções puras: monta o DTO financeiro (whitelist), período em `America/Sao_Paulo` |
+| `systemPrompt.ts` | Prompt de sistema (pt-BR) e mensagem do usuário delimitada |
+| `gemini.provider.ts` | `GeminiLlmProvider` (timeout, mapeamento de erros; nenhum tipo do SDK vaza) |
+| `rateLimiter.ts` | Limite por `userId`: Upstash (INCR+EXPIRE) com fallback em memória (*fail-soft*) |
+| `ai.service.ts` | `AiService.ask(userId, question)` |
+| `api/route.ts`, `api/errors.ts` | Handler `POST` e mapeamento erro → HTTP |
+| `hooks/useAssistant.ts`, `components/` | Hook e UI do `/assistente` |
+
+**Fluxo**: `x-user-id` (proxy) → valida corpo (Zod) → rate limit → carrega transações/metas/investimentos do usuário (janela de 6 meses) → `buildFinancialContext` → LLM → `{ answer, truncated }`. Sem nenhum dado cadastrado, responde com mensagem fixa **sem chamar o LLM**.
+
+**Variáveis de ambiente** (valores reais só em `.env.local`/Vercel; placeholders em `.env.example`):
+
+| Variável | Default | Descrição |
+|---|---|---|
+| `GEMINI_API_KEY` | — | Chave do Gemini (opcional em dev/CI; ausente → 503 amigável) |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | ID do modelo; sempre via env (IDs mudam — confirmar em ai.google.dev/gemini-api/docs/models) |
+| `AI_REQUEST_TIMEOUT_MS` | `20000` | Timeout da chamada ao provedor |
+| `AI_MAX_OUTPUT_TOKENS` | `2048` | Teto de tokens de saída (thinking consome esse orçamento) |
+| `AI_RATE_LIMIT_PER_MINUTE` | `10` | Perguntas por janela, por usuário |
+| `AI_RATE_LIMIT_WINDOW_SECONDS` | `60` | Tamanho da janela |
+| `AI_RATE_LIMIT_PER_DAY` | `50` | Perguntas por dia (data em BRT) |
+
+**Observações operacionais**:
+- O cache de transações (`ICacheRepository`) pode atrasar dados em até 5 min; o assistente pode refletir esse atraso.
+- O rate limiter em memória é por instância (best-effort em serverless); com Upstash configurado o limite é compartilhado. Falha do Redis não bloqueia o recurso.
+- `src/app/api/ai/ask/route.ts` declara `runtime = 'nodejs'` e `maxDuration = 60` (acima do pior caso timeout × retries).
+- Parcelas seguem o mesmo critério do dashboard (pai + filhas); quirk pré-existente, tratado como follow-up.
+- `pnpm build` ignora erros de TS (`ignoreBuildErrors: true`): validar com `npx tsc --noEmit`.
 
 ### Funcionalidades Planejadas
 
@@ -422,12 +460,14 @@ Agente de IA executará análises internas e comandos simples de CRUD.
    - "Adiciona uma despesa de R$ 50 em Alimentação amanhã"
    - Parsear intent → Criar transação via API
 
-### Provider: Google Gemini Pro
+### Provider: Google Gemini
 
-- **Variável de Ambiente**: `GEMINI_API_KEY`
-- **Custo**: $20/mês (seu plano PRO, já configurado)
+- **SDK**: `@google/genai` (oficial); modelo via `GEMINI_MODEL`
+- **Variável de Ambiente**: `GEMINI_API_KEY` (ver tabela de env acima)
+- **Custo**: pago por uso (tokens); no MVP, controlado por limites por usuário, pergunta ≤ 500 chars, DTO limitado (~12k chars) e sem chamada ao LLM quando não há dados. Definir teto de gasto na chave.
+- **Privacidade**: no tier gratuito do Gemini API, prompts/respostas podem ser usados pelo Google para melhorar produtos; no tier pago, não. **Produção exige chave com billing ativo** (ver [security.md](security.md)).
 - **Vantagem**: Integração nativa com Node.js, multimodal ready
-- **Trade-off**: API key exposta; rotacionar regularmente
+- **Trade-off**: chave anterior exposta (rotacionar, ver aviso acima); IDs de modelo mudam com frequência (por isso `GEMINI_MODEL`)
 
 ---
 
@@ -603,7 +643,7 @@ O repositório está configurado para GitHub Flow. Consulte o [git-workflow.md](
 ### Próximas Fases
 
 - [ ] **Fase 6** (3-4h): Integração Frontend ↔ API (conectar UI com endpoints de transação e auth).
-- [ ] **Fase 7** (4-6h): Integração IA (Gemini) - *Planejado, não iniciado*.
+- [ ] **Fase 7** (4-6h): Integração IA (Gemini) - *MVP FING-7 em andamento* (`POST /api/ai/ask`, `/assistente`); chatbot (FING-18) e RAG (FING-16) planejados.
 - [ ] **Fase 8** (2h): Testes de integração ponta-a-ponta (API e UI).
 - [ ] **Fase 9** (1-2h): Deploy (Vercel).
 
@@ -618,14 +658,15 @@ O repositório está configurado para GitHub Flow. Consulte o [git-workflow.md](
 - [x] **CI/CD Security**: GitHub Actions + `pnpm audit`
 - [ ] **Autenticação**: Em progresso (endpoints de login/registro implementados, falta integração completa com NextAuth e JWT).
 - [ ] **Autorização**: Parcial (queries são filtradas por `userId` no repositório), mas falta Row-Level Security (RLS) no banco para uma camada de segurança adicional.
-- [ ] **Rate Limiting**: Middleware (futuro, para prevenir ataques de força bruta).
+- [ ] **Rate Limiting**: Middleware (futuro, para prevenir ataques de força bruta). *Exceção:* `POST /api/ai/ask` já possui limite por `userId` (minuto e dia).
+- [x] **Dados enviados a LLM**: DTO com whitelist (sem ids, e-mail, senha, tokens, `description`, `responsible`); ver [security.md](security.md).
 - [ ] **CORS**: Configurar restritivamente em produção (futuro).
 - [x] **Secrets**: Uso de variáveis de ambiente (`.env.local`) não commitadas.
 - [ ] **Logging**: Auditoria de alterações (futuro).
 
 ### Recomendações Imediatas
 
-1. **Rotacionar Gemini API Key**: Chave já exposta em commit anterior
+1. **Rotacionar Gemini API Key**: Chave já exposta em commit anterior (**obrigatório antes de habilitar o assistente**; nova chave só em `.env.local`/Vercel, com billing e teto de gasto)
 2. **Habilitar Branch Protection**: Main branch protegido por status checks
 3. **Habilitar CORS**: Restringir a origem `https://localhost:3000` em dev
 4. **Implementar Rate Limiting**: ~100 req/min por IP (middleware futuro)
@@ -649,7 +690,8 @@ vercel link
 
 # 2. Configurar variáveis de ambiente
 vercel env add DATABASE_URL "postgresql://..."
-vercel env add GEMINI_API_KEY "AIzaSy..."
+vercel env add GEMINI_API_KEY "<sua-chave-rotacionada>"
+vercel env add GEMINI_MODEL "gemini-3.8-flash"
 
 # 3. Deploy
 vercel deploy --prod

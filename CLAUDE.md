@@ -43,6 +43,7 @@ Contexto do app: Um App que Te leva a Estabilidade Financeira; Um Nubank com IA 
 - **TDD**: testes antes de implementação
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`)
 - **Branches**: GitHub Flow — nasce de `main`, squash merge de volta
+- **Worktrees**: uma worktree por tarefa (`git worktree add ../FinanceGuy-<tarefa> -b <branch> origin/main`); nunca misturar tarefas nem mexer em alterações não commitadas de outro checkout
 - **Tratamento de Erros/UX**: É CRÍTICO o código tratar de exceções de erro, trazendo tranquilidade no fluxo para o Usuário. 
 - **Planejamento**: SEMPRE que o usuário quiser planejar algo, ao consolidar o plano, crie um mapa completo de execução com sub-agents, etapas, sequências (tasks cruzadas), ou em paralelo.
 

@@ -157,6 +157,61 @@ Saldo (receitas − despesas, incluindo pendentes) das transações **estritamen
 **Front**: `useOpeningBalance` (2ª quinzena usa `before` = dia 16; mês/1ª quinzena = dia 01) + `computeRunningBalances` (`features/transactions/utils/runningBalance.ts`) → `CardTransaction` (`openingBalance`, `isBalanceLoading`). Falha no endpoint não derruba a lista: só o total do dia é exibido.
 ---
 
+## Endpoints de IA (`/api/ai`) — FING-7
+
+| Método | Rota | Status |
+|--------|------|--------|
+| POST | `/api/ai/ask` | 🔄 Em implementação (assistente de IA, provedor Google Gemini) |
+
+### 1. **POST /api/ai/ask** – Perguntar ao assistente
+
+Responde uma pergunta em linguagem natural com base em um **resumo** dos dados financeiros do usuário (mês atual, últimos 6 meses, transações recentes, metas e investimentos). O provedor é Gemini (diverge da spec original do Notion, que citava Claude). Código: `src/features/ai/` (handler em `src/features/ai/api/route.ts`, re-exportado em `src/app/api/ai/ask/route.ts` com `runtime = 'nodejs'` e `maxDuration = 60`).
+
+**Autenticação**: `x-user-id` injetado pelo proxy. O `userId` vem **somente** do header; chaves extras no corpo (ex.: `userId`) são descartadas.
+
+**Body (JSON)**:
+```json
+{ "question": "Quanto gastei com Alimentação este mês?" }
+```
+`question`: string, `trim`, 1–500 caracteres. Corpo maior que 4 KB é rejeitado.
+
+**Resposta 200** (`Cache-Control: no-store`):
+```json
+{ "answer": "Você gastou R$ 820,00 em Alimentação em outubro...", "truncated": false }
+```
+`truncated: true` indica que a resposta foi encurtada pelo limite de tokens (a UI avisa o usuário).
+
+**Ordem do handler**: 401 → leitura do corpo (limite 4 KB) + `JSON.parse` → `AskSchema` → rate limit (requisição inválida **não** consome cota) → `AiService.ask` → 200 ou erro mapeado.
+
+**Erros** (corpo `{ "error": "<mensagem>" }`; mensagens amigáveis, nunca vazam detalhes internos):
+
+| Condição | HTTP | Mensagem |
+|----------|------|----------|
+| Sem `x-user-id` | 401 | Usuário não identificado |
+| JSON inválido / corpo grande | 400 | Corpo da requisição inválido. |
+| Pergunta vazia / ausente / não-string | 400 | Digite uma pergunta |
+| Pergunta > 500 caracteres | 400 | A pergunta deve ter no máximo 500 caracteres |
+| Limite por minuto | 429 + `Retry-After` | Você fez muitas perguntas em pouco tempo. Tente novamente em alguns segundos. |
+| Limite diário | 429 + `Retry-After` | Você atingiu o limite diário de perguntas do assistente. Volte amanhã. |
+| Sem chave / modelo ou chave inválidos (upstream 400-404) | 503 | O assistente está indisponível no momento. |
+| Upstream 429/503 | 503 + `Retry-After: 30` | O assistente está com alta demanda. Tente novamente em instantes. |
+| Falha de conexão | 503 | Não foi possível falar com o assistente agora. Tente novamente. |
+| Timeout | 504 | O assistente demorou para responder. Tente novamente. |
+| Resposta inesperada / vazia | 502 | Não consegui concluir a resposta. Tente uma pergunta mais específica. |
+| Bloqueio de segurança do provedor | 422 | Não consegui responder a essa pergunta. Tente reformulá-la. |
+| Falha ao carregar dados financeiros | 500 | Não foi possível carregar seus dados financeiros agora. |
+| Erro desconhecido | 500 | Erro interno do servidor |
+
+**Rate limit**: por `userId`, janela fixa por minuto (`AI_RATE_LIMIT_PER_MINUTE`/`AI_RATE_LIMIT_WINDOW_SECONDS`, default 10/60s) e por dia em BRT (`AI_RATE_LIMIT_PER_DAY`, default 50; `Retry-After` = segundos até a meia-noite BRT). Upstash (INCR+EXPIRE) quando configurado; senão memória (por instância). Falha do Redis cai para memória (*fail-soft*).
+
+**Comportamento especial**: sem transações, metas ou investimentos, a resposta é uma mensagem fixa orientando o cadastro, **sem chamar o LLM**.
+
+**Segurança / privacidade**: apenas o DTO whitelist é enviado ao Google (sem ids, e-mail, senha, tokens, `description` ou `responsible`; títulos de transações sanitizados). Logs registram só `{name, status}` de erros e `{latencyMs, tokens, stopReason}`. Ver [docs/security.md](security.md).
+
+**Cache**: as transações vêm do serviço com cache de até 5 min (`transactions:{userId}:*`), portanto a resposta pode ter esse atraso.
+
+---
+
 ## Cache Server-side (Redis/Upstash)
 
 - **Singleton**: `src/lib/cache.ts` segue o padrão do `src/lib/prisma.ts` — uma única instância por processo.

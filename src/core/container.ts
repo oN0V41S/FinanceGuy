@@ -14,6 +14,11 @@ import { IGoalRepository } from '../features/goals/IGoal.repository';
 import { PostgresGoalRepository } from '../features/goals/postgresGoal.repository';
 import { GoalService } from '../features/goals/goal.service';
 
+import { AiService } from '../features/ai/ai.service';
+import { GeminiLlmProvider } from '../features/ai/gemini.provider';
+import { createRateLimiter } from '../features/ai/rateLimiter';
+import type { IRateLimiter } from '../features/ai/types';
+
 import { cache } from '@/lib/cache';
 import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
 
@@ -29,3 +34,12 @@ export const transactionService: TransactionService = new TransactionService(tra
 export const authService: AuthService = new AuthService(userRepository);
 export const investmentService: InvestmentService = new InvestmentService(investmentRepository);
 export const goalService: GoalService = new GoalService(goalRepository);
+
+// IA (FING-7) — construção nunca lança nem faz rede (env e SDK são lidos sob demanda)
+export const aiRateLimiter: IRateLimiter = createRateLimiter();
+export const aiService: AiService = new AiService({
+  transactions: transactionService,
+  goals: goalService,
+  investments: investmentService,
+  llm: new GeminiLlmProvider(),
+});

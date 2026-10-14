@@ -57,11 +57,19 @@ const config = {
     "src/features/auth/__tests__/auth.config.test.ts",
   ],
   
-  // Transform to handle ESM modules from node_modules
-  transformIgnorePatterns: [
-    "/node_modules/(?!(jose)/.*)",
-  ],
-  
 };
 
-export default createJestConfig(config);
+// next/jest injeta '/node_modules/' em transformIgnorePatterns; substituímos para transpilar pacotes ESM-only
+// (jose, react-markdown e a árvore unified/remark/micromark) que os testes importam.
+const ESM_PACKAGES = '(?:\\.pnpm|jose|react-markdown|remark-.*|rehype-.*|unified|unist-.*|mdast-.*|hast-.*|micromark.*|decode-named-character-reference|character-entities.*|vfile.*|bail|trough|is-plain-obj|devlop|property-information|space-separated-tokens|comma-separated-tokens|html-url-attributes|estree-util-.*|ccount|markdown-table|zwitch|longest-streak|trim-lines|stringify-entities|html-void-elements|style-to-.*|inline-style-parser|escape-string-regexp)';
+
+const buildConfig = async () => {
+  const resolved = await createJestConfig(config)();
+  resolved.transformIgnorePatterns = [
+    `/node_modules/(?!${ESM_PACKAGES}(/|@))`,
+    ...resolved.transformIgnorePatterns.filter((p) => !p.includes('node_modules')),
+  ];
+  return resolved;
+};
+
+export default buildConfig;
