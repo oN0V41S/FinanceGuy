@@ -4,7 +4,7 @@ import { IUserRepository } from '@/features/auth/IUser.repository';
 import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
 import { CreateTransactionSchema, UpdateTransactionSchema, TransactionInput } from './validations';
 import type { Transaction, FinancialSummary } from '@/types/finance';
-import type { MonthlyPoint, OpeningBalanceFilters } from './types';
+import type { MonthlyPoint, OpeningBalanceFilters, SearchTransactionsFilters } from './types';
 
 /**
  * Soma `months` a uma data 'YYYY-MM-DD' preservando o dia.
@@ -24,6 +24,9 @@ function addMonths(dateString: string, months: number): string {
 
 /** TTL padrão do cache quando CACHE_TTL não está definido (em segundos). */
 const DEFAULT_CACHE_TTL = 300;
+
+/** Máximo de resultados de searchTransactions. */
+const MAX_SEARCH_LIMIT = 5;
 
 /**
  * Escapa caracteres glob (`*`, `?`, `[`, `]`) presentes no userId ao montar
@@ -224,21 +227,28 @@ export class TransactionService {
     const validatedData = UpdateTransactionSchema.parse(data);
     const userId = (data as Partial<TransactionInput>).userId;
 
-    const updated = await this.transactionRepository.update(id, validatedData);
+    // Anti-IDOR: sem userId não há como escopar a escrita — trata como não encontrada.
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('Transação não encontrada.');
+    }
+
+    const updated = await this.transactionRepository.update(id, userId, validatedData);
 
     if (!updated) {
       throw new Error('Transação não encontrada.');
     }
 
-    if (userId) {
-      await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));
-    }
+    await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));
 
     return updated;
   }
 
   async deleteTransaction(id: string, userId: string) {
-    const success = await this.transactionRepository.delete(id);
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('Transação não encontrada.');
+    }
+
+    const success = await this.transactionRepository.delete(id, userId);
 
     if (!success) {
       throw new Error('Transação não encontrada.');
@@ -247,6 +257,16 @@ export class TransactionService {
     await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));
 
     return true;
+  }
+
+  /** Busca escopada por usuário (FING-18): no máximo 5 resultados, data desc. */
+  async searchTransactions(filters: SearchTransactionsFilters): Promise<Transaction[]> {
+    if (typeof filters.userId !== 'string' || filters.userId.trim() === '') {
+      return [];
+    }
+    const limit = Math.min(Math.max(Math.trunc(filters.limit ?? MAX_SEARCH_LIMIT), 1), MAX_SEARCH_LIMIT);
+
+    return this.transactionRepository.search({ ...filters, limit });
   }
 
   async deleteFutureTransactions(id: string, userId: string): Promise<number> {
@@ -266,7 +286,7 @@ export class TransactionService {
     // Se for o PAI (parent_transaction_id null), remove o próprio pai também.
     // Parcelas anteriores (histórico) NUNCA são alteradas — o deleteMany filtra date >= referencia.
     if (transaction.parent_transaction_id === null) {
-      await this.transactionRepository.delete(id);
+      await this.transactionRepository.delete(id, userId);
     }
 
     await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));
@@ -353,7 +373,7 @@ export class TransactionService {
 
     // Se for o PAI, atualiza o próprio pai também.
     if (transaction.parent_transaction_id === null) {
-      await this.transactionRepository.update(id, validatedData);
+      await this.transactionRepository.update(id, userId, validatedData);
     }
 
     await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));

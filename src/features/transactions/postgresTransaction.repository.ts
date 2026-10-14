@@ -1,6 +1,6 @@
 import { ITransactionRepository } from './ITransaction.repository';
 import { Transaction, FinancialSummary, TransactionInput } from '@/types/finance';
-import { MonthlyPoint, OpeningBalanceFilters } from './types';
+import { MonthlyPoint, OpeningBalanceFilters, SearchTransactionsFilters } from './types';
 import { prisma } from '@/lib/prisma';
 
 /** Mapa de número de mês (0-based) para abreviação pt-BR. */
@@ -100,40 +100,74 @@ export class PostgresTransactionRepository implements ITransactionRepository {
     };
   }
 
-  async update(id: string, data: Partial<TransactionInput>): Promise<Transaction | null> {
+  private toDomain(row: any): Transaction {
+    const { userId: _u, ...rest } = row;
+    return {
+      ...rest,
+      value: Number(rest.value),
+      date: rest.date.toISOString().split('T')[0],
+      type: rest.type as 'income' | 'expense',
+      category: rest.category as Transaction['category'],
+      title: rest.title ?? undefined,
+      description: rest.description ?? undefined,
+      installment_number: rest.installment_number ?? undefined,
+      total_installments: rest.total_installments ?? undefined,
+    };
+  }
+
+  /**
+   * Atualiza SOMENTE se a linha pertencer a `userId` (anti-IDOR). Linha de outro
+   * usuário e linha inexistente são indistinguíveis (null).
+   */
+  async update(id: string, userId: string, data: Partial<TransactionInput>): Promise<Transaction | null> {
     try {
-      const updateData: any = { ...data };
+      const { userId: _ignored, ...fields } = data;
+      const updateData: any = { ...fields };
       if (data.date) updateData.date = new Date(data.date);
 
-      const transaction = await prisma.transaction.update({
-        where: { id },
+      const result = await prisma.transaction.updateMany({
+        where: { id, userId },
         data: updateData,
       });
-      const { userId: _u, ...rest } = transaction;
+      if (result.count === 0) return null;
 
-      return {
-        ...rest,
-        value: Number(rest.value),
-        date: rest.date.toISOString().split('T')[0],
-        type: rest.type as 'income' | 'expense',
-        category: rest.category as Transaction['category'],
-        title: rest.title ?? undefined,
-        description: rest.description ?? undefined,
-        installment_number: rest.installment_number ?? undefined,
-        total_installments: rest.total_installments ?? undefined,
-      };
+      const transaction = await prisma.transaction.findFirst({ where: { id, userId } });
+      return transaction ? this.toDomain(transaction) : null;
     } catch (error) {
       return null; // Não encontrado ou erro
     }
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string, userId: string): Promise<boolean> {
     try {
-      await prisma.transaction.delete({ where: { id } });
-      return true;
+      const result = await prisma.transaction.deleteMany({ where: { id, userId } });
+      return result.count > 0;
     } catch (error) {
       return false;
     }
+  }
+
+  async search(filters: SearchTransactionsFilters): Promise<Transaction[]> {
+    const where: any = { userId: filters.userId };
+    const query = filters.query?.trim();
+    if (query) {
+      where.OR = (['title', 'description'] as const).map((field) => ({
+        [field]: { contains: query, mode: 'insensitive' },
+      }));
+    }
+    if (filters.amount !== undefined) where.value = filters.amount;
+    if (filters.startDate || filters.endDate) {
+      where.date = {};
+      if (filters.startDate) where.date.gte = new Date(filters.startDate);
+      if (filters.endDate) where.date.lte = new Date(filters.endDate);
+    }
+
+    const rows = await prisma.transaction.findMany({
+      where,
+      orderBy: { date: 'desc' },
+      take: filters.limit ?? 5,
+    });
+    return rows.map((row) => this.toDomain(row));
   }
 
   async deleteFuture(

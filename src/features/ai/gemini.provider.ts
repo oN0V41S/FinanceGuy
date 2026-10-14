@@ -1,4 +1,4 @@
-import type { GenerateContentParameters, GenerateContentResponse, ThinkingConfig } from '@google/genai';
+import type { FunctionCallingConfigMode, GenerateContentConfig, GenerateContentParameters, GenerateContentResponse, ThinkingConfig } from '@google/genai';
 import { getAiConfig } from './config';
 import {
   AiBusyError,
@@ -8,7 +8,7 @@ import {
   AiUnavailableError,
   AiUpstreamError,
 } from './errors';
-import type { AiConfig, ILlmProvider, LlmRequest, LlmResponse } from './types';
+import type { AiConfig, ILlmProvider, LlmRequest, LlmResponse, LlmToolCall } from './types';
 
 /** Subconjunto do cliente do SDK usado aqui (permite cliente fake nos testes). */
 export interface GenAiClientLike {
@@ -103,8 +103,50 @@ export class GeminiLlmProvider implements ILlmProvider {
           retryOptions: { attempts: MAX_ATTEMPTS },
         },
         abortSignal: AbortSignal.timeout(config.timeoutMs + 5000),
+        ...this.buildToolsConfig(request),
       },
     });
+  }
+
+  /** Tools single-turn: o SDK nunca executa a função (automaticFunctionCalling desligado). */
+  private buildToolsConfig(request: LlmRequest): Partial<GenerateContentConfig> {
+    const out: Partial<GenerateContentConfig> = {};
+    if (request.tools && request.tools.length > 0) {
+      out.tools = [
+        {
+          functionDeclarations: request.tools.map((t) => ({
+            name: t.name,
+            description: t.description,
+            parametersJsonSchema: t.parameters,
+          })),
+        },
+      ];
+      out.automaticFunctionCalling = { disable: true };
+    }
+    if (request.toolChoice) {
+      out.toolConfig = {
+        functionCallingConfig:
+          request.toolChoice.mode === 'any'
+            ? {
+                mode: 'ANY' as FunctionCallingConfigMode,
+                ...(request.toolChoice.allowedNames ? { allowedFunctionNames: request.toolChoice.allowedNames } : {}),
+              }
+            : { mode: 'NONE' as FunctionCallingConfigMode },
+      };
+    }
+    return out;
+  }
+
+  private parseToolCalls(response: GenerateContentResponse): LlmToolCall[] {
+    const raw = response.functionCalls;
+    if (!Array.isArray(raw)) return [];
+    const calls: LlmToolCall[] = [];
+    for (const item of raw) {
+      if (!item || typeof item.name !== 'string' || item.name === '') continue;
+      const args = item.args && typeof item.args === 'object' && !Array.isArray(item.args) ? item.args : {};
+      calls.push({ name: item.name, args: args as Record<string, unknown> });
+    }
+    return calls;
   }
 
   /** Indisponibilidade do modelo (alta demanda, timeout, 5xx, modelo inexistente) tenta o próximo; chave inválida/rede não. */
@@ -136,7 +178,8 @@ export class GeminiLlmProvider implements ILlmProvider {
     }
 
     const text = typeof response.text === 'string' ? response.text.trim() : '';
-    if (!text) {
+    const toolCalls = this.parseToolCalls(response);
+    if (!text && toolCalls.length === 0) {
       this.log('empty', { name: 'EmptyResponse', finishReason });
       throw new AiUpstreamError();
     }
@@ -148,6 +191,7 @@ export class GeminiLlmProvider implements ILlmProvider {
         inputTokens: response.usageMetadata?.promptTokenCount,
         outputTokens: response.usageMetadata?.candidatesTokenCount,
       },
+      ...(toolCalls.length > 0 ? { toolCalls } : {}),
     };
   }
 
