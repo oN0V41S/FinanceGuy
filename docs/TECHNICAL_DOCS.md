@@ -396,7 +396,7 @@ Consulte [docs/BACKEND.md](docs/BACKEND.md) para detalhes completos de payloads 
 | DELETE | `/api/transactions/[id]` | ✅ Implementado |
 | GET | `/api/transactions/opening-balance` | ✅ Implementado (saldo previsto por dia, #30) |
 | POST | `/api/ai/ask` | 🔄 Em implementação (assistente de IA, FING-7) |
-| `/api/ai/actions/*`, `/api/ai/session` | Agente de escrita e sessão de chat (FING-18) — ver BACKEND.md |
+| `/api/ai/actions/*`, `/api/ai/session`, `/api/ai/sessions/*`, `/api/ai/profile` | Agente de escrita, sessões de chat (listar/renomear/excluir/alternar) e Perfil (FING-18) — ver BACKEND.md |
 
 ---
 
@@ -420,7 +420,7 @@ Consulte [docs/BACKEND.md](docs/BACKEND.md) para detalhes completos de payloads 
 | `rateLimiter.ts` | Limite por `userId`: Upstash (INCR+EXPIRE) com fallback em memória (*fail-soft*) |
 | `ai.service.ts` | `AiService.ask(userId, question)` |
 | `api/route.ts`, `api/errors.ts` | Handler `POST` e mapeamento erro → HTTP |
-| `hooks/useAssistant.ts`, `components/` | Hook e UI do `/assistente` |
+| `hooks/useAssistant.ts`, `hooks/useConversations.ts`, `components/` | Hooks e UI do `/assistente` (inclui `ConversationSidebar` e `ProfileEditor`) |
 
 **Fluxo**: `x-user-id` (proxy) → valida corpo (Zod) → rate limit → carrega transações/metas/investimentos do usuário (janela de 6 meses) → `buildFinancialContext` → LLM → `{ answer, truncated }`. Sem nenhum dado cadastrado, responde com mensagem fixa **sem chamar o LLM**.
 

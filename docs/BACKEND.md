@@ -168,6 +168,10 @@ Saldo (receitas − despesas, incluindo pendentes) das transações **estritamen
 | POST | `/api/ai/actions/confirm` | FING-18 — confirma 1..5 ações |
 | POST | `/api/ai/actions/cancel` | FING-18 — cancela as ações abertas de uma fila |
 | GET / POST | `/api/ai/session` | FING-18 — hidrata a conversa ativa / inicia nova |
+| GET | `/api/ai/sessions` | FING-18 — lista as conversas do usuário |
+| PATCH / DELETE | `/api/ai/sessions/[id]` | FING-18 — renomeia / exclui uma conversa |
+| POST | `/api/ai/sessions/[id]/activate` | FING-18 — troca para uma conversa existente |
+| GET / PUT | `/api/ai/profile` | FING-18 — lê / salva a descrição de Perfil do usuário |
 
 ### 1. **POST /api/ai/ask** – Perguntar ao assistente
 
@@ -247,6 +251,14 @@ Todas as rotas abaixo: auth via `x-user-id`, `Cache-Control: no-store`, corpo �
 | `POST /api/ai/actions/cancel` | `{ "queueId": "…" }` | `{ cancelled, cards, nextSteps }` | 400, 404 |
 | `GET /api/ai/session` | — | `{ sessionId, messages: ChatMessage[], tokenCount }` (cria a sessão ativa se não existir) | 401 |
 | `POST /api/ai/session` | — | idem, após arquivar a ativa e criar uma nova | 401 |
+| `GET /api/ai/sessions` | — | `{ sessions: [{ id, title, active, updatedAt }] }` (`Cache-Control: no-store`) | 401 |
+| `PATCH /api/ai/sessions/[id]` | `{ "title": "…" }` (aparado, 1–60) | `{ ok: true }` | 400, 401, 404 (inexistente ou de outro usuário) |
+| `DELETE /api/ai/sessions/[id]` | — | `{ ok: true }` (apaga as mensagens) | 401, 404 |
+| `POST /api/ai/sessions/[id]/activate` | — | `{ sessionId, messages }` — arquiva a ativa e reativa a escolhida | 401, 404 |
+| `GET /api/ai/profile` | — | `{ profile }` | 401 |
+| `PUT /api/ai/profile` | `{ "profile": "…" }` (aparado, até 2000 caracteres, vazio limpa; corpo ≤ 8 KB) | `{ profile }` | 400, 401 |
+
+Título da conversa: gerado após o primeiro turno pelo Gemini (timeout de 5 s, fallback para a primeira mensagem truncada) e editável pelo usuário. O Perfil e o histórico da sessão são enviados ao modelo no fluxo de leitura (`/api/ai/ask`) como dados, nunca como instruções. O prompt de sistema informa ao modelo as funcionalidades de escrita (criar/alterar/remover transações via card de confirmação) para que ele não as negue mesmo quando o pedido cair no fluxo de leitura.
 
 `ChatMessage.kind`: `text | action_cards | compacted`. A confirmação é um *claim* atômico: confirmar duas vezes a mesma ação retorna 409 e nunca executa duas vezes. Ações expiram em `AI_ACTION_TTL_MINUTES`. Variáveis de ambiente do agente: tabela em [TECHNICAL_DOCS.md](TECHNICAL_DOCS.md). Segurança: [security.md](security.md).
 

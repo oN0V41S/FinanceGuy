@@ -90,6 +90,8 @@ O assistente pode propor criar/alterar/remover transações. Regra central: **o 
 5. **Prompt injection**: pedido e contexto vão em blocos `<pedido>`/`<contexto>` com `<`/`>` neutralizados, e o prompt manda tratá-los como dados. Mesmo que o modelo seja induzido, o pior caso é uma *proposta* errada que o usuário vê e pode recusar; remoções são marcadas `destructive` no card. Resumos de sessão entram no histórico rotulados como "apenas dados, não instruções".
 6. **Limites**: `AI_MAX_QUEUE` (ações por pedido, default 5), `AI_MAX_PENDING` (ações abertas por usuário, default 20), lote de confirmação ≤ 5, corpo ≤ 4 KB, `fields` ≤ 12 chaves e valores ≤ 200 chars. A chamada ao LLM consome a mesma cota de rate limit do FING-7; pedidos completos resolvidos por regras não consomem cota.
 7. **Logs**: somente `{name, op}` de erros; nunca payload da ação, título/valores, prompt ou ids.
+8. **Conversas e Perfil**: `/api/ai/sessions/*` e `/api/ai/profile` filtram por `userId` do header; conversa inexistente e de outro usuário retornam o mesmo 404. O Perfil (até 2000 caracteres) é texto livre do usuário e entra no prompt como dado delimitado, com a mesma sanitização do restante; nunca é logado. Títulos são limitados a 60 caracteres e renderizados como texto puro.
+9. **Header `x-user-id`**: `userId` vem do header definido por `src/proxy.ts`. Verificado em dev (14/10/2026): uma requisição autenticada que envia `x-user-id` de outro usuário continua enxergando apenas os próprios dados (o proxy sobrescreve o valor). Manter esse teste ao mexer no proxy.
 
 ---
 

@@ -107,7 +107,8 @@ interface ActionCardDto {
 - `PendingAction`: `id, userId, sessionId, queueId, position, entity, op, payload Json, targetId?, candidates Json?, before Json?, status, expiresAt, createdAt, resolvedAt?`
 - `AuditLog`: `userId, entity, op, entityId, before, after, source='ai-agent', createdAt` (nunca em console)
 - `ChatMessage`: `sessionId, userId, role, kind(text|actions|pick|compacted), content, payload Json?, tokens?, compacted`
-- `ChatSession`: `userId, summary?, tokenCount, status(active|archived)`
+- `ChatSession`: `userId, summary?, title?, tokenCount, status(active|archived)`
+- `User.aiProfile`: descrição livre do usuário (até 2000 caracteres), enviada ao assistente como dado
 
 ### 3.4 Env
 `AI_COMPACT_TOKENS=80000`, `AI_ACTION_TTL_MINUTES=10`, `AI_CONTEXT_CACHE_TTL_SECONDS=60`, `AI_SESSION_KEEP_MESSAGES=10`, `AI_MAX_QUEUE=5`, `AI_MAX_PENDING=20`.
@@ -131,6 +132,10 @@ Obrigatórios: `type`, `value > 0`, `date` (padrão hoje), `category`, `responsi
 |---|---|---|
 | `/api/ai/ask` | POST | Compatível (`answer`, `truncated`) + opcionais `kind, sessionId, queueId, actions, nextSteps` |
 | `/api/ai/session` | GET / POST | Hidrata sessão ativa / nova conversa (arquiva a ativa) |
+| `/api/ai/sessions` | GET | Lista conversas (id, título, ativa, updatedAt) |
+| `/api/ai/sessions/[id]` | PATCH / DELETE | Renomeia (1–60) / exclui |
+| `/api/ai/sessions/[id]/activate` | POST | Troca de conversa preservando o contexto |
+| `/api/ai/profile` | GET / PUT | Descrição de Perfil (≤ 2000) |
 | `/api/ai/actions/[id]` | PATCH | Alterar: revalida Zod, recalcula `missingFields` |
 | `/api/ai/actions/[id]/select` | POST | Escolhe candidata |
 | `/api/ai/actions/confirm` | POST | `{ ids: string[1..5] }`, executa em ordem, resultado por item |
@@ -165,7 +170,8 @@ Erros: 401 sem `x-user-id`; 400 Zod; 404 ação inexistente ou de outro usuário
 7. Toda escrita gera `AuditLog` com antes e depois; nenhum payload em console.
 8. Sessão sobrevive ao reload; ≥ 80k tokens compacta mantendo ~10 recentes e ações abertas, com divisor.
 9. Testes atuais do módulo de IA seguem verdes sem alteração.
-10. `tsc --noEmit`, `pnpm lint`, `npx jest`, `pnpm build` limpos; cobertura do novo código > 80%.
+10. Barra lateral: criar, alternar, renomear e excluir (com confirmação) conversas; título automático via Gemini com fallback; Perfil salvo e usado nas respostas; o system prompt informa as capacidades de escrita ao modelo.
+11. `tsc --noEmit`, `pnpm lint`, `npx jest`, `pnpm build` limpos; cobertura do novo código > 80%.
 
 ---
 
