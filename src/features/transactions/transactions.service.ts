@@ -4,7 +4,7 @@ import { IUserRepository } from '@/features/auth/IUser.repository';
 import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
 import { CreateTransactionSchema, UpdateTransactionSchema, TransactionInput } from './validations';
 import type { Transaction, FinancialSummary } from '@/types/finance';
-import type { MonthlyPoint, OpeningBalanceFilters, SearchTransactionsFilters } from './types';
+import type { MonthlyPoint, SearchTransactionsFilters } from './types';
 
 /**
  * Soma `months` a uma data 'YYYY-MM-DD' preservando o dia.
@@ -316,38 +316,6 @@ export class TransactionService {
     return data;
   }
 
-  /**
-   * Saldo acumulado anterior a `filters.before` (issue #30). Chave sob o
-   * prefixo `transactions:{userId}:` — invalidada junto com lista/summary nas
-   * mutations. Retorna número (0 é um valor válido de cache).
-   */
-  async getOpeningBalance(filters: OpeningBalanceFilters): Promise<{ data: number; fromCache: boolean }> {
-    if (typeof filters.userId !== 'string' || filters.userId.trim() === '') {
-      throw new Error('Usuário não identificado.');
-    }
-
-    const { userId, ...rest } = filters;
-    const hash = createHash('md5').update(JSON.stringify(rest)).digest('hex');
-    const cacheKey = `transactions:${escapeGlobChars(userId)}:opening:${hash}`;
-
-    const cached = await this.cacheRepository.get(cacheKey);
-    if (cached !== null) {
-      try {
-        const parsed = JSON.parse(cached) as unknown;
-        if (typeof parsed === 'number' && Number.isFinite(parsed)) {
-          return { data: parsed, fromCache: true };
-        }
-      } catch {
-        // A01 — payload corrompido: trata como MISS.
-      }
-      await this.cacheRepository.del(cacheKey);
-    }
-
-    const data = await this.transactionRepository.getOpeningBalance(filters);
-    await this.cacheRepository.set(cacheKey, JSON.stringify(data), this.getTtl());
-
-    return { data, fromCache: false };
-  }
 
   async getAvailableYears(userId: string): Promise<number[]> {
     return this.transactionRepository.getAvailableYears(userId);

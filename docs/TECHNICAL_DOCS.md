@@ -394,7 +394,6 @@ Consulte [docs/BACKEND.md](docs/BACKEND.md) para detalhes completos de payloads 
 | POST | `/api/transactions` | ✅ Implementado |
 | PUT | `/api/transactions/[id]` | ✅ Implementado |
 | DELETE | `/api/transactions/[id]` | ✅ Implementado |
-| GET | `/api/transactions/opening-balance` | ✅ Implementado (saldo previsto por dia, #30) |
 | POST | `/api/ai/ask` | 🔄 Em implementação (assistente de IA, FING-7) |
 | `/api/ai/actions/*`, `/api/ai/session`, `/api/ai/sessions/*`, `/api/ai/profile` | Agente de escrita, sessões de chat (listar/renomear/excluir/alternar) e Perfil (FING-18) — ver BACKEND.md |
 
