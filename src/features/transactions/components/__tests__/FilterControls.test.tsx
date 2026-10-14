@@ -176,12 +176,17 @@ describe('FilterControls — Ordem dos selects', () => {
     
   });
 
-  it('deve renderizar os selects na ordem: período, categoria, status', () => {
+  it('deve renderizar os selects na ordem: mês, ano, categoria, status', () => {
     renderComponent();
 
-    const periodSelect = screen.getByTestId('select-period');
+    const periodSelect = screen.getByTestId('select-year');
     const categorySelect = screen.getByTestId('select-category');
     const paidSelect = screen.getByTestId('select-paid');
+
+    expect(
+      screen.getByTestId('select-month').compareDocumentPosition(periodSelect) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     expect(
       periodSelect.compareDocumentPosition(categorySelect) & Node.DOCUMENT_POSITION_FOLLOWING,
@@ -203,10 +208,10 @@ describe('FilterControls — Ordem dos selects', () => {
     ).toBeTruthy();
   });
 
-  it('select-period deve vir antes de type-tabs', () => {
+  it('select-year deve vir antes de type-tabs', () => {
     renderComponent();
 
-    const periodSelect = screen.getByTestId('select-period');
+    const periodSelect = screen.getByTestId('select-year');
     const typeTabs = screen.getByTestId('type-tabs');
 
     expect(
