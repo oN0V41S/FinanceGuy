@@ -271,6 +271,39 @@ describe('buildFinancialContext', () => {
     });
   });
 
+  describe('período arbitrário', () => {
+    const range = { startMonth: '2024-01', endMonth: '2024-03' };
+
+    it('getBrtPeriod estende a janela até o período pedido', () => {
+      const p = getBrtPeriod(NOW, range);
+      expect(p.startDate).toBe('2024-01-01');
+      expect(p.endDate).toBe('2026-10-31');
+      expect(p.detailMonths).toEqual(['2024-01', '2024-02', '2024-03']);
+    });
+
+    it('sem período mantém o comportamento padrão', () => {
+      expect(getBrtPeriod(NOW).detailMonths).toEqual(['2026-05', '2026-06', '2026-07', '2026-08', '2026-09']);
+    });
+
+    it('detalha os meses antigos pedidos', () => {
+      const dto = buildFinancialContext(
+        { transactions: [tx({ date: '2024-02-10', value: 77, title: 'Antigo' })], goals: [], investments: [] },
+        NOW,
+        range,
+      );
+      expect(dto.previousMonths.map((m) => m.month)).toEqual(['2024-01', '2024-02', '2024-03']);
+      expect(dto.previousMonths[1].expense.total).toBe(77);
+      expect(dto.previousMonths[1].topTransactions[0].title).toBe('Antigo');
+    });
+
+    it('mantém o teto de 12k com 36 meses cheios', () => {
+      const months = Array.from({ length: 36 }, (_, i) => `${2023 + Math.floor((10 + i) / 12)}-${String(((10 + i) % 12) + 1).padStart(2, '0')}`);
+      const txs = months.flatMap((m) => Array.from({ length: 10 }, (_, i) => tx({ date: m + '-10', value: i + 1, category: 'C' + i, title: 'T'.repeat(50) + i })));
+      const dto = buildFinancialContext({ transactions: txs, goals: [], investments: [] }, NOW, { startMonth: months[0], endMonth: months[35] });
+      expect(JSON.stringify(dto).length).toBeLessThanOrEqual(12000);
+    });
+  });
+
   it('entrada vazia gera DTO zerado', () => {
     const dto = buildFinancialContext(empty, NOW);
     expect(dto.currentMonth.income.total).toBe(0);

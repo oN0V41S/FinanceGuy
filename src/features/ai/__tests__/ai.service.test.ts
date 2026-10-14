@@ -64,6 +64,18 @@ describe('AiService.ask', () => {
     expect(d.investments.getAllInvestments).toHaveBeenCalledWith('user-1');
   });
 
+  it('busca QUALQUER período citado na pergunta, além da janela padrão', async () => {
+    const d = makeDeps();
+    await d.service.ask('user-1', 'Quanto gastei em janeiro de 2024?');
+    expect(d.transactions.getAllTransactions).toHaveBeenCalledWith({ userId: 'user-1', startDate: '2024-01-01', endDate: '2026-10-31' });
+  });
+
+  it('período futuro/recente já coberto não amplia a consulta', async () => {
+    const d = makeDeps();
+    await d.service.ask('user-1', 'e no mês passado?');
+    expect(d.transactions.getAllTransactions).toHaveBeenCalledWith({ userId: 'user-1', startDate: '2026-05-01', endDate: '2026-10-31' });
+  });
+
   it('retorna a resposta do LLM', async () => {
     const d = makeDeps();
     await expect(d.service.ask('user-1', 'Quanto gastei?')).resolves.toEqual({ answer: 'Você gastou R$ 123,45.', truncated: false });

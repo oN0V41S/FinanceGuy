@@ -2,6 +2,7 @@ import type { Transaction } from '@/features/transactions/validations';
 import type { Goal } from '@/features/goals/validations';
 import type { Investment } from '@/features/investments/validations';
 import type { FinancialContextDto, MoneySplit } from './types';
+import type { QuestionPeriod } from './questionPeriod';
 
 const TIME_ZONE = 'America/Sao_Paulo';
 const MAX_LABEL_LENGTH = 60;
@@ -25,7 +26,8 @@ export interface BrtPeriod {
   month: string; // YYYY-MM
   startDate: string; // 1º dia de 5 meses atrás
   endDate: string; // último dia do mês atual
-  months: string[]; // 6 meses, ascendente
+  months: string[]; // série mensal: 6 meses padrão + meses do período pedido, ascendente
+  detailMonths: string[]; // meses com detalhe em previousMonths (exclui o mês atual)
 }
 
 const dateFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -38,7 +40,7 @@ const dateFormatter = new Intl.DateTimeFormat('en-CA', {
 const pad = (n: number): string => String(n).padStart(2, '0');
 
 /** Datas "de hoje" no fuso de São Paulo, independentes do fuso do servidor (UTC na Vercel). */
-export function getBrtPeriod(now: Date): BrtPeriod {
+export function getBrtPeriod(now: Date, range?: QuestionPeriod | null): BrtPeriod {
   const parts = dateFormatter.formatToParts(now);
   const pick = (type: string): number => Number(parts.find((p) => p.type === type)?.value);
   const year = pick('year');
@@ -51,14 +53,32 @@ export function getBrtPeriod(now: Date): BrtPeriod {
     months.push(`${Math.floor(index / 12)}-${pad((index % 12) + 1)}`);
   }
 
+  const toIndex = (m: string): number => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1;
+  const currentKey = `${year}-${pad(month)}`;
+  let detailMonths = months.filter((m) => m !== currentKey).slice(0, 5);
+  let allMonths = months;
+  if (range) {
+    const from = toIndex(range.startMonth);
+    const to = Math.min(toIndex(range.endMonth), year * 12 + (month - 1));
+    const extra = new Set(months);
+    detailMonths = [];
+    for (let i = from; i <= to; i++) {
+      const key = `${Math.floor(i / 12)}-${pad((i % 12) + 1)}`;
+      extra.add(key);
+      if (key !== currentKey) detailMonths.push(key);
+    }
+    allMonths = [...extra].sort();
+  }
+
   const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
   return {
     today: `${year}-${pad(month)}-${pad(day)}`,
     month: `${year}-${pad(month)}`,
-    startDate: `${months[0]}-01`,
+    startDate: `${allMonths[0]}-01`,
     endDate: `${year}-${pad(month)}-${pad(lastDay)}`,
-    months,
+    months: allMonths,
+    detailMonths,
   };
 }
 
@@ -93,8 +113,8 @@ const finishSplit = (s: { paid: number; pending: number }): MoneySplit => ({
   total: round2(s.paid + s.pending),
 });
 
-export function buildFinancialContext(input: FinancialContextInput, now: Date): FinancialContextDto {
-  const period = getBrtPeriod(now);
+export function buildFinancialContext(input: FinancialContextInput, now: Date, range?: QuestionPeriod | null): FinancialContextDto {
+  const period = getBrtPeriod(now, range);
 
   const income = emptySplit();
   const expense = emptySplit();
@@ -102,9 +122,7 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date): 
   const monthly = new Map<string, { income: number; expense: number }>(period.months.map((m) => [m, { income: 0, expense: 0 }]));
   type TxItem = FinancialContextDto['recentTransactions'][number];
   const prevDetail = new Map(
-    period.months
-      .filter((m) => m !== period.month)
-      .map((m) => [
+    period.detailMonths.map((m) => [
         m,
         {
           income: emptySplit(),
@@ -263,6 +281,15 @@ function enforceSizeLimit(dto: FinancialContextDto): FinancialContextDto {
     if (!target) break;
     target.topTransactions.pop();
     dto.omitted.transactions += 1;
+  }
+  // Períodos longos: sacrifica categorias e, por último, o detalhe dos meses mais antigos.
+  while (size() > MAX_CONTEXT_JSON_CHARS) {
+    const target = dto.previousMonths.find((m) => m.byCategory.length > 0);
+    if (!target) break;
+    target.byCategory = [];
+  }
+  while (size() > MAX_CONTEXT_JSON_CHARS && dto.previousMonths.length > 0) {
+    dto.previousMonths.shift();
   }
   while (size() > MAX_CONTEXT_JSON_CHARS && dto.investments.length > 0) {
     dto.investments.pop();

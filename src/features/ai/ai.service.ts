@@ -3,6 +3,7 @@ import type { GoalService } from '@/features/goals/goal.service';
 import type { InvestmentService } from '@/features/investments/investment.service';
 import { AiContextLoadError } from './errors';
 import { buildFinancialContext, getBrtPeriod } from './financialContext';
+import { resolveQuestionPeriod } from './questionPeriod';
 import { buildSystemPrompt, buildUserMessage } from './systemPrompt';
 import type { AskResult, ILlmProvider } from './types';
 
@@ -31,7 +32,9 @@ export class AiService {
     }
 
     const now = this.now();
-    const period = getBrtPeriod(now);
+    // Sem LLM: o período citado na pergunta (qualquer data) amplia a consulta além da janela padrão.
+    const range = resolveQuestionPeriod(question, now);
+    const period = getBrtPeriod(now, range);
 
     let transactions, goals, investments;
     try {
@@ -49,7 +52,7 @@ export class AiService {
       return { answer: NO_DATA_ANSWER, truncated: false };
     }
 
-    const context = buildFinancialContext({ transactions: transactions.data, goals, investments }, now);
+    const context = buildFinancialContext({ transactions: transactions.data, goals, investments }, now, range);
 
     const startedAt = Date.now();
     const response = await this.deps.llm.complete({
