@@ -1,5 +1,12 @@
 import type { ChatMessage, FinancialContextDto, LlmMessage, SessionDto, SessionSummaryDto } from '../types';
 
+/** Lançamentos já interpretados aos quais faltavam dados; o usuário completa na mensagem seguinte. */
+export interface PendingDraft {
+  entity: 'transaction';
+  op: 'create';
+  items: Record<string, unknown>[];
+}
+
 /** Contrato da sessão de chat (FING-18). Implementado por SessionService; consumido pelo agente. */
 export interface ISessionService {
   /** Sessão ativa do usuário (cria se não existir). */
@@ -14,6 +21,8 @@ export interface ISessionService {
   ): Promise<ChatMessage>;
   /** Histórico para o LLM: [resumo?] + últimas N mensagens não compactadas (texto). */
   getLlmHistory(userId: string, sessionId: string): Promise<LlmMessage[]>;
+  /** Rascunho de criação aguardando dados: só existe se a ÚLTIMA mensagem da conversa for a pergunta que o guardou. */
+  getPendingDraft(userId: string, sessionId: string): Promise<PendingDraft | null>;
   /** Hidratação da UI após reload. */
   getSessionDto(userId: string, sessionId?: string): Promise<SessionDto>;
   /** Barra lateral: todas as conversas do usuário, mais recentes primeiro. */

@@ -115,6 +115,33 @@ describe('SessionService', () => {
     expect((await svc.getOrCreateActive('u1')).sessionId).toBe(b.sessionId);
   });
 
+  it('getPendingDraft devolve o rascunho só se a última mensagem for a pergunta que o guardou', async () => {
+    const repo = new FakeRepo();
+    const svc = new SessionService({ repo, llm: makeLlm().llm, config });
+    const { sessionId } = await svc.getOrCreateActive('u1');
+    expect(await svc.getPendingDraft('u1', sessionId)).toBeNull();
+
+    const draft = { entity: 'transaction', op: 'create', items: [{ title: 'Mercado' }] };
+    await svc.appendMessage('u1', sessionId, { role: 'assistant', kind: 'text', content: 'Qual o valor?', payload: { draft } });
+    expect(await svc.getPendingDraft('u1', sessionId)).toEqual(draft);
+
+    await svc.appendMessage('u1', sessionId, { role: 'user', kind: 'text', content: 'foi 80' });
+    expect(await svc.getPendingDraft('u1', sessionId)).toBeNull();
+  });
+
+  it('getPendingDraft ignora payload malformado', async () => {
+    const repo = new FakeRepo();
+    const svc = new SessionService({ repo, llm: makeLlm().llm, config });
+    const { sessionId } = await svc.getOrCreateActive('u1');
+    await svc.appendMessage('u1', sessionId, {
+      role: 'assistant',
+      kind: 'text',
+      content: 'x',
+      payload: { draft: { entity: 'investment', op: 'create', items: [{}] } },
+    });
+    expect(await svc.getPendingDraft('u1', sessionId)).toBeNull();
+  });
+
   it('appendMessage estima chars/4, respeita tokens informados e soma no total', async () => {
     const repo = new FakeRepo();
     const svc = new SessionService({ repo, llm: makeLlm().llm, config });

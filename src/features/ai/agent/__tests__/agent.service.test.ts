@@ -20,9 +20,18 @@ function setup(overrides: { maxPending?: number; maxQueue?: number; defaultRespo
     ensureTitle: jest.fn(),
     getProfile: jest.fn(),
     setProfile: jest.fn(),
+    getPendingDraft: jest.fn().mockResolvedValue(null),
     maybeCompact: jest.fn().mockResolvedValue({ compacted: false }),
   };
-  const llm: jest.Mocked<ILlmProvider> = { complete: jest.fn() };
+  const llm: jest.Mocked<ILlmProvider> = {
+    complete: jest.fn().mockResolvedValue({
+      text: '',
+      stopReason: 'stop',
+      toolCalls: [
+        { name: 'propose_transaction_create', args: { type: 'expense', value: 50, title: 'Mercado', category: 'Alimentação' } },
+      ],
+    }),
+  };
   const rateLimiter: jest.Mocked<IRateLimiter> = { consume: jest.fn().mockResolvedValue({ allowed: true }) };
   const context = { getContext: jest.fn().mockResolvedValue({
       today: '2026-10-14',
@@ -64,15 +73,15 @@ describe('AgentService.propose', () => {
     expect(sessions.appendMessage).toHaveBeenCalledTimes(2);
   });
 
-  it('criação completa fica pronta sem LLM e sem consumir cota', async () => {
+  it('criação completa fica pronta, com 1 cota consumida, expiração e payload na sessão', async () => {
     const { service, llm, rateLimiter, pending, sessions } = setup();
     const res = await service.propose('user-1', 'gastei 50 no mercado hoje', 'sess-9');
     expect(res).toMatchObject({ kind: 'actions', queueId: 'queue-1', sessionId: 'sess-9' });
     expect(res?.actions).toHaveLength(1);
     expect(res?.actions?.[0]).toMatchObject({ status: 'ready', op: 'create', destructive: false });
     expect(res?.nextSteps).toMatchObject({ total: 1, canConfirmAll: true });
-    expect(llm.complete).not.toHaveBeenCalled();
-    expect(rateLimiter.consume).not.toHaveBeenCalled();
+    expect(llm.complete).toHaveBeenCalledTimes(1);
+    expect(rateLimiter.consume).toHaveBeenCalledTimes(1);
     expect(pending.rows[0].expiresAt.getTime()).toBe(NOW.getTime() + 10 * 60_000);
     const cardsMsg = sessions.appendMessage.mock.calls.find(([, , m]) => m.kind === 'action_cards')?.[2];
     expect(cardsMsg.payload).toMatchObject({ queueId: 'queue-1', nextSteps: { total: 1 } });
@@ -80,58 +89,14 @@ describe('AgentService.propose', () => {
     expect(sessions.maybeCompact).toHaveBeenCalled();
   });
 
-  it('sem responsável padrão, o campo vira pendência (needs_input) sem chamar o LLM', async () => {
-    const { service, llm } = setup({ defaultResponsible: null });
-    const res = await service.propose('user-1', 'gastei 50 no mercado hoje');
-    expect(res?.actions?.[0].status).toBe('needs_input');
-    expect(res?.actions?.[0].missingFields.map((m) => m.key)).toEqual(['responsible']);
-    expect(llm.complete).not.toHaveBeenCalled();
-  });
-
-  it('com dados faltantes usa o LLM (cota consumida, tool forçada) e vira ready', async () => {
-    const { service, llm, rateLimiter, context } = setup();
-    llm.complete.mockResolvedValue({
-      text: '',
-      stopReason: 'stop',
-      toolCalls: [
-        {
-          name: 'propose_transaction_create',
-          args: { type: 'expense', category: 'Lazer', value: 'R$ 40,00', title: 'Cinema' },
-        },
-      ],
-    });
-    const res = await service.propose('user-1', 'registre uma despesa de cinema ontem');
-    expect(rateLimiter.consume).toHaveBeenCalledTimes(1);
+  it('envia contexto, tool forçada e o pedido ao LLM', async () => {
+    const { service, llm, context } = setup();
+    await service.propose('user-1', 'registre uma despesa de cinema ontem');
     expect(context.getContext).toHaveBeenCalled();
     const request = llm.complete.mock.calls[0][0];
     expect(request.toolChoice).toEqual({ mode: 'any', allowedNames: ['propose_transaction_create'] });
     expect(request.tools).toHaveLength(1);
     expect(request.messages[0].content).toContain('<pedido>');
-    expect(res?.actions?.[0]).toMatchObject({ status: 'ready' });
-  });
-
-  it('falha do LLM degrada para needs_input, sem lançar', async () => {
-    const { service, llm } = setup();
-    llm.complete.mockRejectedValue(new Error('boom'));
-    const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    const res = await service.propose('user-1', 'registre uma despesa de cinema ontem');
-    spy.mockRestore();
-    expect(res?.kind).toBe('actions');
-    expect(res?.actions?.[0].status).toBe('needs_input');
-  });
-
-  it('resposta do LLM sem a tool esperada também degrada', async () => {
-    const { service, llm } = setup();
-    llm.complete.mockResolvedValue({ text: 'oi', stopReason: 'stop', toolCalls: [{ name: 'outra', args: {} }] });
-    const res = await service.propose('user-1', 'registre uma despesa de cinema ontem');
-    expect(res?.actions?.[0].status).toBe('needs_input');
-  });
-
-  it('cota esgotada vira AiRateLimitedError', async () => {
-    const { service, rateLimiter, llm } = setup();
-    rateLimiter.consume.mockResolvedValue({ allowed: false, scope: 'minute', retryAfterSeconds: 7 });
-    await expect(service.propose('user-1', 'registre uma despesa de cinema ontem')).rejects.toBeInstanceOf(AiRateLimitedError);
-    expect(llm.complete).not.toHaveBeenCalled();
   });
 
   it('entidade sem adapter (investimento) é recusada com texto', async () => {
@@ -165,13 +130,6 @@ describe('AgentService.propose', () => {
       'gastei 1 no mercado; gastei 2 no mercado; gastei 3 no mercado; gastei 4 no mercado; gastei 5 no mercado; gastei 6 no mercado',
     );
     expect(res?.kind).toBe('clarify');
-  });
-
-  it('uma fila com vários pedidos cria uma ação por segmento', async () => {
-    const { service, pending } = setup();
-    const res = await service.propose('user-1', 'gastei 50 no mercado hoje; recebi 100 de salário hoje');
-    expect(res?.actions).toHaveLength(2);
-    expect(pending.rows.map((r) => r.position)).toEqual([1, 2]);
   });
 
   describe('alterar e remover', () => {

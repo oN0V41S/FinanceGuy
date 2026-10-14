@@ -13,7 +13,7 @@ import type {
 import { compactSession, estimateTokens, type OpenActionLookup } from './compact';
 import { logSafe } from '../logging';
 import { MAX_SESSION_TITLE_LENGTH } from '../validations';
-import type { ISessionService } from './ISession.service';
+import type { ISessionService, PendingDraft } from './ISession.service';
 
 export interface SessionServiceDeps {
   repo: IChatSessionRepository;
@@ -151,6 +151,18 @@ export class SessionService implements ISessionService {
       history.push({ role: r.role === 'user' ? 'user' : 'assistant', content: r.content });
     }
     return history;
+  }
+
+  async getPendingDraft(userId: string, sessionId: string): Promise<PendingDraft | null> {
+    const records = await this.deps.repo.listMessages(sessionId, userId);
+    const last = [...records].reverse().find((r) => !r.compacted);
+    if (!last || last.role !== 'assistant' || !isRecord(last.payload)) return null;
+    const { draft } = last.payload;
+    if (!isRecord(draft) || draft.entity !== 'transaction' || draft.op !== 'create' || !Array.isArray(draft.items)) {
+      return null;
+    }
+    const items = draft.items.filter(isRecord);
+    return items.length > 0 ? { entity: 'transaction', op: 'create', items } : null;
   }
 
   async getSessionDto(userId: string, requestedId?: string): Promise<SessionDto> {
