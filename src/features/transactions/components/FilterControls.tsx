@@ -126,33 +126,44 @@ const FilterControls: React.FC<FilterControlsProps> = ({
           />
         </div>
 
-        {/* Period (month + year unified) */}
-        <div data-testid="select-period">
+        {/* Month */}
+        <div data-testid="select-month">
           <Select
-            value={`${selectedYear}-${selectedMonth}`}
-            onValueChange={(value) => {
-              if (!value) return;
-              const [y, m] = value.split('-');
-              onYearChange(y);
-              onMonthChange(m);
-            }}
+            value={selectedMonth}
+            onValueChange={(value) => { if (value) onMonthChange(value); }}
           >
-            <SelectTrigger
-              className="w-[170px] h-9 text-sm"
-              aria-label="Selecionar período"
-            >
-              <SelectValue placeholder="Período">
-                {() => `${MONTHS.find((m) => m.value === selectedMonth)?.label ?? ''} ${selectedYear}`}
+            <SelectTrigger className="w-[130px] h-9 text-sm" aria-label="Selecionar mês">
+              <SelectValue placeholder="Mês">
+                {() => MONTHS.find((m) => m.value === selectedMonth)?.label ?? 'Mês'}
               </SelectValue>
             </SelectTrigger>
             <SelectContent className="bg-surface-container max-h-60 overflow-y-auto" alignItemWithTrigger={false}>
-              {yearOptions.flatMap((year) =>
-                MONTHS.map((m) => (
-                  <SelectItem key={`${year}-${m.value}`} value={`${year}-${m.value}`}>
-                    {m.label} {year}
-                  </SelectItem>
-                )),
-              )}
+              {MONTHS.map((m) => (
+                <SelectItem key={m.value} value={m.value}>
+                  {m.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Year */}
+        <div data-testid="select-year">
+          <Select
+            value={selectedYear}
+            onValueChange={(value) => { if (value) onYearChange(value); }}
+          >
+            <SelectTrigger className="w-[100px] h-9 text-sm" aria-label="Selecionar ano">
+              <SelectValue placeholder="Ano">
+                {() => selectedYear}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="bg-surface-container max-h-60 overflow-y-auto" alignItemWithTrigger={false}>
+              {yearOptions.map((year) => (
+                <SelectItem key={year} value={String(year)}>
+                  {year}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

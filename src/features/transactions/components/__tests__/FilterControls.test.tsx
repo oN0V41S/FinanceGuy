@@ -159,7 +159,8 @@ describe('FilterControls — Estrutura', () => {
   it('deve renderizar selects de período, categoria e status', () => {
     renderComponent();
 
-    expect(screen.getByTestId('select-period')).toBeInTheDocument();
+    expect(screen.getByTestId('select-month')).toBeInTheDocument();
+    expect(screen.getByTestId('select-year')).toBeInTheDocument();
     expect(screen.getByTestId('select-category')).toBeInTheDocument();
     expect(screen.getByTestId('select-paid')).toBeInTheDocument();
   });
