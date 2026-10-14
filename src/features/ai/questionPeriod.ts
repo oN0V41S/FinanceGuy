@@ -59,6 +59,12 @@ export function resolveQuestionPeriod(question: string, now: Date): QuestionPeri
     return make(idx(Number(m[2]), Number(m[1])), idx(Number(m[2]), Number(m[1])));
   }
 
+  // dd/mm sem ano (ex.: "20/12")
+  m = text.match(new RegExp(String.raw`(?<![\d/])(\d{1,2})/(\d{1,2})(?![\d/])`));
+  if (m && Number(m[1]) >= 1 && Number(m[1]) <= 31 && Number(m[2]) >= 1 && Number(m[2]) <= 12) {
+    return make(idx(cy, Number(m[2])), idx(cy, Number(m[2])));
+  }
+
   // Mês sem ano: o do ano corrente (passado ou futuro).
   const resolveYearless = (month: number): number => idx(cy, month);
 

@@ -218,9 +218,12 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date, r
   });
 
   let focus: FinancialContextDto['focus'];
-  if (range?.startDay && range.endDay) {
-    const startDate = `${range.startMonth}-${pad(range.startDay)}`;
-    const endDate = `${range.startMonth}-${pad(range.endDay)}`;
+  if (range && range.startMonth === range.endMonth) {
+    const [fy, fm] = range.startMonth.split('-').map(Number);
+    const firstDay = range.startDay ?? 1;
+    const lastDay = range.endDay ?? new Date(Date.UTC(fy, fm, 0)).getUTCDate();
+    const startDate = `${range.startMonth}-${pad(firstDay)}`;
+    const endDate = `${range.startMonth}-${pad(lastDay)}`;
     const fIncome = emptySplit();
     const fExpense = emptySplit();
     const items: FinancialContextDto['recentTransactions'] = [];

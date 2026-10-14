@@ -308,6 +308,14 @@ describe('buildFinancialContext', () => {
       expect(dto.focus?.income.total).toBe(900);
     });
 
+    it('mês único sem dias traz todas as transações do mês em focus', () => {
+      const txs = Array.from({ length: 8 }, (_, i) => tx({ date: '2026-12-' + String(i + 1).padStart(2, '0'), value: 10 + i, title: 'T' + i }));
+      const dto = buildFinancialContext({ transactions: txs, goals: [], investments: [] }, NOW, { startMonth: '2026-12', endMonth: '2026-12' });
+      expect(dto.focus?.startDate).toBe('2026-12-01');
+      expect(dto.focus?.endDate).toBe('2026-12-31');
+      expect(dto.focus?.transactions).toHaveLength(8);
+    });
+
     it('sem período mantém o comportamento padrão', () => {
       expect(getBrtPeriod(NOW).detailMonths).toEqual(['2026-05', '2026-06', '2026-07', '2026-08', '2026-09']);
     });

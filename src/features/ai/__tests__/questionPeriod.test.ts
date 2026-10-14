@@ -35,6 +35,10 @@ describe('resolveQuestionPeriod', () => {
     expect(resolveQuestionPeriod('gastos no dia 5 de março de 2025', NOW)).toEqual({ startMonth: '2025-03', endMonth: '2025-03', startDay: 5, endDay: 5 });
   });
 
+  it('dd/mm sem ano resolve para o ano corrente', () => {
+    expect(resolveQuestionPeriod('R$ 230,40 em Lazer - 20/12 (Pendente)', NOW)).toEqual({ startMonth: '2026-12', endMonth: '2026-12' });
+  });
+
   it('limita a 36 meses', () => {
     const p = resolveQuestionPeriod('últimos 100 meses', NOW)!;
     expect(p.endMonth).toBe('2026-10');
