@@ -106,7 +106,8 @@ const FilterControls: React.FC<FilterControlsProps> = ({
   onCategoryFilterChange,
   yearsRefreshTrigger = 0,
 }) => {
-  const yearOptions = useTransactionYears(yearsRefreshTrigger);
+  // Ordem cronológica no seletor: 2026 → 2027, Janeiro → Dezembro.
+  const yearOptions = [...useTransactionYears(yearsRefreshTrigger)].sort((a, b) => a - b);
 
   return (
     <div className="space-y-3 p-4 bg-surface-container-low rounded-xl">
