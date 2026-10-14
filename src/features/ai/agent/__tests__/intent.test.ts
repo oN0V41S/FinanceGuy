@@ -152,4 +152,19 @@ describe('classifyIntent', () => {
       expect(r).toMatchObject({ kind: 'clarify', reason: 'missing_verb' });
     });
   });
+
+  it('cabeçalho terminado em ":" dá o verbo às linhas seguintes (2 cards num só comando)', () => {
+    const r = classifyIntent(
+      [
+        'Quero criar 2 novas transações:',
+        '"Aniversário Rafael", "50", responsável: "Rafael", categoria "lazer" recorrente em 2 meses;',
+        '"Aniversário Rafael", "60", responsável: "Rafael", categoria "lazer" esse mês',
+      ].join('\n'),
+    );
+    expect(r.kind).toBe('write');
+    if (r.kind !== 'write') return;
+    expect(r.segments).toHaveLength(2);
+    expect(r.segments.every((s) => s.op === 'create' && s.entity === 'transaction')).toBe(true);
+    expect(r.segments[1].text).toContain('60');
+  });
 });

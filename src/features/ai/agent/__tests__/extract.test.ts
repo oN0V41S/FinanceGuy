@@ -226,4 +226,11 @@ describe('extractTransactionFields', () => {
     expect(extractTransactionFields('paguei uber 20', NOW).category).toBe('Transporte');
     expect(extractTransactionFields('paguei coisa 20', NOW).category).toBeUndefined();
   });
+
+  it('categoria informada explicitamente vale e sai do título', () => {
+    const f = extractTransactionFields('"Aniversário Rafael", "50", responsável: "Rafael", categoria "lazer" esse mês', new Date('2026-10-14T15:00:00Z'));
+    expect(f).toMatchObject({ category: 'Lazer', value: 50, responsible: 'Rafael' });
+    expect(f.title).toMatch(/^Aniversário Rafael/);
+    expect(f.title).not.toMatch(/categoria|lazer/i);
+  });
 });

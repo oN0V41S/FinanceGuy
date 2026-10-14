@@ -145,7 +145,14 @@ export function classifyIntent(message: string): Intent {
   }
 
   const segments: IntentSegment[] = [];
-  for (const s of analysed) {
+  // "Quero criar 2 transações:" + uma linha por item: o cabeçalho (termina em ':') dá o verbo e a entidade.
+  const header = analysed.length > 1 && analysed[0].verb && analysed[0].entity && analysed[0].text.endsWith(':') ? analysed[0] : undefined;
+  const items = header ? analysed.slice(1) : analysed;
+  for (const s of items) {
+    if (header && !s.verb) {
+      segments.push({ op: header.verb!.key, entity: header.entity!.key, text: s.text });
+      continue;
+    }
     if (!s.verb) {
       return clarify(
         'missing_verb',

@@ -1,3 +1,4 @@
+import { CategoryEnum } from '@/features/transactions/validations';
 import { suggestCategory } from './categoryHints';
 import { normalize, sanitizeText } from './text';
 
@@ -24,6 +25,18 @@ function extractResponsible(text: string): { name?: string; rest: string } {
   if (!second && /["”’']/.test(text.charAt(end))) end += 1;
   const rest = `${text.slice(0, m.index)} ${text.slice(end)}`.replace(/\s+/g, ' ').trim();
   return { name, rest };
+}
+
+const CATEGORY_RE = /\bcategoria\s*[:=-]?\s*["“'‘]?(\p{L}+)["”’']?/iu;
+
+/** "categoria lazer" / 'categoria: "Lazer"' -> categoria existente (se válida). Sempre remove o trecho do texto. */
+function extractCategory(text: string): { category?: string; rest: string } {
+  const m = CATEGORY_RE.exec(text);
+  if (!m) return { rest: text };
+  const wanted = normalize(m[1]);
+  const category = CategoryEnum.options.find((option) => normalize(option) === wanted);
+  const rest = `${text.slice(0, m.index)} ${text.slice(m.index + m[0].length)}`.replace(/\s+/g, ' ').trim();
+  return { category, rest };
 }
 
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -212,7 +225,7 @@ function extractTitle(text: string): string | undefined {
  */
 export function extractTransactionFields(text: string, now: Date): ExtractedTransactionFields {
   const { name: responsible, rest } = extractResponsible(sanitizeText(text).normalize('NFC'));
-  const clean = rest;
+  const { category: explicitCategory, rest: clean } = extractCategory(rest);
   const norm = normalize(clean);
   const fields: ExtractedTransactionFields = {};
   if (responsible) fields.responsible = responsible;
@@ -225,7 +238,7 @@ export function extractTransactionFields(text: string, now: Date): ExtractedTran
   if (date) fields.date = date;
   const title = extractTitle(clean);
   if (title) fields.title = title;
-  const category = suggestCategory(clean);
+  const category = explicitCategory ?? suggestCategory(clean);
   if (category) fields.category = category;
   const paid = extractPaid(norm);
   if (paid !== undefined) fields.paid = paid;
