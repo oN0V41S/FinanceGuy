@@ -141,6 +141,48 @@ export function useAssistant(): UseAssistantResult {
     }
   }, []);
 
+  const adoptSessionId = useCallback((id: string): void => {
+    sessionIdRef.current = id;
+    setSessionId(id);
+  }, []);
+
+  /** Adota uma sessão vinda do servidor: aborta o que estiver em andamento e substitui a conversa. */
+  const applySession = useCallback(
+    (dto: SessionDto): void => {
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+      inFlight.current = false;
+      adoptSessionId(dto.sessionId);
+      touchedRef.current = true;
+      setMessages(dto.messages);
+      setStatus('idle');
+    },
+    [adoptSessionId],
+  );
+
+  /** Busca uma sessão e a aplica; em qualquer falha mantém a conversa atual e exibe `errorMessage`. */
+  const switchSession = useCallback(
+    async (fetcher: () => Promise<Response>, errorMessage: string): Promise<void> => {
+      if (startingNew.current) return;
+      startingNew.current = true;
+      setIsStartingNew(true);
+      setError(null);
+      try {
+        const response = await fetcher();
+        if (!response.ok) throw new Error('switch-session');
+        const dto: unknown = await response.json();
+        if (!isSessionDto(dto)) throw new Error('switch-session');
+        applySession(dto);
+      } catch {
+        setError(errorMessage);
+      } finally {
+        startingNew.current = false;
+        setIsStartingNew(false);
+      }
+    },
+    [applySession],
+  );
+
   const hydrate = useCallback(async (): Promise<void> => {
     setIsHydrating(true);
     try {
@@ -148,8 +190,7 @@ export function useAssistant(): UseAssistantResult {
       if (!response.ok) throw new Error('hydrate');
       const dto: unknown = await response.json();
       if (!isSessionDto(dto)) return;
-      sessionIdRef.current = dto.sessionId;
-      setSessionId(dto.sessionId);
+      adoptSessionId(dto.sessionId);
       // Se o usuário já interagiu enquanto carregava, não sobrescreve a conversa.
       if (!touchedRef.current) setMessages(dto.messages);
     } catch {
@@ -157,60 +198,24 @@ export function useAssistant(): UseAssistantResult {
     } finally {
       setIsHydrating(false);
     }
-  }, []);
+  }, [adoptSessionId]);
 
-  const newConversation = useCallback(async (): Promise<void> => {
-    if (startingNew.current) return;
-    startingNew.current = true;
-    setIsStartingNew(true);
-    setError(null);
-    try {
-      const response = await fetch('/api/ai/session', { method: 'POST' });
-      if (!response.ok) throw new Error('new-session');
-      const dto: unknown = await response.json();
-      if (!isSessionDto(dto)) throw new Error('new-session');
-      controllerRef.current?.abort();
-      controllerRef.current = null;
-      inFlight.current = false;
-      sessionIdRef.current = dto.sessionId;
-      setSessionId(dto.sessionId);
-      touchedRef.current = true;
-      setMessages(dto.messages);
-      setStatus('idle');
-    } catch {
-      setError(NEW_SESSION_ERROR_MESSAGE);
-    } finally {
-      startingNew.current = false;
-      setIsStartingNew(false);
-    }
-  }, []);
+  const newConversation = useCallback(
+    (): Promise<void> => switchSession(() => fetch('/api/ai/session', { method: 'POST' }), NEW_SESSION_ERROR_MESSAGE),
+    [switchSession],
+  );
 
   /** Troca para outra conversa (POST /api/ai/sessions/[id]/activate) e carrega as mensagens dela. */
-  const openConversation = useCallback(async (id: string): Promise<void> => {
-    if (startingNew.current || id === sessionIdRef.current) return;
-    startingNew.current = true;
-    setIsStartingNew(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/ai/sessions/${encodeURIComponent(id)}/activate`, { method: 'POST' });
-      if (!response.ok) throw new Error('open-session');
-      const dto: unknown = await response.json();
-      if (!isSessionDto(dto)) throw new Error('open-session');
-      controllerRef.current?.abort();
-      controllerRef.current = null;
-      inFlight.current = false;
-      sessionIdRef.current = dto.sessionId;
-      setSessionId(dto.sessionId);
-      touchedRef.current = true;
-      setMessages(dto.messages);
-      setStatus('idle');
-    } catch {
-      setError(OPEN_SESSION_ERROR_MESSAGE);
-    } finally {
-      startingNew.current = false;
-      setIsStartingNew(false);
-    }
-  }, []);
+  const openConversation = useCallback(
+    async (id: string): Promise<void> => {
+      if (id === sessionIdRef.current) return;
+      await switchSession(
+        () => fetch(`/api/ai/sessions/${encodeURIComponent(id)}/activate`, { method: 'POST' }),
+        OPEN_SESSION_ERROR_MESSAGE,
+      );
+    },
+    [switchSession],
+  );
 
   const reset = useCallback(() => {
     controllerRef.current?.abort();

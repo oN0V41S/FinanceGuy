@@ -11,6 +11,15 @@ const mockSession = {
   getLlmHistory: jest.fn(),
   ensureTitle: jest.fn(),
 };
+// after() só existe dentro de um request do Next; aqui captura os callbacks para execução controlada.
+const afterCallbacks: Array<() => unknown> = [];
+jest.mock('next/server', () => ({
+  ...jest.requireActual('next/server'),
+  after: (cb: () => unknown) => {
+    afterCallbacks.push(cb);
+  },
+}));
+
 const mockAgent = { propose: jest.fn(), recordTurn: jest.fn() };
 
 jest.mock('@/core/container', () => ({
@@ -37,6 +46,7 @@ function makeRequest(body: unknown) {
 describe('POST /api/ai/ask — perfil, histórico e título', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    afterCallbacks.length = 0;
     mockConsume.mockResolvedValue({ allowed: true });
     mockAsk.mockResolvedValue({ answer: 'ok', truncated: false });
     mockAgent.propose.mockResolvedValue(null);
@@ -54,8 +64,9 @@ describe('POST /api/ai/ask — perfil, histórico e título', () => {
       profile: 'Quero poupar',
       history: [{ role: 'user', content: 'antes' }],
     });
-    expect(mockSession.ensureTitle).toHaveBeenCalledWith('user-1', 's1');
     expect((await res.json()).sessionId).toBe('s1');
+    await Promise.all(afterCallbacks.map((cb) => cb()));
+    expect(mockSession.ensureTitle).toHaveBeenCalledWith('user-1', 's1');
   });
 
   it('usa o sessionId pedido ao carregar o histórico', async () => {
@@ -75,7 +86,38 @@ describe('POST /api/ai/ask — perfil, histórico e título', () => {
   it('gera título também quando o agente propõe ações', async () => {
     mockAgent.propose.mockResolvedValue({ kind: 'actions', answer: 'x', sessionId: 's9', actions: [] });
     await POST(makeRequest({ question: 'crie uma despesa' }));
+    await Promise.all(afterCallbacks.map((cb) => cb()));
     expect(mockSession.ensureTitle).toHaveBeenCalledWith('user-1', 's9');
     expect(mockAsk).not.toHaveBeenCalled();
+  });
+
+  it('agenda o título via after() e a resposta não espera por ele (leitura)', async () => {
+    mockSession.ensureTitle.mockReturnValue(new Promise(() => {})); // nunca resolve
+    const res = await POST(makeRequest({ question: 'Quanto gastei?' }));
+    expect(res.status).toBe(200);
+    expect(afterCallbacks).toHaveLength(1);
+    expect(mockSession.ensureTitle).not.toHaveBeenCalled();
+  });
+
+  it('agenda o título via after() e a resposta não espera por ele (proposta)', async () => {
+    mockSession.ensureTitle.mockReturnValue(new Promise(() => {}));
+    mockAgent.propose.mockResolvedValue({ kind: 'actions', answer: 'x', sessionId: 's9', actions: [] });
+    const res = await POST(makeRequest({ question: 'crie uma despesa' }));
+    expect(res.status).toBe(200);
+    expect(afterCallbacks).toHaveLength(1);
+    expect(mockSession.ensureTitle).not.toHaveBeenCalled();
+  });
+
+  it('falha ao gerar o título não afeta a resposta nem vaza do after()', async () => {
+    mockSession.ensureTitle.mockRejectedValue(new Error('gemini timeout'));
+    const res = await POST(makeRequest({ question: 'Quanto gastei?' }));
+    expect(res.status).toBe(200);
+    await expect(Promise.all(afterCallbacks.map((cb) => cb()))).resolves.toBeDefined();
+  });
+
+  it('não agenda título quando não há sessão registrada', async () => {
+    mockAgent.recordTurn.mockResolvedValue(undefined);
+    await POST(makeRequest({ question: 'oi' }));
+    expect(afterCallbacks).toHaveLength(0);
   });
 });

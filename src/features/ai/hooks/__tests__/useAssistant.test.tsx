@@ -337,6 +337,70 @@ describe('useAssistant — histórico', () => {
       expect(result.current.isStartingNew).toBe(false);
     });
 
+    it('openConversation troca de sessão, carrega mensagens e aborta requisição em andamento', async () => {
+      let signal: AbortSignal | undefined;
+      fetchSpy.mockImplementationOnce((_url, init) => {
+        signal = init?.signal ?? undefined;
+        return new Promise<Response>(() => {});
+      });
+      const { result } = renderHook(() => useAssistant());
+      act(() => {
+        void result.current.ask('pendente');
+      });
+      fetchSpy.mockResolvedValueOnce(
+        jsonResponse({ sessionId: 's5', messages: [{ id: 'm', role: 'user', content: 'outra' }], tokenCount: 1 }),
+      );
+      await act(async () => {
+        await result.current.openConversation('s5');
+      });
+      expect(fetchSpy.mock.calls[1][0]).toBe('/api/ai/sessions/s5/activate');
+      expect(signal?.aborted).toBe(true);
+      expect(result.current.sessionId).toBe('s5');
+      expect(result.current.messages).toEqual([{ id: 'm', role: 'user', content: 'outra' }]);
+      expect(result.current.status).toBe('idle');
+
+      // inFlight foi liberado: novo ask é enviado
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ answer: 'ok', truncated: false }));
+      await act(async () => {
+        await result.current.ask('seguinte');
+      });
+      expect(JSON.parse(fetchSpy.mock.calls[2][1]?.body as string)).toEqual({ question: 'seguinte', sessionId: 's5' });
+    });
+
+    it('openConversation com falha mantém a conversa atual e define erro', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ answer: 'a', truncated: false }));
+      const { result } = renderHook(() => useAssistant());
+      await act(async () => {
+        await result.current.ask('q');
+      });
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ error: 'x' }, 500));
+      await act(async () => {
+        await result.current.openConversation('s7');
+      });
+      expect(result.current.error).toMatch(/Sua conversa atual foi mantida/);
+      expect(result.current.messages).toHaveLength(2);
+      expect(result.current.isStartingNew).toBe(false);
+
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ nope: true }));
+      await act(async () => {
+        await result.current.openConversation('s8');
+      });
+      expect(result.current.messages).toHaveLength(2);
+      expect(result.current.error).toMatch(/Sua conversa atual foi mantida/);
+    });
+
+    it('openConversation ignora o id da sessão atual', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ sessionId: 's1', messages: [], tokenCount: 0 }));
+      const { result } = renderHook(() => useAssistant());
+      await act(async () => {
+        await result.current.hydrate();
+      });
+      await act(async () => {
+        await result.current.openConversation('s1');
+      });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
     it('expõe a API de ações', () => {
       const { result } = renderHook(() => useAssistant());
       expect(typeof result.current.actions.confirm).toBe('function');

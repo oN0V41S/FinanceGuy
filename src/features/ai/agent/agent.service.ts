@@ -17,6 +17,7 @@ import type {
 } from '../types';
 import { computeNextSteps, summarizeCards, toCard } from './cards';
 import type { AdapterRegistry, EntityAdapter, FieldMap, TargetCandidate } from './entityAdapters/types';
+import { logSafe } from '../logging';
 import { extractTransactionFields, todayBRT } from './extract';
 import { classifyIntent, type IntentSegment } from './intent';
 import { buildAgentSystemPrompt, buildAgentUserMessage } from './prompts';
@@ -57,6 +58,10 @@ export const MESSAGES = {
     'Não consegui interpretar tudo automaticamente. Complete os campos destacados e confirme.',
 } as const;
 
+/** Mínimo de palavras (com letras) para valer a chamada ao LLM. */
+const MIN_WORDS_CREATE_LLM = 2;
+const MIN_WORDS_UPDATE_LLM = 3;
+
 const LLM_RELEVANT_MISSING = new Set(['type', 'category', 'value']);
 
 function toJson(value: unknown): JsonValue {
@@ -69,8 +74,16 @@ function letterWords(text: string): number {
     .filter((w) => /\p{L}/u.test(w)).length;
 }
 
-function errorName(error: unknown): string {
-  return error instanceof Error ? error.name : 'UnknownError';
+interface BuildInput {
+  userId: string;
+  sessionId: string;
+  queueId: string;
+  position: number;
+  expiresAt: Date;
+  segment: IntentSegment;
+  adapter: EntityAdapter;
+  now: Date;
+  defaultResponsible?: string;
 }
 
 interface BuiltItem {
@@ -131,7 +144,7 @@ export class AgentService {
       await this.deps.sessions.maybeCompact(userId, sid);
       return sid;
     } catch (error) {
-      console.error('[ai.agent] Falha ao registrar a conversa', { name: errorName(error) });
+      logSafe('ai.agent', 'Falha ao registrar a conversa', error);
       return sessionId;
     }
   }
@@ -203,21 +216,14 @@ export class AgentService {
     return { kind: 'actions', answer, truncated: false, sessionId, queueId, actions: cards, nextSteps };
   }
 
-  private async buildItem(input: {
-    userId: string;
-    sessionId: string;
-    queueId: string;
-    position: number;
-    expiresAt: Date;
-    segment: IntentSegment;
-    adapter: EntityAdapter;
-    now: Date;
-    defaultResponsible?: string;
-  }): Promise<BuiltItem | 'not_found'> {
-    const { segment, adapter, now, userId } = input;
-    const today = todayBRT(now);
-    const base = {
-      userId,
+  private async buildItem(input: BuildInput): Promise<BuiltItem | 'not_found'> {
+    return input.segment.op === 'create' ? this.buildCreate(input) : this.buildChange(input);
+  }
+
+  private baseOf(input: BuildInput) {
+    const { segment } = input;
+    return {
+      userId: input.userId,
       sessionId: input.sessionId,
       queueId: input.queueId,
       position: input.position,
@@ -225,28 +231,38 @@ export class AgentService {
       op: segment.op,
       expiresAt: input.expiresAt,
     };
+  }
 
-    if (segment.op === 'create') {
-      const extracted = extractTransactionFields(segment.text, now) as FieldMap;
-      let evaluation = adapter.evaluate('create', extracted, {
-        today,
-        defaultResponsible: input.defaultResponsible,
-        hasTarget: false,
-      });
-      if (!evaluation.valid && evaluation.missing.some((m) => LLM_RELEVANT_MISSING.has(m.key)) && letterWords(segment.text) >= 2) {
-        const llm = await this.askLlm(userId, segment.entity, 'create', segment.text);
-        if (llm.fields) {
-          const merged = mergeCreate(extracted, llm.fields);
-          evaluation = adapter.evaluate('create', merged, {
-            today,
-            defaultResponsible: input.defaultResponsible,
-            hasTarget: false,
-          });
-        }
+  private async buildCreate(input: BuildInput): Promise<BuiltItem> {
+    const { segment, adapter, now, userId } = input;
+    const today = todayBRT(now);
+    const base = this.baseOf(input);
+
+    const extracted = extractTransactionFields(segment.text, now) as FieldMap;
+    let evaluation = adapter.evaluate('create', extracted, {
+      today,
+      defaultResponsible: input.defaultResponsible,
+      hasTarget: false,
+    });
+    if (!evaluation.valid && evaluation.missing.some((m) => LLM_RELEVANT_MISSING.has(m.key)) && letterWords(segment.text) >= MIN_WORDS_CREATE_LLM) {
+      const llm = await this.askLlm(userId, segment.entity, 'create', segment.text);
+      if (llm.fields) {
+        const merged = mergeCreate(extracted, llm.fields);
+        evaluation = adapter.evaluate('create', merged, {
+          today,
+          defaultResponsible: input.defaultResponsible,
+          hasTarget: false,
+        });
       }
-      const status: PendingActionStatus = evaluation.valid ? 'ready' : 'needs_input';
-      return { item: { ...base, payload: toJson({ fields: evaluation.fields }), status } };
     }
+    const status: PendingActionStatus = evaluation.valid ? 'ready' : 'needs_input';
+    return { item: { ...base, payload: toJson({ fields: evaluation.fields }), status } };
+  }
+
+  private async buildChange(input: BuildInput): Promise<BuiltItem | 'not_found'> {
+    const { segment, adapter, now, userId } = input;
+    const today = todayBRT(now);
+    const base = this.baseOf(input);
 
     // update / delete: o servidor encontra o alvo (até 5 candidatas do próprio usuário).
     const parts = splitSegment(segment.text, segment.op);
@@ -257,7 +273,7 @@ export class AgentService {
     let changes: FieldMap = segment.op === 'update' ? deriveChanges(parts, now) : {};
     if (segment.op === 'update') {
       let evaluation = adapter.evaluate('update', changes, { today, hasTarget: true });
-      if (evaluation.missing.length > 0 && letterWords(segment.text) >= 3) {
+      if (evaluation.missing.length > 0 && letterWords(segment.text) >= MIN_WORDS_UPDATE_LLM) {
         const llm = await this.askLlm(userId, segment.entity, 'update', segment.text);
         if (llm.fields) changes = { ...llm.fields, ...changes };
         evaluation = adapter.evaluate('update', changes, { today, hasTarget: true });
@@ -311,9 +327,7 @@ export class AgentService {
       if (!call || !adapter || typeof call.args !== 'object' || call.args === null) return { fields: null };
       return { fields: adapter.sanitize(call.args) };
     } catch (error) {
-      console.error('[ai.agent] LLM indisponível para a ação; seguindo com os dados extraídos', {
-        name: errorName(error),
-      });
+      logSafe('ai.agent', 'LLM indisponível para a ação; seguindo com os dados extraídos', error);
       return { fields: null };
     }
   }
@@ -331,7 +345,7 @@ export class AgentService {
       await this.deps.sessions.appendMessage(userId, sessionId, { role: 'user', kind: 'text', content: question });
       await this.deps.sessions.appendMessage(userId, sessionId, { role: 'assistant', kind: 'text', content: answer });
     } catch (error) {
-      console.error('[ai.agent] Falha ao registrar a conversa', { name: errorName(error) });
+      logSafe('ai.agent', 'Falha ao registrar a conversa', error);
     }
     return { kind, answer, truncated: false, sessionId };
   }
@@ -359,7 +373,7 @@ export class AgentService {
       await this.deps.sessions.appendMessage(userId, sessionId, assistant);
       await this.deps.sessions.maybeCompact(userId, sessionId);
     } catch (error) {
-      console.error('[ai.agent] Falha ao registrar a conversa', { name: errorName(error) });
+      logSafe('ai.agent', 'Falha ao registrar a conversa', error);
     }
   }
 }
@@ -370,7 +384,10 @@ function toStored(candidate: TargetCandidate): { id: string; label: string; reco
 
 /** Valor, data, tipo e pago vêm das regras (determinísticos); título e categoria podem vir do LLM. */
 function mergeCreate(extracted: FieldMap, llm: FieldMap): FieldMap {
-  const merged: FieldMap = { ...llm, ...extracted };
+  const merged: FieldMap = { ...llm };
+  for (const [key, value] of Object.entries(extracted)) {
+    if (value !== undefined) merged[key] = value;
+  }
   if (llm.title !== undefined) merged.title = llm.title;
   return merged;
 }
