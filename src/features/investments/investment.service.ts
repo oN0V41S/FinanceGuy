@@ -1,9 +1,13 @@
 import { IInvestmentRepository } from './IInvestment.repository';
+import { IInvestmentHistoryRepository } from './IInvestmentHistory.repository';
 import { CreateInvestmentSchema, UpdateInvestmentSchema } from './validations';
 import type { Investment } from './validations';
 
 export class InvestmentService {
-  constructor(private readonly investmentRepository: IInvestmentRepository) {}
+  constructor(
+    private readonly investmentRepository: IInvestmentRepository,
+    private readonly historyRepository?: IInvestmentHistoryRepository
+  ) {}
 
   async getAllInvestments(userId: string): Promise<Investment[]> {
     return this.investmentRepository.getAll(userId);
@@ -22,7 +26,31 @@ export class InvestmentService {
   async createInvestment(data: unknown, userId: string): Promise<Investment> {
     const validatedData = CreateInvestmentSchema.parse(data);
 
-    return this.investmentRepository.create({ ...validatedData, userId });
+    const created = await this.investmentRepository.create({ ...validatedData, userId });
+
+    // Ativo de mercado: registra a compra no histórico (fonte única de verdade, sem criar Transaction).
+    if (created.ticker && this.historyRepository) {
+      try {
+        await this.historyRepository.record({
+          userId,
+          investmentId: created.id,
+          kind: 'BUY',
+          date: created.purchaseDate ?? new Date(),
+          quantity: created.shares ?? 0,
+          unitPrice: created.unitPrice ?? 0,
+          grossValue: created.value,
+          assetName: created.name,
+          assetTicker: created.ticker,
+          assetMarket: created.market,
+          currency: created.currency,
+        });
+      } catch {
+        await this.investmentRepository.delete(created.id);
+        throw new Error('Não foi possível registrar a compra no histórico. Tente novamente.');
+      }
+    }
+
+    return created;
   }
 
   async updateInvestment(id: string, data: unknown, userId: string): Promise<Investment> {
