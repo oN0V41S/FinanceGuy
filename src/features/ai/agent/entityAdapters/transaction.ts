@@ -67,6 +67,32 @@ const TOOL_FIELDS = CreateTransactionSchema.pick({
   paid: true,
 }).partial();
 
+/** Parcelamento/recorrência (mesma regra do TransactionModal): só existe na criação, 2 a 48 vezes. */
+const MIN_INSTALLMENTS = 2;
+const MAX_INSTALLMENTS = 48;
+
+const CREATE_TOOL_FIELDS = TOOL_FIELDS.extend({
+  total_installments: z
+    .number()
+    .int()
+    .min(MIN_INSTALLMENTS)
+    .max(MAX_INSTALLMENTS)
+    .optional()
+    .describe(
+      'Número de parcelas (parcelado) ou de ocorrências (recorrente), de 2 a 48. Informe só se o usuário pediu parcelamento ou repetição ("em 3x", "parcelado em 12", "todo mês por 6 meses"). Parcelado: "value" é o valor TOTAL da compra (o sistema divide). Se o usuário disser "3x de R$ 100", envie value 300.',
+    ),
+  is_recurring: z
+    .boolean()
+    .optional()
+    .describe(
+      'true somente quando o usuário disser que é recorrente/mensal/fixo (o "value" é o valor de CADA ocorrência e é preciso informar total_installments). Omita para parcelamento comum ou lançamento único.',
+    ),
+});
+
+function isRepeatCount(v: unknown): v is number {
+  return typeof v === 'number' && Number.isInteger(v) && v >= MIN_INSTALLMENTS && v <= MAX_INSTALLMENTS;
+}
+
 const YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
 const BR_DATE = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 
@@ -133,7 +159,26 @@ function sanitize(raw: Record<string, unknown>): FieldMap {
     if (typeof v === 'string' && v.trim() === '') continue;
     out[key] = normalizeValue(key, v);
   }
+  const count = normalizeCount(raw.total_installments);
+  if (count !== undefined && count !== 1) out.total_installments = count;
+  if (raw.is_recurring === true || raw.is_recurring === 'true') out.is_recurring = true;
   return out;
+}
+
+/** "3", 3 ou "3x" viram número; 1x equivale a lançamento único (descartado pelo chamador). */
+function normalizeCount(v: unknown): number | undefined {
+  if (typeof v === 'number') return v;
+  if (typeof v !== 'string') return undefined;
+  const n = Number(v.trim().replace(/x$/i, ''));
+  return v.trim() === '' || Number.isNaN(n) ? undefined : n;
+}
+
+/** Remove o que não faz sentido: repetição só com contagem; fora da criação nunca existe. */
+function withoutRepeat(fields: FieldMap): FieldMap {
+  const { is_recurring: _r, total_installments: _t, ...rest } = fields;
+  void _r;
+  void _t;
+  return rest;
 }
 
 function fieldErrors(fields: FieldMap): Record<string, string> {
@@ -144,6 +189,10 @@ function fieldErrors(fields: FieldMap): Record<string, string> {
     if (v === undefined) continue;
     const ok = shape[key].safeParse(v).success && (key !== 'date' || isValidYmd(v));
     if (!ok) errors[key] = FIELD_ERRORS[key];
+  }
+  const count = fields.total_installments;
+  if (count !== undefined && !isRepeatCount(count)) {
+    errors.total_installments = `Informe de ${MIN_INSTALLMENTS} a ${MAX_INSTALLMENTS} parcelas.`;
   }
   return errors;
 }
@@ -204,6 +253,36 @@ const CHANGE_PHRASES: Record<FieldKey, (v: unknown) => string> = {
   paid: (v) => (v === true ? 'situação para pago' : 'situação para pendente'),
 };
 
+/** "3x de R$ 100,00 (total R$ 300,00)" ou "12 ocorrências de R$ 50,00"; vazio sem repetição. */
+function repeatSummary(fields: FieldMap): string {
+  const n = fields.total_installments;
+  const value = fields.value;
+  if (!isRepeatCount(n)) return '';
+  const each = typeof value === 'number' ? value : undefined;
+  if (fields.is_recurring === true) {
+    return `${n} ocorrências${each !== undefined ? ` de ${formatBRL(each)}` : ''}`;
+  }
+  if (each === undefined) return `em ${n}x`;
+  return `em ${n}x de ${formatBRL(Math.round((each / n) * 100) / 100)} (total ${formatBRL(each)})`;
+}
+
+/** Campo informativo do card: parcelamento/recorrência só se altera pedindo de novo (cancele e peça outra vez). */
+function repeatDto(fields: FieldMap, error?: string): ActionFieldDto | null {
+  const recurring = fields.is_recurring === true;
+  const n = fields.total_installments;
+  if (!recurring && n === undefined) return null;
+  const dto: ActionFieldDto = {
+    key: 'total_installments',
+    label: recurring ? 'Recorrência' : 'Parcelas',
+    value: typeof n === 'number' ? n : null,
+    display: repeatSummary(fields) || '—',
+    editable: false,
+    missing: n === undefined,
+  };
+  if (error) dto.error = error;
+  return dto;
+}
+
 function notFound(error: unknown): boolean {
   return error instanceof Error && error.message.includes('não encontrada');
 }
@@ -216,7 +295,7 @@ export type TransactionAdapterService = Pick<
 export function createTransactionAdapter(service: TransactionAdapterService): EntityAdapter {
   return {
     entity: 'transaction',
-    toolSchemas: { create: TOOL_FIELDS, update: TOOL_FIELDS },
+    toolSchemas: { create: CREATE_TOOL_FIELDS, update: TOOL_FIELDS },
 
     sanitize,
 
@@ -224,7 +303,8 @@ export function createTransactionAdapter(service: TransactionAdapterService): En
       if (op === 'delete') {
         return { fields: {}, missing: [], errors: {}, valid: opts.hasTarget };
       }
-      const clean = sanitize(payload);
+      const sanitized = sanitize(payload);
+      const clean = op === 'create' ? sanitized : withoutRepeat(sanitized);
       const { fields, missing } = computeMissing('transaction', op, clean, {
         today: opts.today,
         defaultResponsible: opts.defaultResponsible,
@@ -245,7 +325,7 @@ export function createTransactionAdapter(service: TransactionAdapterService): En
       const missingKeys = new Set(evaluation.missing.map((m) => m.key));
       const keys = TRANSACTION_FIELD_KEYS.filter((k) => op === 'create' || evaluation.fields[k] !== undefined);
       if (op === 'delete') return [];
-      return keys.map((key) => {
+      const dtos = keys.map((key) => {
         const value = evaluation.fields[key];
         const dto: ActionFieldDto = {
           key,
@@ -258,6 +338,8 @@ export function createTransactionAdapter(service: TransactionAdapterService): En
         if (evaluation.errors[key]) dto.error = evaluation.errors[key];
         return dto;
       });
+      const repeat = repeatDto(evaluation.fields, evaluation.errors.total_installments);
+      return op === 'create' && repeat ? [...dtos, repeat] : dtos;
     },
 
     recordToFieldDtos(record): ActionFieldDto[] {
@@ -275,6 +357,8 @@ export function createTransactionAdapter(service: TransactionAdapterService): En
       if (op === 'create') {
         const parts = [`Criar ${kindWord(payload.type)}`];
         if (typeof payload.value === 'number') parts.push(`de ${formatBRL(payload.value)}`);
+        const repeat = repeatSummary(payload);
+        if (repeat) parts.push(repeat);
         if (payload.category) parts.push(`em ${String(payload.category)}`);
         if (payload.title) parts.push(`(${String(payload.title)})`);
         return parts.join(' ');

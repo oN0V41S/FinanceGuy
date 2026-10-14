@@ -116,6 +116,14 @@ interface ActionCardDto {
 ### 3.5 Regras de campos (transação)
 Obrigatórios: `type`, `value > 0`, `date` (padrão hoje), `category`, `responsible` (padrão igual ao `TransactionModal`; confirmar). `title` opcional (≤ 100). `paid` padrão `false` (pendente; só vira pago se o usuário disser). Tipo inferido por verbos ("recebi" → income; "gastei/paguei" → expense). Categoria: palavra-chave; senão a IA sugere entre as existentes.
 
+#### Criação interpretada pelo Gemini (atualização)
+- `classifyIntent` (sem LLM) só decide **op + entidade**; na criação o texto do usuário e o contrato de dados vão ao Gemini (`toolChoice` mode ANY, só a tool `propose_transaction_create`, pedido dentro de `<pedido>`), que devolve 1 chamada por lançamento — o próprio LLM define estrutura e quantidade de cards. Preenche só o que o usuário disse; a única inferência permitida é a categoria.
+- Padrões aplicados pelo app (não pelo LLM): data = hoje, `paid=false` (rótulo "Pago"/"Não pago"), responsável = apelido/nome do perfil **se não parecer credencial** (`safeName.ts`).
+- Categoria ausente: `CategorySuggester` (modelo menor, `AI_CATEGORY_MODEL`, prompt compacto) sugere entre as existentes.
+- Dado obrigatório faltando (tipo, valor, categoria, responsável): nenhum card; resposta `clarify` com o que falta e rascunho em `ChatMessage.payload.draft`. A próxima mensagem curta (sem verbo, sem `?`, ≤ 300 caracteres) é enviada ao Gemini junto de `<rascunho>`.
+- **Alterar/remover continuam no caminho determinístico** (regex em `extract.ts` + `targetResolver`) por decisão: o alvo precisa ser resolvido no servidor sem expor ids ao modelo; o LLM só entra para completar campos.
+- Parcelas/recorrência (espelha o `TransactionModal`): só na criação; `total_installments` 2–48 e `is_recurring`. Parcelado: `value` é o TOTAL (o service divide em N filhas, +1 mês cada). Recorrente: `value` é o de CADA ocorrência e exige a quantidade (senão o assistente pergunta). Um lançamento = uma tool call (nunca uma por parcela). No card é campo informativo (`editable:false`); para mudar, cancelar e pedir de novo.
+
 ### 3.6 Utilitários
 `formatDateBR` (sem `new Date('YYYY-MM-DD')`), `parseBRL` (extraído de `parseSearchAmount`, com re-export).
 
@@ -161,8 +169,10 @@ Erros: 401 sem `x-user-id`; 400 Zod; 404 ação inexistente ou de outro usuário
 ---
 
 ## 6. Critérios de Aceitação
-1. "Crie despesa de 50 no mercado hoje" gera card `ready` **sem chamada ao LLM**, sem consumir cota; confirmar grava a transação do usuário e invalida cache.
-2. Sem valor: card `needs_input`, "Faltou valor — exemplo: …", Confirmar desabilitado até o Zod passar.
+1. "Crie despesa de 50 no mercado hoje" gera card `ready` interpretado pelo Gemini (1 chamada, consome cota); confirmar grava a transação do usuário e invalida cache. Um pedido com 2 lançamentos gera 2 cards (quantidade decidida pelo LLM).
+2. Sem valor/tipo/categoria/responsável: **nenhum card**; o assistente pergunta o que falta e guarda o rascunho; a resposta seguinte (sem verbo de comando) completa e gera o(s) card(s).
+2a. "Notebook em 3x de R$ 100" gera 1 card com `value` 300 e `total_installments` 3 (campo "Parcelas" informativo); "recorrente" sem quantidade pergunta o número de ocorrências.
+2b. Responsável padrão com cara de credencial (senha/token, dígitos ou símbolos) é ignorado: o assistente pergunta o responsável.
 3. Alterar/remover: 0 candidatas → texto; 1 → card com diff; várias → seleção; ids nunca aparecem na resposta nem no prompt.
 4. Usuário B não confirma, edita nem cancela ação do usuário A; dupla confirmação → 409; expirada não executa.
 5. Lote de 3 válidos: 3 cards individuais + "Confirmar todas (3)" em uma requisição; com um inválido, os válidos seguem confirmáveis.

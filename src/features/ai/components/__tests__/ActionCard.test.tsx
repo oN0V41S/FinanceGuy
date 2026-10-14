@@ -33,6 +33,15 @@ describe('ActionCard - criação', () => {
     expect(screen.getByText('13/10/2026 · Ana')).toBeInTheDocument();
   });
 
+  it('mostra o selo de parcelas quando o lançamento é parcelado', () => {
+    const fields = [
+      ...transactionFields(),
+      { key: 'total_installments', label: 'Parcelas', value: 3, display: 'em 3x de R$ 100,00 (total R$ 300,00)', editable: false, missing: false },
+    ];
+    setup(makeCard({ fields }));
+    expect(screen.getByTestId('action-card-repeat')).toHaveTextContent('Parcelas: em 3x de R$ 100,00');
+  });
+
   it('receita usa o ícone/tipo de receita', () => {
     setup(makeCard({ fields: transactionFields({ type: { value: 'income', display: 'Receita' } }) }));
     expect(screen.getByTestId('action-card-type')).toHaveAttribute('data-type', 'income');

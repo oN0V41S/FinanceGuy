@@ -1,3 +1,4 @@
+import { pickSafeResponsible } from '../features/ai/agent/safeName';
 import { ITransactionRepository } from '../features/transactions/ITransaction.repository';
 import { PostgresTransactionRepository } from '../features/transactions/postgresTransaction.repository';
 import { TransactionService } from '../features/transactions/transactions.service';
@@ -103,7 +104,7 @@ export const aiAgent: AgentService = new AgentService({
   config: agentConfig,
   defaultResponsible: async (userId) => {
     const user = await userRepository.findById(userId);
-    return user?.nickname ?? user?.name ?? undefined;
+    return pickSafeResponsible(user?.nickname, user?.name);
   },
 });
 

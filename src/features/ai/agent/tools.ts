@@ -11,7 +11,7 @@ const DELETE_TARGET_SCHEMA = z.object({
 
 const DESCRIPTIONS: Record<string, string> = {
   'transaction:create':
-    'Propõe a criação de uma transação (receita ou despesa). Apenas propõe: o usuário confirma na tela. Preencha somente o que o texto do usuário informa; nunca invente valores.',
+    'Propõe a criação de uma transação (receita ou despesa). Apenas propõe: o usuário confirma na tela. Preencha somente o que o texto do usuário informa; nunca invente valores. Para parcelamento ("em 3x") ou recorrência ("todo mês por 12 meses") use total_installments (e is_recurring); nunca crie uma chamada por parcela.',
   'transaction:update':
     'Propõe a alteração de uma transação já encontrada pelo sistema. Informe apenas os campos que mudam. Apenas propõe: o usuário confirma na tela.',
   'transaction:delete':

@@ -59,6 +59,7 @@ function ItemSummary({ fields }: { fields: ActionFieldDto[] }) {
   const value = findField(fields, 'value')?.display;
   const category = findField(fields, 'category');
   const paid = findField(fields, 'paid');
+  const repeat = findField(fields, 'total_installments');
   const date = findField(fields, 'date')?.display;
   const responsible = findField(fields, 'responsible')?.display;
   const Icon = type === 'income' ? TrendingUp : TrendingDown;
@@ -84,6 +85,14 @@ function ItemSummary({ fields }: { fields: ActionFieldDto[] }) {
           {category?.display && (
             <span className="rounded-full bg-surface-container-high px-2.5 py-0.5 text-xs text-on-surface-variant">
               {category.display}
+            </span>
+          )}
+          {repeat && (
+            <span
+              data-testid="action-card-repeat"
+              className="rounded-full bg-surface-container-high px-2.5 py-0.5 text-xs text-on-surface-variant"
+            >
+              {repeat.label}: {repeat.display}
             </span>
           )}
           {paid && (

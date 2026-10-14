@@ -1,6 +1,7 @@
 import { CategoryEnum } from '@/features/transactions/validations';
 import type { AgentEntity, AgentOp, MissingFieldDto } from '../types';
 import { todayBRT } from './extract';
+import { pickSafeResponsible } from './safeName';
 
 export interface ComputeMissingOptions {
   /** YYYY-MM-DD usado como data padrão; se ausente, calcula "hoje" em America/Sao_Paulo. */
@@ -28,6 +29,11 @@ const MISSING_CATEGORY: MissingFieldDto = {
   example: CategoryEnum.options.slice(0, 3).join(', '),
 };
 const MISSING_RESPONSIBLE: MissingFieldDto = { key: 'responsible', label: 'responsável', example: 'Maria' };
+const MISSING_INSTALLMENTS: MissingFieldDto = {
+  key: 'total_installments',
+  label: 'número de ocorrências da recorrência',
+  example: '12',
+};
 const MISSING_CHANGE: MissingFieldDto = {
   key: 'changes',
   label: 'o que alterar',
@@ -72,16 +78,19 @@ export function computeMissing(
     return { fields: result, missing };
   }
 
+  let missingRepeat = false;
   if (isBlank(result.date)) result.date = opts.today ?? todayBRT(opts.now ?? new Date());
   if (result.paid === undefined || result.paid === null) result.paid = false;
-  if (isBlank(result.responsible) && !isBlank(opts.defaultResponsible)) {
-    result.responsible = opts.defaultResponsible!.trim();
-  }
+  const fallback = pickSafeResponsible(opts.defaultResponsible);
+  if (isBlank(result.responsible) && fallback) result.responsible = fallback;
+  // Recorrência sem número de ocorrências: o sistema não pode adivinhar por quantos meses.
+  if (result.is_recurring === true && isBlank(result.total_installments)) missingRepeat = true;
 
   if (!validType(result.type)) missing.push(MISSING_TYPE);
   if (!validValue(result.value)) missing.push(MISSING_VALUE);
   if (!validCategory(result.category)) missing.push(MISSING_CATEGORY);
   if (isBlank(result.responsible)) missing.push(MISSING_RESPONSIBLE);
+  if (missingRepeat) missing.push(MISSING_INSTALLMENTS);
 
   return { fields: result, missing };
 }
