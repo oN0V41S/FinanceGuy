@@ -54,7 +54,10 @@ export const INTENT_CASES: IntentCase[] = [
   { frase: 'ganhei 100 reais de presente', esperado: w('create', 'transaction') },
   // Alterar
   { frase: 'alterar o valor da despesa do mercado para 80', esperado: w('update', 'transaction') },
-  { frase: 'altere a categoria da transação de ontem', esperado: w('update', 'transaction'), knownBug: 'entidade vence por posição: "categoria" antes de "transação" vira update de category' },
+  { frase: 'altere a categoria da transação de ontem', esperado: w('update', 'transaction') },
+  { frase: 'mude a categoria da última despesa para Lazer', esperado: w('update', 'transaction') },
+  { frase: 'altere a categoria de Lazer para Diversão', esperado: w('update', 'category') },
+  { frase: 'remover a categoria Lazer', esperado: w('delete', 'category') },
   { frase: 'mudar o responsável da despesa de luz para Maria', esperado: w('update', 'transaction') },
   { frase: 'editar a receita de salário para 4000', esperado: w('update', 'transaction') },
   { frase: 'atualize o gasto do uber para 35 reais', esperado: w('update', 'transaction') },

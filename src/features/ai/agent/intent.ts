@@ -61,6 +61,9 @@ function wordRegex(words: string[]): RegExp {
   return new RegExp(`\\b(?:${words.join('|')})\\b`, 'g');
 }
 
+/** "categoria" também é campo de transação/investimento: em "a categoria da transação" o alvo é o que vem depois de da/do. */
+const CATEGORY_OF = /^\s+d[aeo]s?\s+(?:(?:ultim[ao]|mesm[ao]|minha|meu)\s+)?/;
+
 interface Found<T extends string> {
   key: T;
   word: string;
@@ -112,6 +115,16 @@ function clarify(reason: ClarifyReason, message: string): Intent {
  * Classificação determinística (sem LLM, sem cota) da mensagem do usuário.
  * Perguntas e hipóteses nunca disparam escrita, mesmo com palavra de comando.
  */
+function findEntity(norm: string): Found<IntentEntity> | undefined {
+  const first = findFirst(norm, ENTITIES);
+  if (first?.key !== 'category') return first;
+  const rest = norm.slice(first.index + first.word.length);
+  const owner = CATEGORY_OF.exec(rest);
+  if (!owner) return first;
+  const { category: _category, ...owners } = ENTITIES;
+  const target = findFirst(rest.slice(owner[0].length), owners);
+  return target && target.index === 0 ? { ...target, index: first.index } : first;
+}
 export function classifyIntent(message: string): Intent {
   const norm = normalize(message).trim();
   if (norm.length === 0 || isQuestion(norm)) return { kind: 'read' };
@@ -119,7 +132,7 @@ export function classifyIntent(message: string): Intent {
   const parts = splitSegments(message);
   const analysed = parts.map((text) => {
     const n = normalize(text);
-    return { text, n, verb: findVerb(n), entity: findFirst(n, ENTITIES) };
+    return { text, n, verb: findVerb(n), entity: findEntity(n) };
   });
 
   if (!analysed.some((s) => s.verb)) return { kind: 'read' };
