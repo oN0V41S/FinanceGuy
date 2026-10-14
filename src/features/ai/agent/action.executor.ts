@@ -1,3 +1,4 @@
+import type { ICategorySuggester } from './categorySuggester';
 import type { IContextCache } from '../session/ISession.service';
 import type {
   ActionCardDto,
@@ -35,6 +36,8 @@ export interface ActionExecutorDeps {
   pending: IPendingActionRepository;
   audit: IAuditLogRepository;
   contextCache?: Pick<IContextCache, 'invalidate'>;
+  /** Preenche a categoria quando o usuário a deixa em branco ao editar uma criação. */
+  categorySuggester?: ICategorySuggester;
   now?: () => Date;
 }
 
@@ -203,6 +206,15 @@ export class ActionExecutor {
 
   // ── Edição ──
 
+  private async fillCategory(userId: string, op: AgentOp, fields: FieldMap): Promise<void> {
+    const suggester = this.deps.categorySuggester;
+    const blank = typeof fields.category !== 'string' || !fields.category.trim();
+    const title = typeof fields.title === 'string' ? fields.title : '';
+    if (op !== 'create' || !blank || !suggester || !title.trim()) return;
+    const suggested = await suggester.suggest(userId, title);
+    if (suggested) fields.category = suggested;
+  }
+
   /** PATCH: revalida com Zod, recalcula campos faltantes e o status (ready/needs_input). */
   async update(userId: string, id: string, fields: Record<string, unknown>): Promise<QueueMutationResponse> {
     const record = await this.requireOpen(userId, id);
@@ -221,6 +233,7 @@ export class ActionExecutor {
       if (cleared) delete merged[key];
     }
     Object.assign(merged, incoming);
+    await this.fillCategory(userId, op, merged);
 
     const evaluation = adapter.evaluate(op, merged, {
       today: todayBRT(this.now()),

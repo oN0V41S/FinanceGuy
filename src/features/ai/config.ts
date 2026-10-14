@@ -61,6 +61,13 @@ export function getAiConfig(env: EnvSource = process.env): AiConfig {
   };
 }
 
+/** Menor modelo para tarefas triviais (ex.: sugerir categoria). */
+export const DEFAULT_CATEGORY_MODEL = 'gemini-3.1-flash-lite';
+
+export function getCategoryModel(env: NodeJS.ProcessEnv = process.env): string {
+  return env.AI_CATEGORY_MODEL?.trim() || DEFAULT_CATEGORY_MODEL;
+}
+
 const AgentEnvSchema = z.object({
   AI_ACTION_TTL_MINUTES: positiveInt(10).default(10),
   AI_MAX_QUEUE: positiveInt(5).default(5),

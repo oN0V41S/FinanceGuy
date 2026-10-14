@@ -95,7 +95,7 @@ describe('ActionEditForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('exige categoria quando ela está faltando', () => {
+  it('categoria em branco não bloqueia: a IA escolhe ao salvar', () => {
     const { onSubmit } = setup({
       card: makeCard({
         status: 'needs_input',
@@ -104,8 +104,9 @@ describe('ActionEditForm', () => {
     });
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Padaria' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
-    expect(screen.getByRole('alert')).toHaveTextContent(/Escolha uma categoria/);
-    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(onSubmit).toHaveBeenCalled();
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('category', expect.stringMatching(/./));
   });
 
   it('sem alterações, salvar apenas fecha o formulário', () => {

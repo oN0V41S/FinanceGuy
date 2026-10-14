@@ -18,8 +18,9 @@ import { AiService } from '../features/ai/ai.service';
 import { GeminiLlmProvider } from '../features/ai/gemini.provider';
 import { createRateLimiter } from '../features/ai/rateLimiter';
 import type { IRateLimiter } from '../features/ai/types';
-import { getAgentConfig } from '../features/ai/config';
+import { getAgentConfig, getCategoryModel } from '../features/ai/config';
 import { AgentService } from '../features/ai/agent/agent.service';
+import { CategorySuggester } from '../features/ai/agent/categorySuggester';
 import { ActionExecutor } from '../features/ai/agent/action.executor';
 import { createTransactionAdapter } from '../features/ai/agent/entityAdapters/transaction';
 import { createFinancialContextSource } from '../features/ai/agent/financialContextSource';
@@ -86,12 +87,15 @@ export const aiSessionService: SessionService = new SessionService({
   cardLookup: createQueueCardLookup({ pending: pendingActionRepository, adapters: aiAdapters }),
 });
 
+const aiCategorySuggester = new CategorySuggester({ llm: aiLlm, rateLimiter: aiRateLimiter, model: getCategoryModel() });
+
 export const aiAgent: AgentService = new AgentService({
   adapters: aiAdapters,
   pending: pendingActionRepository,
   sessions: aiSessionService,
   llm: aiLlm,
   rateLimiter: aiRateLimiter,
+  categorySuggester: aiCategorySuggester,
   context: withContextCache(
     createFinancialContextSource({ transactions: transactionService, goals: goalService, investments: investmentService }),
     aiContextCache,
@@ -108,4 +112,5 @@ export const aiActionExecutor: ActionExecutor = new ActionExecutor({
   pending: pendingActionRepository,
   audit: auditLogRepository,
   contextCache: aiContextCache,
+  categorySuggester: aiCategorySuggester,
 });

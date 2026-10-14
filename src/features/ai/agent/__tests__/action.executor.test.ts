@@ -226,6 +226,24 @@ describe('ActionExecutor.update (PATCH)', () => {
     expect(res2.card.missingFields.map((m) => m.key)).toEqual(expect.arrayContaining(['value', 'category']));
   });
 
+  it('categoria em branco é preenchida pela IA a partir do título', async () => {
+    const suggester = { suggest: jest.fn().mockResolvedValue('Lazer') };
+    const { executor, pending } = await setup();
+    (executor as unknown as { deps: { categorySuggester: unknown } }).deps.categorySuggester = suggester;
+    const res = await executor.update('user-1', 'act-1', { category: '', title: 'Boliche' });
+    expect(suggester.suggest).toHaveBeenCalledWith('user-1', 'Boliche');
+    expect(res.card.status).toBe('ready');
+    expect((pending.rows[0].payload as { fields: Record<string, unknown> }).fields.category).toBe('Lazer');
+  });
+
+  it('categoria informada pelo usuário não chama a IA', async () => {
+    const suggester = { suggest: jest.fn() };
+    const { executor } = await setup();
+    (executor as unknown as { deps: { categorySuggester: unknown } }).deps.categorySuggester = suggester;
+    await executor.update('user-1', 'act-1', { title: 'Outro' });
+    expect(suggester.suggest).not.toHaveBeenCalled();
+  });
+
   it('descarta chaves não permitidas (userId, id)', async () => {
     const { executor, pending } = await setup();
     await executor.update('user-1', 'act-1', { userId: 'x', id: 'y', title: 'Novo' });

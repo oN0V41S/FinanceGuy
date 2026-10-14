@@ -55,6 +55,9 @@ function validate(card: ActionCardDto, values: FormValues): Record<string, strin
     if (field.key === 'value' && converted === null) {
       errors.value = INVALID_VALUE_MESSAGE;
       candidate.value = Number.NaN;
+    } else if (field.key === 'category' && converted === '') {
+      // Em branco é permitido: a IA escolhe a categoria ao salvar.
+      candidate.category = CATEGORY_OPTIONS[0];
     } else if ((field.key === 'title' || field.key === 'description') && converted === '') {
       candidate[field.key] = undefined;
     } else {
@@ -164,7 +167,7 @@ export function ActionEditForm({ card, saving = false, error = null, onSubmit, o
           <Label>{label}</Label>
           <Select value={current} onValueChange={(next) => setField(key, next ?? '')}>
             <SelectTrigger className="h-12 w-full" aria-label={label}>
-              <SelectValue placeholder={`Selecione: ${label.toLowerCase()}`}>
+              <SelectValue placeholder={key === 'category' ? 'Opcional: a IA escolhe' : `Selecione: ${label.toLowerCase()}`}>
                 {current ? getLabelForValue(current) : undefined}
               </SelectValue>
             </SelectTrigger>

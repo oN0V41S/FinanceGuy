@@ -20,6 +20,7 @@ import type { AdapterRegistry, EntityAdapter, FieldMap, TargetCandidate } from '
 import { logSafe } from '../logging';
 import { extractTransactionFields, todayBRT } from './extract';
 import { classifyIntent, type IntentSegment } from './intent';
+import type { ICategorySuggester } from './categorySuggester';
 import { buildAgentSystemPrompt, buildAgentUserMessage } from './prompts';
 import type {
   IPendingActionRepository,
@@ -37,6 +38,8 @@ export interface AgentServiceDeps {
   sessions: ISessionService;
   llm: ILlmProvider;
   rateLimiter: IRateLimiter;
+  /** Escolhe a categoria quando o usuário não informa (palavra-chave ou modelo pequeno). */
+  categorySuggester?: ICategorySuggester;
   /** Contexto financeiro (já decorado com cache pelo container). */
   context: FinancialContextSource;
   config: Pick<AgentConfig, 'actionTtlMinutes' | 'maxQueue' | 'maxPending'>;
@@ -62,7 +65,7 @@ export const MESSAGES = {
 const MIN_WORDS_CREATE_LLM = 2;
 const MIN_WORDS_UPDATE_LLM = 3;
 
-const LLM_RELEVANT_MISSING = new Set(['type', 'category', 'value']);
+const LLM_RELEVANT_MISSING = new Set(['type', 'value']);
 
 function toJson(value: unknown): JsonValue {
   return JSON.parse(JSON.stringify(value)) as JsonValue;
@@ -255,6 +258,17 @@ export class AgentService {
         });
       }
     }
+    const category = evaluation.fields.category;
+    if ((typeof category !== 'string' || !category.trim()) && this.deps.categorySuggester) {
+      const suggested = await this.deps.categorySuggester.suggest(userId, categoryText(evaluation.fields, segment.text));
+      if (suggested) {
+        evaluation = adapter.evaluate('create', { ...evaluation.fields, category: suggested }, {
+          today,
+          defaultResponsible: input.defaultResponsible,
+          hasTarget: false,
+        });
+      }
+    }
     const status: PendingActionStatus = evaluation.valid ? 'ready' : 'needs_input';
     return { item: { ...base, payload: toJson({ fields: evaluation.fields }), status } };
   }
@@ -383,6 +397,11 @@ function toStored(candidate: TargetCandidate): { id: string; label: string; reco
 }
 
 /** Valor, data, tipo e pago vêm das regras (determinísticos); título e categoria podem vir do LLM. */
+/** Texto curto para classificar: o título é o melhor sinal; sem ele, a própria frase. */
+function categoryText(fields: FieldMap, fallback: string): string {
+  return typeof fields.title === 'string' && fields.title.trim() ? fields.title : fallback;
+}
+
 function mergeCreate(extracted: FieldMap, llm: FieldMap): FieldMap {
   const merged: FieldMap = { ...llm };
   for (const [key, value] of Object.entries(extracted)) {

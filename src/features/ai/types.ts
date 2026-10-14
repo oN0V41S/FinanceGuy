@@ -36,6 +36,10 @@ export interface LlmRequest {
   messages: LlmMessage[];
   tools?: LlmToolDeclaration[];
   toolChoice?: LlmToolChoice;
+  /** Modelo preferido nesta chamada (ex.: o menor, para tarefas triviais); depois vem a cadeia configurada. */
+  model?: string;
+  /** Teto de saída desta chamada; padrão: o configurado. */
+  maxOutputTokens?: number;
 }
 
 export type LlmStopReason = 'stop' | 'max_tokens';

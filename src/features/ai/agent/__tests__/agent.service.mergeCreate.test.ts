@@ -12,7 +12,7 @@ jest.mock('../extract', () => {
 describe('AgentService mergeCreate', () => {
   it('chave undefined explícita no extraído não apaga o valor vindo do LLM', async () => {
     (extractTransactionFields as jest.Mock).mockReturnValue({
-      type: 'expense',
+      type: undefined,
       value: 'R$ 40,00',
       title: 'Cinema',
       date: '2026-10-14',
@@ -22,7 +22,7 @@ describe('AgentService mergeCreate', () => {
       complete: jest.fn().mockResolvedValue({
         text: '',
         stopReason: 'stop',
-        toolCalls: [{ name: 'propose_transaction_create', args: { category: 'Lazer' } }],
+        toolCalls: [{ name: 'propose_transaction_create', args: { type: 'expense', category: 'Lazer' } }],
       }),
     };
     const rateLimiter: jest.Mocked<IRateLimiter> = { consume: jest.fn().mockResolvedValue({ allowed: true }) };

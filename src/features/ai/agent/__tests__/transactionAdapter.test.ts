@@ -117,7 +117,7 @@ describe('transaction adapter', () => {
       const dtos = adapter.recordToFieldDtos(txRow() as unknown as Record<string, unknown>);
       expect(dtos.find((f) => f.key === 'value')?.display).toBe('R$ 120,00');
       expect(dtos.find((f) => f.key === 'date')?.display).toBe('10/10/2026');
-      expect(dtos.find((f) => f.key === 'paid')?.display).toBe('Sim');
+      expect(dtos.find((f) => f.key === 'paid')?.display).toBe('Pago');
       expect(dtos.find((f) => f.key === 'type')?.display).toBe('Despesa');
       expect(dtos.every((f) => f.editable === false)).toBe(true);
     });

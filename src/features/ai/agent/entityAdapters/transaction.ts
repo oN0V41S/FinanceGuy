@@ -158,7 +158,7 @@ function display(key: FieldKey, value: unknown): string {
     case 'date':
       return typeof value === 'string' ? formatDateBR(value) : String(value);
     case 'paid':
-      return value === true ? 'Sim' : 'Não';
+      return value === true ? 'Pago' : 'Não pago';
     default:
       return String(value);
   }

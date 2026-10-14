@@ -95,7 +95,7 @@ function ItemSummary({ fields }: { fields: ActionFieldDto[] }) {
                   : 'bg-finance-recurring/15 text-finance-recurring',
               )}
             >
-              {paid.display || (paid.value === true ? 'Pago' : 'Pendente')}
+              {paid.display || (paid.value === true ? 'Pago' : 'Não pago')}
             </span>
           )}
         </div>

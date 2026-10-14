@@ -60,7 +60,7 @@ export class GeminiLlmProvider implements ILlmProvider {
       throw new AiUnavailableError('GEMINI_API_KEY não configurada');
     }
 
-    const models = [config.model, ...(config.fallbackModels ?? [])];
+    const models = [...new Set([request.model ?? config.model, config.model, ...(config.fallbackModels ?? [])])];
     const startedAt = Date.now();
     let response: GenerateContentResponse | undefined;
     let lastError: Error = new AiUpstreamError();
@@ -95,7 +95,7 @@ export class GeminiLlmProvider implements ILlmProvider {
       })),
       config: {
         systemInstruction: request.system,
-        maxOutputTokens: config.maxOutputTokens,
+        maxOutputTokens: request.maxOutputTokens ?? config.maxOutputTokens,
         temperature: TEMPERATURE,
         thinkingConfig: buildThinkingConfig(model),
         httpOptions: {
