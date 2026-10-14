@@ -6,6 +6,7 @@ import {
   writeCache,
   clearCacheByPrefix,
 } from '@/shared/hooks/useLocalStorageCache';
+import { parseBRL } from '@/shared/utils';
 import type { Transaction, FinancialSummary } from '@/features/transactions/validations';
 import type { TransactionFormData } from '@/features/transactions/types';
 
@@ -14,16 +15,7 @@ import type { TransactionFormData } from '@/features/transactions/types';
  * Retorna null quando o texto não parece um número.
  */
 export function parseSearchAmount(query: string): number | null {
-  const cleaned = query.replace(/r\$/gi, '').replace(/\s/g, '');
-  if (!/^\d[\d.,]*$/.test(cleaned)) return null;
-  let normalized = cleaned;
-  if (cleaned.includes(',')) {
-    normalized = cleaned.replace(/\./g, '').replace(',', '.');
-  } else if (/^\d{1,3}(\.\d{3})+$/.test(cleaned)) {
-    normalized = cleaned.replace(/\./g, '');
-  }
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseBRL(query);
 }
 
 function summarize(list: Transaction[]): FinancialSummary {
@@ -32,7 +24,7 @@ function summarize(list: Transaction[]): FinancialSummary {
   return { income, expense, balance: income - expense };
 }
 
-const TRANSACTIONS_CACHE_PREFIX ='financeguy:cache:transactions:';
+export const TRANSACTIONS_CACHE_PREFIX = 'financeguy:cache:transactions:';
 const TRANSACTIONS_TTL_MS = 30 * 60 * 1000; // 30 minutos
 
 interface TransactionsSnapshot {

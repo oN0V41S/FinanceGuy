@@ -36,9 +36,11 @@ Aplicação web para gerenciamento de transações financeiras pessoais com supo
 - **Linting**: ESLint 8.57, Next.js config
 - **Build**: Next.js 16.0.3
 
-### IA (Planejado)
-- **Provider**: Google Gemini Pro (integração em progresso)
-- **Alternativa**: OpenAI API (prototipagem)
+### IA (FING-7 — MVP em implementação)
+- **Provider**: Google Gemini via SDK oficial `@google/genai` (modelo configurável em `GEMINI_MODEL`)
+- **Endpoint**: `POST /api/ai/ask` + página `/assistente` — pergunta em linguagem natural respondida com base em um resumo dos seus dados financeiros
+- **Privacidade**: apenas um DTO resumido (whitelist) é enviado ao Google; produção exige chave com billing ativo. Ver [docs/security.md](docs/security.md)
+- **Nota**: o provedor é Gemini (diverge da spec original do Notion, que citava Claude)
 
 ---
 
@@ -136,7 +138,7 @@ O projeto segue **GitHub Flow**:
 - [x] **Fase 4**: CI/CD com GitHub Actions
 - [x] **Fase 5**: Autenticação (API + UI)
 - [ ] **Fase 6**: Integração Frontend ↔ API
-- [ ] **Fase 7**: Integração IA (Gemini)
+- [ ] **Fase 7**: Integração IA (Gemini) — MVP FING-7 em andamento (`/api/ai/ask`, `/assistente`)
 - [ ] **Fase 8**: Testes de integração
 - [ ] **Fase 9**: Deploy (Vercel)
 

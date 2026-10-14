@@ -57,6 +57,51 @@ export const swaggerSpec = {
         responses: { 200: { description: 'Logout realizado com sucesso' } },
       },
     },
+    '/api/ai/ask': {
+      post: {
+        summary: 'Perguntar ao assistente de IA (Gemini) sobre as finanças do usuário',
+        tags: ['AI'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  question: { type: 'string', minLength: 1, maxLength: 500 },
+                },
+                required: ['question'],
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Resposta do assistente (Cache-Control: no-store)',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    answer: { type: 'string' },
+                    truncated: { type: 'boolean' },
+                  },
+                  required: ['answer', 'truncated'],
+                },
+              },
+            },
+          },
+          400: { description: 'Corpo inválido, pergunta vazia ou acima de 500 caracteres' },
+          401: { description: 'Usuário não identificado' },
+          422: { description: 'Pergunta bloqueada pelo provedor' },
+          429: { description: 'Limite de perguntas atingido (minuto ou dia); inclui header Retry-After' },
+          500: { description: 'Erro interno ou falha ao carregar dados financeiros' },
+          502: { description: 'Resposta inesperada do provedor' },
+          503: { description: 'Assistente indisponível, com alta demanda ou sem conexão' },
+          504: { description: 'Timeout ao consultar o provedor' },
+        },
+      },
+    },
     '/api/transactions': {
       get: {
         summary: 'Listar transações',

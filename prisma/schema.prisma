@@ -43,17 +43,103 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   password      String? // Preenchido se usar Credentials (email/senha)
+  aiProfile     String? // Descrição livre do usuário para personalizar o assistente (FING-18)
 
   // Relacionamentos
-  accounts               Account[]
-  sessions               Session[]
-  transactions           Transaction[] // Relacionamento reverso adicionado
-  investments            Investment[]
-  goals                  Goal[]
+  accounts       Account[]
+  sessions       Session[]
+  transactions   Transaction[] // Relacionamento reverso adicionado
+  investments    Investment[]
+  goals          Goal[]
+  chatSessions   ChatSession[]
+  chatMessages   ChatMessage[]
+  pendingActions PendingAction[]
+  auditLogs      AuditLog[]
   investmentTransactions InvestmentTransaction[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ChatSession {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String?
+  summary    String?
+  tokenCount Int      @default(0)
+  status     String   @default("active") // 'active' | 'archived' (validated in code)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  messages       ChatMessage[]
+  pendingActions PendingAction[]
+
+  @@index([userId])
+  @@index([userId, status])
+  @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id        String      @id @default(cuid())
+  sessionId String
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      String // 'user' | 'assistant'
+  kind      String      @default("text") // 'text' | 'actions' | 'pick' | 'compacted'
+  content   String
+  payload   Json?
+  tokens    Int?
+  compacted Boolean     @default(false)
+  createdAt DateTime    @default(now())
+
+  @@index([userId])
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+}
+
+model PendingAction {
+  id         String      @id @default(cuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId  String
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  queueId    String
+  position   Int         @default(0)
+  entity     String // 'transaction' | 'investment' | 'category'
+  op         String // 'create' | 'update' | 'delete'
+  payload    Json
+  targetId   String?
+  candidates Json?
+  before     Json?
+  status     String // ActionStatus (validated in code)
+  expiresAt  DateTime
+  createdAt  DateTime    @default(now())
+  resolvedAt DateTime?
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([queueId])
+  @@index([expiresAt])
+  @@map("pending_actions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entity    String
+  op        String
+  entityId  String
+  before    Json?
+  after     Json?
+  source    String   @default("ai-agent")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@map("audit_logs")
 }
 
 model Investment {
