@@ -3,6 +3,9 @@ import { getBrtPeriod } from './financialContext';
 export interface QuestionPeriod {
   startMonth: string; // YYYY-MM
   endMonth: string; // YYYY-MM
+  /** Recorte por dias dentro de um único mês (ex.: "16 a 31 de dezembro"). */
+  startDay?: number;
+  endDay?: number;
 }
 
 export const MAX_PERIOD_MONTHS = 36;
@@ -56,10 +59,24 @@ export function resolveQuestionPeriod(question: string, now: Date): QuestionPeri
     return make(idx(Number(m[2]), Number(m[1])), idx(Number(m[2]), Number(m[1])));
   }
 
-  const resolveYearless = (month: number): number => {
-    const sameYear = idx(cy, month);
-    return sameYear <= current ? sameYear : idx(cy - 1, month);
-  };
+  // Mês sem ano: o do ano corrente (passado ou futuro).
+  const resolveYearless = (month: number): number => idx(cy, month);
+
+  // "16 a 31 de dezembro (de 2026)" / "dia 5 de março"
+  m = text.match(new RegExp(String.raw`\b(?:dia\s+)?(\d{1,2})\s*(?:a|ate|ao|-)\s*(?:dia\s+)?(\d{1,2})\s+de\s+(${MONTH_NAMES})\b(?:\s+de\s+(\d{4}))?`));
+  const single = m ? null : text.match(new RegExp(String.raw`\bdia\s+(\d{1,2})\s+de\s+(${MONTH_NAMES})\b(?:\s+de\s+(\d{4}))?`));
+  if (m || single) {
+    const d1 = Number(m ? m[1] : single![1]);
+    const d2 = Number(m ? m[2] : single![1]);
+    const monthNum = MONTHS[m ? m[3] : single![2]];
+    const yearStr = m ? m[4] : single![3];
+    const year = yearStr && validYear(Number(yearStr)) ? Number(yearStr) : cy;
+    const inRange = (d: number): boolean => d >= 1 && d <= 31;
+    if (inRange(d1) && inRange(d2)) {
+      const mk = key(idx(year, monthNum));
+      return { startMonth: mk, endMonth: mk, startDay: Math.min(d1, d2), endDay: Math.max(d1, d2) };
+    }
+  }
 
   // "de março a maio de 2025" / "março até maio"
   m = text.match(new RegExp(String.raw`\b(${MONTH_NAMES})\b(?:\s+de\s+(\d{4}))?\s+(?:a|ate|ao)\s+(${MONTH_NAMES})\b(?:\s+de\s+(\d{4}))?`));

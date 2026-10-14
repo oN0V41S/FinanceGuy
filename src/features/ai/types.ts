@@ -71,6 +71,21 @@ export interface FinancialContextDto {
     byCategory: Array<{ category: string; type: 'income' | 'expense'; total: number }>;
   };
   last6Months: Array<{ month: string; income: number; expense: number; balance: number }>;
+  /** Presente quando a pergunta recorta dias (ex.: "16 a 31 de dezembro"): todas as transações do recorte. */
+  focus?: {
+    startDate: string;
+    endDate: string;
+    income: MoneySplit;
+    expense: MoneySplit;
+    transactions: Array<{
+      date: string;
+      type: 'income' | 'expense';
+      category: string;
+      value: number;
+      paid: boolean;
+      title: string;
+    }>;
+  };
   /** Detalhe dos meses anteriores da janela (ascendente, sem o mês atual): permite responder sobre qualquer mês. */
   previousMonths: Array<{
     month: string; // YYYY-MM

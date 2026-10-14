@@ -11,6 +11,7 @@ const CONTROL_CHARS = new RegExp("[\u0000-\u001F\u007F-\u009F\u2028\u2029]", "g"
 const MAX_RECENT_TRANSACTIONS = 40;
 const MAX_PREVIOUS_CATEGORIES = 8;
 const MAX_PREVIOUS_TOP_TRANSACTIONS = 5;
+const MAX_FOCUS_TRANSACTIONS = 40;
 const MAX_GOALS = 20;
 const MAX_INVESTMENTS = 30;
 export const MAX_CONTEXT_JSON_CHARS = 12000;
@@ -197,6 +198,7 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date, r
   currentMonthTransactions.sort((a, b) => (a.date === b.date ? b.value - a.value : a.date < b.date ? 1 : -1));
   const recent = currentMonthTransactions.slice(0, MAX_RECENT_TRANSACTIONS).map((e) => e.item);
 
+  let focusOmitted = 0;
   const previousMonths: FinancialContextDto['previousMonths'] = [...prevDetail.entries()].map(([month, d]) => {
     d.txs.sort((a, b) => (a.value === b.value ? (a.date < b.date ? 1 : -1) : b.value - a.value));
     return {
@@ -214,6 +216,29 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date, r
       topTransactions: d.txs.slice(0, MAX_PREVIOUS_TOP_TRANSACTIONS).map((e) => e.item),
     };
   });
+
+  let focus: FinancialContextDto['focus'];
+  if (range?.startDay && range.endDay) {
+    const startDate = `${range.startMonth}-${pad(range.startDay)}`;
+    const endDate = `${range.startMonth}-${pad(range.endDay)}`;
+    const fIncome = emptySplit();
+    const fExpense = emptySplit();
+    const items: FinancialContextDto['recentTransactions'] = [];
+    for (const t of input.transactions) {
+      const date = toDateKey(t.date);
+      if (date < startDate || date > endDate) continue;
+      const value = Number(t.value) || 0;
+      const paid = Boolean(t.paid);
+      const isIncome = t.type === 'income';
+      const split = isIncome ? fIncome : fExpense;
+      if (paid) split.paid += value;
+      else split.pending += value;
+      items.push({ date, type: isIncome ? 'income' : 'expense', category: t.category, value: round2(value), paid, title: sanitizeLabel(t.title) ?? t.category });
+    }
+    items.sort((a, b) => (a.date === b.date ? b.value - a.value : a.date < b.date ? -1 : 1));
+    focus = { startDate, endDate, income: finishSplit(fIncome), expense: finishSplit(fExpense), transactions: items.slice(0, MAX_FOCUS_TRANSACTIONS) };
+    focusOmitted = Math.max(0, items.length - MAX_FOCUS_TRANSACTIONS);
+  }
 
   const goalsAll = input.goals.map((g) => {
     const target = Number(g.targetValue) || 0;
@@ -256,12 +281,13 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date, r
       const b = monthly.get(m) ?? { income: 0, expense: 0 };
       return { month: m, income: round2(b.income), expense: round2(b.expense), balance: round2(b.income - b.expense) };
     }),
+    ...(focus ? { focus } : {}),
     previousMonths,
     recentTransactions: recent,
     goals: goalsAll.slice(0, MAX_GOALS),
     investments: investmentsAll.slice(0, MAX_INVESTMENTS),
     omitted: {
-      transactions: currentMonthTransactions.length - recent.length,
+      transactions: currentMonthTransactions.length - recent.length + focusOmitted,
       goals: Math.max(0, goalsAll.length - MAX_GOALS),
       investments: Math.max(0, investmentsAll.length - MAX_INVESTMENTS),
     },
@@ -301,6 +327,10 @@ function enforceSizeLimit(dto: FinancialContextDto): FinancialContextDto {
   while (size() > MAX_CONTEXT_JSON_CHARS && dto.goals.length > 0) {
     dto.goals.pop();
     dto.omitted.goals += 1;
+  }
+  while (size() > MAX_CONTEXT_JSON_CHARS && dto.focus && dto.focus.transactions.length > 0) {
+    dto.focus.transactions.pop();
+    dto.omitted.transactions += 1;
   }
 
   return dto;

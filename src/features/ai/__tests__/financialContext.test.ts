@@ -287,6 +287,27 @@ describe('buildFinancialContext', () => {
       expect(p.detailMonths).toEqual(['2026-12', '2027-01']);
     });
 
+    it('recorte por dias traz todas as transações do intervalo e só elas', () => {
+      const dto = buildFinancialContext(
+        {
+          transactions: [
+            tx({ date: '2026-12-15', value: 1, title: 'Fora' }),
+            tx({ date: '2026-12-16', value: 200, paid: false, title: 'Parcela' }),
+            tx({ date: '2026-12-31', type: 'income', value: 900, paid: false, title: 'Bônus' }),
+          ],
+          goals: [],
+          investments: [],
+        },
+        NOW,
+        { startMonth: '2026-12', endMonth: '2026-12', startDay: 16, endDay: 31 },
+      );
+      expect(dto.focus?.startDate).toBe('2026-12-16');
+      expect(dto.focus?.endDate).toBe('2026-12-31');
+      expect(dto.focus?.transactions.map((t) => t.title)).toEqual(['Parcela', 'Bônus']);
+      expect(dto.focus?.expense).toEqual({ paid: 0, pending: 200, total: 200 });
+      expect(dto.focus?.income.total).toBe(900);
+    });
+
     it('sem período mantém o comportamento padrão', () => {
       expect(getBrtPeriod(NOW).detailMonths).toEqual(['2026-05', '2026-06', '2026-07', '2026-08', '2026-09']);
     });

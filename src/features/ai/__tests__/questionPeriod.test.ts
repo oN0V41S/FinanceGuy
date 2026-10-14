@@ -27,7 +27,12 @@ describe('resolveQuestionPeriod', () => {
 
   it('mês sem ano assume o mais recente já ocorrido', () => {
     expect(resolveQuestionPeriod('gastos em março', NOW)).toEqual({ startMonth: '2026-03', endMonth: '2026-03' });
-    expect(resolveQuestionPeriod('gastos em dezembro', NOW)).toEqual({ startMonth: '2025-12', endMonth: '2025-12' });
+    expect(resolveQuestionPeriod('gastos em dezembro', NOW)).toEqual({ startMonth: '2026-12', endMonth: '2026-12' });
+  });
+
+  it('recorte por dias: "16 a 31 de dezembro"', () => {
+    expect(resolveQuestionPeriod('o que vence de 16 a 31 de dezembro?', NOW)).toEqual({ startMonth: '2026-12', endMonth: '2026-12', startDay: 16, endDay: 31 });
+    expect(resolveQuestionPeriod('gastos no dia 5 de março de 2025', NOW)).toEqual({ startMonth: '2025-03', endMonth: '2025-03', startDay: 5, endDay: 5 });
   });
 
   it('limita a 36 meses', () => {
