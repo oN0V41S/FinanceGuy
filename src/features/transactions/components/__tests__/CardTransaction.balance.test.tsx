@@ -4,14 +4,11 @@
  * TDD — CardTransaction: Saldo Final previsto por dia (issue #30)
  *
  * Contrato:
- * 1. `openingBalance` numérico → cada cabeçalho de dia exibe "Saldo previsto" (testid
- *    `projected-balance`) com o saldo acumulado ao fim do dia (saldo inicial + movimentos
- *    cronológicos), em destaque.
+ * 1. Cada cabeçalho de dia exibe "Saldo previsto" (testid `projected-balance`) com o
+ *    saldo acumulado ao fim do dia, partindo de ZERO no período exibido (sem saldo
+ *    anterior de meses passados).
  * 2. O total do dia (`daily-total`) continua exibido e vem DEPOIS do saldo (abaixo).
  * 3. Cor: text-finance-income para saldo >= 0, text-finance-expense para negativo.
- * 4. `isBalanceLoading` → skeleton no lugar do valor; total do dia segue visível.
- * 5. `openingBalance` null (erro) ou undefined (recurso desligado) → sem saldo previsto;
- *    lista e total do dia permanecem intactos.
  */
 import React from 'react';
 import { render, screen, within } from '@testing-library/react';
@@ -65,24 +62,40 @@ const transactions = [
 ];
 
 describe('CardTransaction — Saldo previsto (issue #30)', () => {
-  it('exibe o saldo final acumulado por dia a partir do saldo inicial', () => {
-    render(<CardTransaction {...baseProps} transactions={transactions} openingBalance={500} />);
+  it('exibe o saldo final acumulado por dia, partindo de zero', () => {
+    render(<CardTransaction {...baseProps} transactions={transactions} />);
 
     const balances = screen.getAllByTestId('projected-balance').map((el) => el.textContent);
     // Grupos em ordem decrescente: 05/10, 02/10, 01/10
-    expect(balances[0]).toContain('R$ 1000.00'); // 500 + 1000 - 300 - 200
-    expect(balances[1]).toContain('R$ 1200.00'); // 500 + 1000 - 300
-    expect(balances[2]).toContain('R$ 1500.00'); // 500 + 1000
+    expect(balances[0]).toContain('R$ 500.00'); // 1000 - 300 - 200
+    expect(balances[1]).toContain('R$ 700.00'); // 1000 - 300
+    expect(balances[2]).toContain('R$ 1000.00'); // 1000
+  });
+
+  it('o saldo do primeiro dia do período é igual ao total do dia (sem saldo anterior)', () => {
+    render(
+      <CardTransaction
+        {...baseProps}
+        transactions={[
+          tx({ type: 'income', value: 180.55 }),
+          tx({ type: 'expense', value: 144.85 }),
+          tx({ type: 'income', value: 843.73 }),
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId('projected-balance-value').textContent).toBe('R$ 879.43');
+    expect(screen.getByTestId('daily-total').textContent).toBe('+R$ 879.43');
   });
 
   it('rotula claramente como "Saldo previsto"', () => {
-    render(<CardTransaction {...baseProps} transactions={[tx({})]} openingBalance={0} />);
+    render(<CardTransaction {...baseProps} transactions={[tx({})]} />);
 
     expect(screen.getByTestId('projected-balance').textContent).toContain('Saldo previsto');
   });
 
   it('mantém o total do dia como informação secundária, abaixo do saldo', () => {
-    render(<CardTransaction {...baseProps} transactions={[tx({ type: 'expense', value: 456 })]} openingBalance={1000} />);
+    render(<CardTransaction {...baseProps} transactions={[tx({ type: 'expense', value: 456 })]} />);
 
     const group = screen.getByTestId('date-group');
     const balance = within(group).getByTestId('projected-balance');
@@ -94,7 +107,7 @@ describe('CardTransaction — Saldo previsto (issue #30)', () => {
   });
 
   it('saldo positivo ou zero usa a cor de receita', () => {
-    render(<CardTransaction {...baseProps} transactions={[tx({ type: 'expense', value: 100 })]} openingBalance={100} />);
+    render(<CardTransaction {...baseProps} transactions={[tx({ type: 'income', value: 100 })]} />);
 
     const value = screen.getByTestId('projected-balance-value');
     expect(value.className).toContain('text-finance-income');
@@ -102,48 +115,11 @@ describe('CardTransaction — Saldo previsto (issue #30)', () => {
   });
 
   it('saldo negativo usa a cor de despesa e exibe sinal de menos', () => {
-    render(<CardTransaction {...baseProps} transactions={[tx({ type: 'expense', value: 300 })]} openingBalance={100} />);
+    render(<CardTransaction {...baseProps} transactions={[tx({ type: 'expense', value: 300 })]} />);
 
     const value = screen.getByTestId('projected-balance-value');
     expect(value.className).toContain('text-finance-expense');
-    expect(value.textContent).toBe('-R$ 200.00');
-  });
-
-  it('saldo inicial negativo é respeitado', () => {
-    render(<CardTransaction {...baseProps} transactions={[tx({ type: 'income', value: 100 })]} openingBalance={-250} />);
-
-    expect(screen.getByTestId('projected-balance-value').textContent).toBe('-R$ 150.00');
-  });
-
-  it('isBalanceLoading: mostra skeleton no lugar do saldo e mantém o total do dia', () => {
-    render(
-      <CardTransaction
-        {...baseProps}
-        transactions={transactions}
-        openingBalance={null}
-        isBalanceLoading
-      />,
-    );
-
-    expect(screen.queryByTestId('projected-balance-value')).not.toBeInTheDocument();
-    expect(screen.getAllByTestId('balance-skeleton')).toHaveLength(3);
-    expect(screen.getAllByTestId('daily-total')).toHaveLength(3);
-  });
-
-  it('openingBalance null (erro): sem saldo previsto, lista e total do dia intactos', () => {
-    render(<CardTransaction {...baseProps} transactions={transactions} openingBalance={null} />);
-
-    expect(screen.queryByTestId('projected-balance')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('balance-skeleton')).not.toBeInTheDocument();
-    expect(screen.getAllByTestId('daily-total')).toHaveLength(3);
-    expect(screen.getAllByText('Item')).toHaveLength(3);
-  });
-
-  it('openingBalance ausente (recurso desligado): comportamento anterior preservado', () => {
-    render(<CardTransaction {...baseProps} transactions={transactions} />);
-
-    expect(screen.queryByTestId('projected-balance')).not.toBeInTheDocument();
-    expect(screen.getAllByTestId('daily-total')).toHaveLength(3);
+    expect(value.textContent).toBe('-R$ 300.00');
   });
 
   it('saldo acumula pendentes (previsto) e parcelas como transações normais', () => {
@@ -154,10 +130,9 @@ describe('CardTransaction — Saldo previsto (issue #30)', () => {
           tx({ date: '2025-10-03', value: 50, paid: false }),
           tx({ date: '2025-10-03', value: 70, installment_number: 1, total_installments: 3 }),
         ]}
-        openingBalance={300}
       />,
     );
 
-    expect(screen.getByTestId('projected-balance-value').textContent).toBe('R$ 180.00');
+    expect(screen.getByTestId('projected-balance-value').textContent).toBe('-R$ 120.00');
   });
 });
