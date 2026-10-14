@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { HeaderLayout } from '@/features/dashboard/components/HeaderLayout';
 import { MobileNavBar } from '@/features/dashboard/components/MobileNavBar';
-import { PanelLeft } from 'lucide-react';
+import { PanelLeft, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AskForm } from '@/features/ai/components/AskForm';
 import { ChatMessage } from '@/features/ai/components/ChatMessage';
 import { ConversationSidebar } from '@/features/ai/components/ConversationSidebar';
-import { ProfileEditor } from '@/features/ai/components/ProfileEditor';
 import { useAssistant } from '@/features/ai/hooks/useAssistant';
 import { useConversations } from '@/features/ai/hooks/useConversations';
 
@@ -28,9 +27,8 @@ export default function AssistentePage() {
     actions,
   } = useAssistant();
   const conversations = useConversations();
-  const { refresh: refreshSessions, remove: removeSession, loadProfile } = conversations;
+  const { refresh: refreshSessions, remove: removeSession } = conversations;
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const isLoading = status === 'loading';
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -44,20 +42,13 @@ export default function AssistentePage() {
   }, [refreshSessions, sessionId, status]);
 
   const handleSelect = (id: string) => {
-    setProfileOpen(false);
     setSidebarOpen(false);
     void openConversation(id);
   };
 
   const handleNew = () => {
-    setProfileOpen(false);
     setSidebarOpen(false);
     void newConversation();
-  };
-
-  const handleOpenProfile = () => {
-    setProfileOpen(true);
-    void loadProfile();
   };
 
   const handleDelete = useCallback(
@@ -75,64 +66,70 @@ export default function AssistentePage() {
   }, [messages.length, isLoading, error]);
 
   return (
-    <div className="min-h-dvh bg-background">
-      <div className="flex flex-col pb-24 md:pb-0">
-        <HeaderLayout />
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+      <HeaderLayout />
 
-        <main className="flex-1 p-4 md:p-6">
-          <div className="max-w-5xl mx-auto md:grid md:grid-cols-[17rem_minmax(0,1fr)] md:gap-6">
-          <aside
-            aria-label="Barra lateral de conversas"
-            className={`${sidebarOpen ? 'block' : 'hidden'} md:block mb-4 md:mb-0 space-y-4`}
-          >
-            <ConversationSidebar
-              sessions={conversations.sessions}
-              activeId={sessionId}
-              isLoading={conversations.isLoading}
-              error={conversations.error}
-              disabled={isLoading || isStartingNew}
-              onSelect={handleSelect}
-              onNew={handleNew}
-              onRename={conversations.rename}
-              onDelete={handleDelete}
-              onOpenProfile={handleOpenProfile}
-            />
-            {profileOpen && (
-              <ProfileEditor
-                initial={conversations.profile}
-                error={conversations.profileError}
-                isBusy={conversations.isProfileBusy}
-                onSave={conversations.saveProfile}
-                onClose={() => setProfileOpen(false)}
-              />
-            )}
-          </aside>
-          <div className="min-w-0 space-y-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h1 className="text-2xl font-semibold text-on-surface font-display">Assistente</h1>
-                <p className="text-sm text-on-surface-variant mt-1">
-                  Pergunte sobre suas transações, metas e investimentos.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setSidebarOpen((v) => !v)}
-                aria-expanded={sidebarOpen}
-                className="shrink-0 md:hidden"
-              >
-                <PanelLeft className="h-4 w-4" aria-hidden="true" />
-                Conversas
-              </Button>
+      <div className="flex min-h-0 flex-1">
+        {sidebarOpen && (
+          <button
+            type="button"
+            aria-label="Fechar conversas"
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          />
+        )}
+        <aside
+          aria-label="Barra lateral de conversas"
+          className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col gap-3 overflow-y-auto bg-surface-container p-4 transition-transform duration-200 md:static md:z-auto md:w-72 md:max-w-none md:shrink-0 md:translate-x-0 md:bg-surface-container-low ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full invisible md:visible'
+          }`}
+        >
+          <div className="flex items-center justify-between md:hidden">
+            <span className="text-sm font-semibold text-on-surface">Conversas</span>
+            <Button type="button" variant="ghost" size="icon" aria-label="Fechar menu de conversas" onClick={() => setSidebarOpen(false)}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+          <ConversationSidebar
+            sessions={conversations.sessions}
+            activeId={sessionId}
+            isLoading={conversations.isLoading}
+            error={conversations.error}
+            disabled={isLoading || isStartingNew}
+            onSelect={handleSelect}
+            onNew={handleNew}
+            onRename={conversations.rename}
+            onDelete={handleDelete}
+          />
+        </aside>
+
+        <main className="flex min-w-0 flex-1 flex-col">
+          <div className="flex shrink-0 items-start justify-between gap-3 px-4 pt-4 md:px-6">
+            <div>
+              <h1 className="text-2xl font-semibold text-on-surface font-display">Assistente</h1>
+              <p className="text-sm text-on-surface-variant mt-1">
+                Pergunte sobre suas transações, metas e investimentos.
+              </p>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSidebarOpen(true)}
+              aria-expanded={sidebarOpen}
+              className="shrink-0 md:hidden"
+            >
+              <PanelLeft className="h-4 w-4" aria-hidden="true" />
+              Conversas
+            </Button>
+          </div>
 
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6">
             <section
               aria-label="Conversa"
               aria-live="polite"
               aria-busy={isHydrating || isStartingNew}
-              className="space-y-4 min-h-[40vh]"
+              className="mx-auto w-full max-w-3xl space-y-4"
             >
               {isHydrating && messages.length === 0 && (
                 <div data-testid="history-skeleton" className="space-y-3" aria-busy="true">
@@ -171,15 +168,16 @@ export default function AssistentePage() {
 
               <div ref={endRef} />
             </section>
+          </div>
 
-            <div className="sticky bottom-20 md:bottom-4 space-y-2 bg-background pt-2">
+          <div className="shrink-0 bg-background px-4 pb-24 pt-2 md:px-6 md:pb-4">
+            <div className="mx-auto w-full max-w-3xl space-y-2">
               <AskForm onSubmit={ask} isLoading={isLoading} />
               <p className="text-xs text-on-surface-variant">
                 Dados financeiros resumidos (sem senhas, e-mail ou identificadores) são enviados ao
                 Google para gerar a resposta. O assistente não oferece aconselhamento profissional.
               </p>
             </div>
-          </div>
           </div>
         </main>
       </div>

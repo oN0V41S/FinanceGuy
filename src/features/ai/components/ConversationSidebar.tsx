@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, MessageSquare, Pencil, Plus, Trash2, UserRound, X } from 'lucide-react';
+import { Check, MessageSquare, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { SessionSummaryDto } from '@/features/ai/types';
@@ -16,7 +16,6 @@ interface ConversationSidebarProps {
   onNew: () => void;
   onRename: (id: string, title: string) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
-  onOpenProfile: () => void;
 }
 
 const UNTITLED = 'Nova conversa';
@@ -32,7 +31,6 @@ export function ConversationSidebar({
   onNew,
   onRename,
   onDelete,
-  onOpenProfile,
 }: ConversationSidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -57,16 +55,10 @@ export function ConversationSidebar({
 
   return (
     <nav aria-label="Conversas" className="flex flex-col gap-3">
-      <div className="flex gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={onNew} disabled={disabled} className="flex-1">
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Nova conversa
-        </Button>
-        <Button type="button" variant="outline" size="sm" onClick={onOpenProfile} className="flex-1">
-          <UserRound className="h-4 w-4" aria-hidden="true" />
-          Perfil
-        </Button>
-      </div>
+      <Button type="button" variant="outline" size="sm" onClick={onNew} disabled={disabled} className="w-full">
+        <Plus className="h-4 w-4" aria-hidden="true" />
+        Nova conversa
+      </Button>
 
       {error && (
         <div role="alert" className="rounded-xl bg-finance-expense/10 text-finance-expense p-3 text-sm">

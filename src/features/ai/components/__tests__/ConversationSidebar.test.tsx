@@ -17,7 +17,6 @@ function setup(overrides: Partial<React.ComponentProps<typeof ConversationSideba
     onNew: jest.fn(),
     onRename: jest.fn().mockResolvedValue(true),
     onDelete: jest.fn().mockResolvedValue(true),
-    onOpenProfile: jest.fn(),
     ...overrides,
   };
   render(<ConversationSidebar {...props} />);
@@ -31,12 +30,10 @@ describe('ConversationSidebar', () => {
     expect(screen.getAllByText('Nova conversa').length).toBeGreaterThan(0);
   });
 
-  it('seleciona, cria e abre o perfil', () => {
+  it('seleciona e cria', () => {
     const props = setup();
     fireEvent.click(screen.getByRole('button', { name: /gastos de março/i, current: true }));
     expect(props.onSelect).toHaveBeenCalledWith('s1');
-    fireEvent.click(screen.getByRole('button', { name: 'Perfil' }));
-    expect(props.onOpenProfile).toHaveBeenCalled();
     fireEvent.click(screen.getAllByRole('button', { name: /^nova conversa$/i })[0]);
     expect(props.onNew).toHaveBeenCalled();
   });
@@ -74,7 +71,7 @@ describe('ConversationSidebar', () => {
     const { unmount } = render(
       <ConversationSidebar
         sessions={[]} activeId={null} isLoading error={null}
-        onSelect={jest.fn()} onNew={jest.fn()} onRename={jest.fn()} onDelete={jest.fn()} onOpenProfile={jest.fn()}
+        onSelect={jest.fn()} onNew={jest.fn()} onRename={jest.fn()} onDelete={jest.fn()}
       />,
     );
     expect(screen.getByTestId('sessions-skeleton')).toBeInTheDocument();

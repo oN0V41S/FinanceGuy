@@ -59,23 +59,4 @@ describe('useConversations', () => {
     expect(ok).toBe(false);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
-
-  it('carrega e salva o perfil, exibindo o erro do servidor', async () => {
-    fetchSpy.mockResolvedValueOnce(res({ profile: 'Sou dev' }));
-    const { result } = renderHook(() => useConversations());
-    await act(async () => result.current.loadProfile());
-    expect(result.current.profile).toBe('Sou dev');
-
-    fetchSpy.mockResolvedValueOnce(res({ error: 'A descrição deve ter no máximo 2000 caracteres' }, 400));
-    let ok = true;
-    await act(async () => { ok = await result.current.saveProfile('x');});
-    expect(ok).toBe(false);
-    expect(result.current.profileError).toMatch(/2000/);
-
-    fetchSpy.mockResolvedValueOnce(res({ profile: 'Novo' }));
-    await act(async () => { ok = await result.current.saveProfile(' Novo ');});
-    expect(ok).toBe(true);
-    expect(result.current.profile).toBe('Novo');
-    expect(result.current.profileError).toBeNull();
-  });
 });
