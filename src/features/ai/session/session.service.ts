@@ -18,7 +18,16 @@ export interface SessionServiceDeps {
   config: Pick<AgentConfig, 'compactTokens' | 'sessionKeepMessages'>;
   /** Consulta de filas com ação aberta (protege cards da compactação). */
   openActions?: OpenActionLookup;
+  /** Estado real dos cards por fila (hidratação após reload). Falhas mantêm o payload salvo. */
+  cardLookup?: QueueCardLookup;
 }
+
+export interface QueueCardState {
+  actions: ActionCardDto[];
+  nextSteps: NextStepsDto;
+}
+
+export type QueueCardLookup = (userId: string, queueIds: string[]) => Promise<ReadonlyMap<string, QueueCardState>>;
 
 type AppendInput = Parameters<ISessionService['appendMessage']>[2];
 
@@ -36,19 +45,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function toChatMessage(record: ChatMessageRecord): ChatMessage {
+function toChatMessage(record: ChatMessageRecord, states?: ReadonlyMap<string, QueueCardState>): ChatMessage {
   const role = record.role === 'user' ? 'user' : 'assistant';
   const base = { id: record.id, role, content: record.content } as const;
   if (record.kind === 'compacted') return { ...base, kind: 'compacted' };
   if ((record.kind === 'actions' || record.kind === 'pick') && isRecord(record.payload)) {
     const { queueId, actions, nextSteps } = record.payload;
     if (typeof queueId === 'string' && Array.isArray(actions)) {
+      const live = states?.get(queueId);
       return {
         ...base,
         kind: 'action_cards',
         queueId,
-        actions: actions as ActionCardDto[],
-        nextSteps: (nextSteps ?? { total: actions.length, done: 0, failed: 0, cancelled: 0, canConfirmAll: false }) as NextStepsDto,
+        actions: live?.actions ?? (actions as ActionCardDto[]),
+        nextSteps:
+          live?.nextSteps ??
+          ((nextSteps ?? { total: actions.length, done: 0, failed: 0, cancelled: 0, canConfirmAll: false }) as NextStepsDto),
       };
     }
   }
@@ -112,11 +124,36 @@ export class SessionService implements ISessionService {
       this.deps.repo.getActive(userId),
       this.deps.repo.listMessages(sessionId, userId),
     ]);
+    const states = await this.loadCardStates(userId, records);
     return {
       sessionId,
-      messages: records.map(toChatMessage),
+      messages: records.map((record) => toChatMessage(record, states)),
       tokenCount: active?.tokenCount ?? 0,
     };
+  }
+
+  /** Estado real dos cards das filas presentes na sessão. Nunca lança. */
+  private async loadCardStates(
+    userId: string,
+    records: ChatMessageRecord[],
+  ): Promise<ReadonlyMap<string, QueueCardState> | undefined> {
+    const lookup = this.deps.cardLookup;
+    if (!lookup) return undefined;
+    const queueIds = new Set<string>();
+    for (const record of records) {
+      if ((record.kind === 'actions' || record.kind === 'pick') && isRecord(record.payload)) {
+        const { queueId } = record.payload;
+        if (typeof queueId === 'string') queueIds.add(queueId);
+      }
+    }
+    if (queueIds.size === 0) return undefined;
+    try {
+      return await lookup(userId, [...queueIds]);
+    } catch (error) {
+      const name = error instanceof Error ? error.name : 'UnknownError';
+      console.error('[ai.session] falha ao atualizar o estado dos cards, usando o salvo', { name });
+      return undefined;
+    }
   }
 
   async maybeCompact(userId: string, sessionId: string): Promise<{ compacted: boolean }> {

@@ -1,10 +1,24 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AskResponseBody, AssistantStatus, ChatMessage, UseAssistantResult } from '@/features/ai/types';
+import { useAssistantActions } from '@/features/ai/hooks/useAssistantActions';
+import type {
+  ActionCardDto,
+  AskResponseBody,
+  AssistantStatus,
+  ChatMessage,
+  NextStepsDto,
+  SessionDto,
+  UseAssistantResult,
+} from '@/features/ai/types';
 
 const REQUEST_TIMEOUT_MS = 65_000;
 const NETWORK_ERROR_MESSAGE = 'Não foi possível obter a resposta. Tente novamente.';
+const HYDRATE_ERROR_MESSAGE =
+  'Não foi possível carregar a conversa anterior. Você pode começar uma nova pergunta.';
+const NEW_SESSION_ERROR_MESSAGE =
+  'Não foi possível iniciar uma nova conversa. Sua conversa atual foi mantida.';
+const ACTIONS_FALLBACK_TEXT = 'Preparei as ações abaixo para você revisar e confirmar.';
 
 async function readErrorMessage(response: Response): Promise<string> {
   try {
@@ -19,6 +33,16 @@ async function readErrorMessage(response: Response): Promise<string> {
   return NETWORK_ERROR_MESSAGE;
 }
 
+function isSessionDto(value: unknown): value is SessionDto {
+  if (!value || typeof value !== 'object') return false;
+  const dto = value as Partial<SessionDto>;
+  return typeof dto.sessionId === 'string' && Array.isArray(dto.messages);
+}
+
+function emptyNextSteps(cards: ActionCardDto[]): NextStepsDto {
+  return { total: cards.length, done: 0, failed: 0, cancelled: 0, canConfirmAll: false };
+}
+
 let messageCounter = 0;
 const nextId = (): string => `msg-${++messageCounter}`;
 
@@ -26,8 +50,14 @@ export function useAssistant(): UseAssistantResult {
   const [status, setStatus] = useState<AssistantStatus>('idle');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isHydrating, setIsHydrating] = useState(false);
+  const [isStartingNew, setIsStartingNew] = useState(false);
   const inFlight = useRef(false);
+  const startingNew = useRef(false);
+  const sessionIdRef = useRef<string | null>(null);
+  const touchedRef = useRef(false);
   const controllerRef = useRef<AbortController | null>(null);
+  const actions = useAssistantActions({ setMessages });
 
   useEffect(() => {
     return () => {
@@ -39,6 +69,7 @@ export function useAssistant(): UseAssistantResult {
   const ask = useCallback(async (question: string): Promise<void> => {
     if (inFlight.current) return;
     inFlight.current = true;
+    touchedRef.current = true;
 
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -52,7 +83,9 @@ export function useAssistant(): UseAssistantResult {
       const response = await fetch('/api/ai/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify(
+          sessionIdRef.current ? { question, sessionId: sessionIdRef.current } : { question },
+        ),
         signal: controller.signal,
       });
 
@@ -66,6 +99,21 @@ export function useAssistant(): UseAssistantResult {
 
       const body = (await response.json()) as Partial<AskResponseBody>;
       if (controllerRef.current !== controller) return;
+      if (typeof body.sessionId === 'string' && body.sessionId) sessionIdRef.current = body.sessionId;
+
+      const cards = Array.isArray(body.actions) ? body.actions : [];
+      if (body.kind === 'actions' && cards.length > 0) {
+        const queueId = body.queueId ?? cards[0].queueId;
+        const content = typeof body.answer === 'string' && body.answer ? body.answer : ACTIONS_FALLBACK_TEXT;
+        const nextSteps = body.nextSteps ?? emptyNextSteps(cards);
+        setMessages((prev) => [
+          ...prev,
+          { id: nextId(), role: 'assistant', kind: 'action_cards', content, queueId, actions: cards, nextSteps },
+        ]);
+        setStatus('success');
+        return;
+      }
+
       if (typeof body.answer !== 'string' || !body.answer) {
         setError(NETWORK_ERROR_MESSAGE);
         setStatus('error');
@@ -87,6 +135,48 @@ export function useAssistant(): UseAssistantResult {
     }
   }, []);
 
+  const hydrate = useCallback(async (): Promise<void> => {
+    setIsHydrating(true);
+    try {
+      const response = await fetch('/api/ai/session', { method: 'GET' });
+      if (!response.ok) throw new Error('hydrate');
+      const dto: unknown = await response.json();
+      if (!isSessionDto(dto)) return;
+      sessionIdRef.current = dto.sessionId;
+      // Se o usuário já interagiu enquanto carregava, não sobrescreve a conversa.
+      if (!touchedRef.current) setMessages(dto.messages);
+    } catch {
+      if (!touchedRef.current) setError(HYDRATE_ERROR_MESSAGE);
+    } finally {
+      setIsHydrating(false);
+    }
+  }, []);
+
+  const newConversation = useCallback(async (): Promise<void> => {
+    if (startingNew.current) return;
+    startingNew.current = true;
+    setIsStartingNew(true);
+    setError(null);
+    try {
+      const response = await fetch('/api/ai/session', { method: 'POST' });
+      if (!response.ok) throw new Error('new-session');
+      const dto: unknown = await response.json();
+      if (!isSessionDto(dto)) throw new Error('new-session');
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+      inFlight.current = false;
+      sessionIdRef.current = dto.sessionId;
+      touchedRef.current = true;
+      setMessages(dto.messages);
+      setStatus('idle');
+    } catch {
+      setError(NEW_SESSION_ERROR_MESSAGE);
+    } finally {
+      startingNew.current = false;
+      setIsStartingNew(false);
+    }
+  }, []);
+
   const reset = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
@@ -96,5 +186,16 @@ export function useAssistant(): UseAssistantResult {
     setError(null);
   }, []);
 
-  return { status, messages, error, ask, reset };
+  return {
+    status,
+    messages,
+    error,
+    ask,
+    reset,
+    hydrate,
+    newConversation,
+    isHydrating,
+    isStartingNew,
+    actions,
+  };
 }

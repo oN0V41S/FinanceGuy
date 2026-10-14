@@ -199,6 +199,14 @@ export interface UseAssistantResult {
   error: string | null;
   ask: (question: string) => Promise<void>;
   reset: () => void;
+  /** FING-18: hidrata a sessão ativa (GET /api/ai/session). */
+  hydrate: () => Promise<void>;
+  /** FING-18: arquiva a conversa ativa e inicia outra (POST /api/ai/session). */
+  newConversation: () => Promise<void>;
+  isHydrating: boolean;
+  isStartingNew: boolean;
+  /** API de ações dos cards (confirmar, editar, escolher, cancelar). */
+  actions: import('@/features/ai/hooks/useAssistantActions').UseAssistantActionsResult;
 }
 
 // ── Configuração (nomes de env congelados) ──

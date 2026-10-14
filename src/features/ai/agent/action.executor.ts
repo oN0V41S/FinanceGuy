@@ -233,7 +233,7 @@ export class ActionExecutor {
       payload: toJson({ fields: evaluation.fields }),
       status,
     });
-    if (!saved) throw new ActionNotFoundError();
+    if (!saved) throw new ActionConflictError();
     return this.mutationResponse(userId, id);
   }
 
@@ -261,7 +261,7 @@ export class ActionExecutor {
       candidates: null,
       status: evaluation.valid ? 'ready' : 'needs_input',
     });
-    if (!saved) throw new ActionNotFoundError();
+    if (!saved) throw new ActionConflictError();
     return this.mutationResponse(userId, id);
   }
 
@@ -272,7 +272,7 @@ export class ActionExecutor {
     if (!record) throw new ActionNotFoundError();
     if (!isOpen(record.status)) throw new ActionConflictError();
     const saved = await this.deps.pending.updateStatus(id, userId, 'cancelled', this.now());
-    if (!saved) throw new ActionNotFoundError();
+    if (!saved) throw new ActionConflictError();
     return this.mutationResponse(userId, id);
   }
 

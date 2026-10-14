@@ -11,6 +11,14 @@ import { toJson, toNullableJson } from './prismaJson';
 
 const FINAL_STATUSES: PendingActionStatus[] = ['confirmed', 'failed', 'cancelled', 'expired'];
 
+/** Confirmação presa (crash entre o claim e o resultado) é devolvida após este prazo. */
+export const CONFIRMING_STALE_MS = 2 * 60_000;
+
+/** Estados de origem permitidos por transição: evita corrida com a confirmação em andamento. */
+function allowedFrom(status: PendingActionStatus): PendingActionStatus[] {
+  return status === 'confirmed' || status === 'failed' ? ['confirming'] : OPEN_ACTION_STATUSES;
+}
+
 export class PostgresPendingActionRepository implements IPendingActionRepository {
   async createMany(items: NewPendingAction[]): Promise<void> {
     if (items.length === 0) return;
@@ -48,7 +56,8 @@ export class PostgresPendingActionRepository implements IPendingActionRepository
   async claimForConfirm(id: string, userId: string, now: Date): Promise<boolean> {
     const result = await prisma.pendingAction.updateMany({
       where: { id, userId, status: 'ready', expiresAt: { gt: now } },
-      data: { status: 'confirming' },
+      // `resolvedAt` guarda o instante do claim enquanto confirma (usado por expireStale).
+      data: { status: 'confirming', resolvedAt: now },
     });
     return result.count === 1;
   }
@@ -60,7 +69,10 @@ export class PostgresPendingActionRepository implements IPendingActionRepository
     if (update.candidates !== undefined) data.candidates = toNullableJson(update.candidates);
     if (update.before !== undefined) data.before = toNullableJson(update.before);
     if (update.status !== undefined) data.status = update.status;
-    const result = await prisma.pendingAction.updateMany({ where: { id, userId }, data });
+    const result = await prisma.pendingAction.updateMany({
+      where: { id, userId, status: { in: OPEN_ACTION_STATUSES } },
+      data,
+    });
     return result.count === 1;
   }
 
@@ -71,7 +83,10 @@ export class PostgresPendingActionRepository implements IPendingActionRepository
     now: Date,
   ): Promise<boolean> {
     const data = FINAL_STATUSES.includes(status) ? { status, resolvedAt: now } : { status };
-    const result = await prisma.pendingAction.updateMany({ where: { id, userId }, data });
+    const result = await prisma.pendingAction.updateMany({
+      where: { id, userId, status: { in: allowedFrom(status) } },
+      data,
+    });
     return result.count === 1;
   }
 
@@ -94,6 +109,15 @@ export class PostgresPendingActionRepository implements IPendingActionRepository
       where: { userId, status: { in: OPEN_ACTION_STATUSES }, expiresAt: { lte: now } },
       data: { status: 'expired', resolvedAt: now },
     });
-    return result.count;
+    const cutoff = new Date(now.getTime() - CONFIRMING_STALE_MS);
+    const stuck = await prisma.pendingAction.updateMany({
+      where: {
+        userId,
+        status: 'confirming',
+        OR: [{ resolvedAt: { lte: cutoff } }, { resolvedAt: null }],
+      },
+      data: { status: 'failed', resolvedAt: now },
+    });
+    return result.count + stuck.count;
   }
 }

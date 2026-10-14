@@ -56,12 +56,13 @@ export class InMemoryPendingRepo implements IPendingActionRepository {
     const row = this.rows.find((r) => r.id === id && r.userId === userId);
     if (!row || row.status !== 'ready' || row.expiresAt.getTime() <= now.getTime()) return false;
     row.status = 'confirming';
+    row.resolvedAt = now;
     return true;
   }
 
   async updatePayload(id: string, userId: string, update: PendingActionUpdate): Promise<boolean> {
     const row = this.rows.find((r) => r.id === id && r.userId === userId);
-    if (!row) return false;
+    if (!row || !OPEN_ACTION_STATUSES.includes(row.status)) return false;
     if (update.payload !== undefined) row.payload = update.payload;
     if (update.targetId !== undefined) row.targetId = update.targetId;
     if (update.candidates !== undefined) row.candidates = update.candidates;
@@ -72,7 +73,8 @@ export class InMemoryPendingRepo implements IPendingActionRepository {
 
   async updateStatus(id: string, userId: string, status: PendingActionStatus, now: Date): Promise<boolean> {
     const row = this.rows.find((r) => r.id === id && r.userId === userId);
-    if (!row) return false;
+    const from: PendingActionStatus[] = status === 'confirmed' || status === 'failed' ? ['confirming'] : OPEN_ACTION_STATUSES;
+    if (!row || !from.includes(row.status)) return false;
     row.status = status;
     row.resolvedAt = now;
     return true;
@@ -103,6 +105,14 @@ export class InMemoryPendingRepo implements IPendingActionRepository {
         row.expiresAt.getTime() <= now.getTime()
       ) {
         row.status = 'expired';
+        row.resolvedAt = now;
+        count += 1;
+      } else if (
+        row.userId === userId &&
+        row.status === 'confirming' &&
+        (row.resolvedAt === null || row.resolvedAt.getTime() <= now.getTime() - 2 * 60_000)
+      ) {
+        row.status = 'failed';
         row.resolvedAt = now;
         count += 1;
       }

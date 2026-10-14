@@ -8,6 +8,21 @@ export interface ExtractedTransactionFields {
   title?: string;
   category?: string;
   paid?: boolean;
+  responsible?: string;
+}
+
+const MAX_RESPONSIBLE = 50;
+const RESPONSIBLE_RE = /\bresp(?:onsavel|onsável|\.)?\s*(?:[:=-]|é|e|sera|será)?\s*(\p{L}[\p{L}'-]*)(?:\s+(\p{L}[\p{L}'-]*))?/iu;
+
+/** "responsável Maria" / "resp: João Silva" -> nome (1 palavra; 2ª só se capitalizada). Retorna o texto sem o trecho. */
+function extractResponsible(text: string): { name?: string; rest: string } {
+  const m = RESPONSIBLE_RE.exec(text);
+  if (!m) return { rest: text };
+  const second = m[2] && /^\p{Lu}/u.test(m[2]) ? m[2] : undefined;
+  const name = [m[1], second].filter(Boolean).join(' ').slice(0, MAX_RESPONSIBLE);
+  const consumed = second ? m[0] : m[0].slice(0, m[0].length - (m[2] ? m[2].length : 0)).trimEnd();
+  const rest = `${text.slice(0, m.index)} ${text.slice(m.index + consumed.length)}`.replace(/\s+/g, ' ').trim();
+  return { name, rest };
 }
 
 const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
@@ -188,9 +203,11 @@ function extractTitle(text: string): string | undefined {
  * Data ausente => undefined (o padrão "hoje" é aplicado em computeMissing).
  */
 export function extractTransactionFields(text: string, now: Date): ExtractedTransactionFields {
-  const clean = sanitizeText(text);
+  const { name: responsible, rest } = extractResponsible(sanitizeText(text));
+  const clean = rest;
   const norm = normalize(clean);
   const fields: ExtractedTransactionFields = {};
+  if (responsible) fields.responsible = responsible;
 
   const type = extractType(norm);
   if (type) fields.type = type;

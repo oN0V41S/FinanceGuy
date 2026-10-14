@@ -64,9 +64,14 @@ export interface IPendingActionRepository {
   createMany(items: NewPendingAction[]): Promise<void>;
   getByIdForUser(id: string, userId: string): Promise<PendingActionRecord | null>;
   listByQueue(queueId: string, userId: string): Promise<PendingActionRecord[]>;
-  /** Claim atômico ready -> confirming. true somente se exatamente 1 linha foi reivindicada. */
+  /** Claim atômico ready -> confirming (grava o instante em `resolvedAt`). true somente se 1 linha foi reivindicada. */
   claimForConfirm(id: string, userId: string, now: Date): Promise<boolean>;
+  /** Só atua em ações abertas (needs_input/ready/awaiting_pick). false se não existe ou já está em confirmação/final. */
   updatePayload(id: string, userId: string, update: PendingActionUpdate): Promise<boolean>;
+  /**
+   * Transição guardada: confirmed/failed só a partir de confirming; demais só a partir de abertas.
+   * false quando o estado de origem não permite (ex.: cancelar durante a confirmação).
+   */
   updateStatus(
     id: string,
     userId: string,
@@ -76,6 +81,6 @@ export interface IPendingActionRepository {
   /** Cancela as ações abertas da fila. Retorna quantas foram canceladas. */
   cancelQueue(queueId: string, userId: string, now: Date): Promise<number>;
   countOpen(userId: string): Promise<number>;
-  /** Expira ações abertas vencidas. Retorna quantas foram expiradas. */
+  /** Expira abertas vencidas e devolve `confirming` preso (claim > 2 min) a `failed`. Retorna o total afetado. */
   expireStale(userId: string, now: Date): Promise<number>;
 }

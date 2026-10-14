@@ -36,6 +36,7 @@ export class PostgresChatSessionRepository implements IChatSessionRepository {
         content: message.content,
         payload: toNullableJson(message.payload),
         tokens: message.tokens ?? null,
+        ...(message.createdAt ? { createdAt: message.createdAt } : {}),
       },
     });
   }

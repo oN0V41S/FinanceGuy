@@ -81,7 +81,7 @@ describe('PostgresPendingActionRepository', () => {
     expect(await repo.claimForConfirm('a1', 'u1', now)).toBe(true);
     expect(db.pendingAction.updateMany).toHaveBeenCalledWith({
       where: { id: 'a1', userId: 'u1', status: 'ready', expiresAt: { gt: now } },
-      data: { status: 'confirming' },
+      data: { status: 'confirming', resolvedAt: now },
     });
   });
 
@@ -94,20 +94,41 @@ describe('PostgresPendingActionRepository', () => {
     db.pendingAction.updateMany.mockResolvedValue({ count: 1 });
     const ok = await repo.updatePayload('a1', 'u1', { payload: { value: 10 }, status: 'ready' });
     expect(ok).toBe(true);
-    expect(db.pendingAction.updateMany.mock.calls[0][0].where).toEqual({ id: 'a1', userId: 'u1' });
+    const where = db.pendingAction.updateMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ id: 'a1', userId: 'u1' });
+    expect(where.status.in).toEqual(['needs_input', 'ready', 'awaiting_pick']);
     expect(db.pendingAction.updateMany.mock.calls[0][0].data).toEqual({
       payload: { value: 10 },
       status: 'ready',
     });
   });
 
-  it('updateStatus define resolvedAt em estados finais', async () => {
+  it('updatePayload retorna false quando a ação não está mais aberta (count===0)', async () => {
+    db.pendingAction.updateMany.mockResolvedValue({ count: 0 });
+    expect(await repo.updatePayload('a1', 'u1', { payload: { value: 1 } })).toBe(false);
+  });
+
+  it('updateStatus define resolvedAt em estados finais (confirmed só a partir de confirming)', async () => {
     db.pendingAction.updateMany.mockResolvedValue({ count: 1 });
     await repo.updateStatus('a1', 'u1', 'confirmed', now);
     expect(db.pendingAction.updateMany).toHaveBeenCalledWith({
-      where: { id: 'a1', userId: 'u1' },
+      where: { id: 'a1', userId: 'u1', status: { in: ['confirming'] } },
       data: { status: 'confirmed', resolvedAt: now },
     });
+  });
+
+  it('updateStatus failed só a partir de confirming', async () => {
+    db.pendingAction.updateMany.mockResolvedValue({ count: 1 });
+    await repo.updateStatus('a1', 'u1', 'failed', now);
+    expect(db.pendingAction.updateMany.mock.calls[0][0].where.status).toEqual({ in: ['confirming'] });
+  });
+
+  it.each(['cancelled', 'expired'] as const)('updateStatus %s nunca atua em confirming/confirmed', async (status) => {
+    db.pendingAction.updateMany.mockResolvedValue({ count: 0 });
+    expect(await repo.updateStatus('a1', 'u1', status, now)).toBe(false);
+    const where = db.pendingAction.updateMany.mock.calls[0][0].where;
+    expect(where).toMatchObject({ id: 'a1', userId: 'u1' });
+    expect(where.status.in).toEqual(['needs_input', 'ready', 'awaiting_pick']);
   });
 
   it('updateStatus não define resolvedAt em estado não final', async () => {
@@ -136,11 +157,21 @@ describe('PostgresPendingActionRepository', () => {
 
   it('expireStale expira abertas vencidas do usuário', async () => {
     db.pendingAction.updateMany.mockResolvedValue({ count: 2 });
-    expect(await repo.expireStale('u1', now)).toBe(2);
+    await repo.expireStale('u1', now);
     const arg = db.pendingAction.updateMany.mock.calls[0][0];
     expect(arg.where.userId).toBe('u1');
     expect(arg.where.expiresAt).toEqual({ lte: now });
     expect(arg.data).toEqual({ status: 'expired', resolvedAt: now });
+  });
+
+  it('expireStale devolve confirming preso (claim > 2 min) para failed e soma as contagens', async () => {
+    db.pendingAction.updateMany.mockResolvedValueOnce({ count: 2 }).mockResolvedValueOnce({ count: 1 });
+    expect(await repo.expireStale('u1', now)).toBe(3);
+    const arg = db.pendingAction.updateMany.mock.calls[1][0];
+    const cutoff = new Date(now.getTime() - 2 * 60_000);
+    expect(arg.where).toMatchObject({ userId: 'u1', status: 'confirming' });
+    expect(arg.where.OR).toEqual([{ resolvedAt: { lte: cutoff } }, { resolvedAt: null }]);
+    expect(arg.data).toEqual({ status: 'failed', resolvedAt: now });
   });
 });
 

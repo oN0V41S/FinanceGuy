@@ -7,7 +7,7 @@ import type {
   IChatSessionRepository,
   NewChatMessage,
 } from '../../agent/repositories/IChatSession.repository';
-import type { ILlmProvider, LlmRequest } from '../../types';
+import type { ActionCardDto, ILlmProvider, LlmRequest, NextStepsDto } from '../../types';
 import { SessionService } from '../session.service';
 import { compactSession, estimateTokens } from '../compact';
 
@@ -35,13 +35,15 @@ class FakeRepo implements IChatSessionRepository {
     const rec: ChatMessageRecord = {
       id: `m${++this.seq}`, sessionId: m.sessionId, userId: m.userId, role: m.role, kind: m.kind ?? 'text',
       content: m.content, payload: m.payload ?? null, tokens: m.tokens ?? null, compacted: false,
-      createdAt: new Date(++this.clock),
+      createdAt: m.createdAt ?? new Date(++this.clock),
     };
     this.messages.push(rec);
     return rec;
   }
   async listMessages(sessionId: string, userId: string) {
-    return this.messages.filter((m) => m.sessionId === sessionId && m.userId === userId);
+    return this.messages
+      .filter((m) => m.sessionId === sessionId && m.userId === userId)
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   }
   async updateTokenCount(sessionId: string, userId: string, inc: number) {
     const s = this.sessions.find((x) => x.id === sessionId && x.userId === userId);
@@ -164,6 +166,53 @@ describe('SessionService', () => {
   });
 });
 
+describe('SessionService.getSessionDto — hidratação dos cards', () => {
+  const stale: NextStepsDto = { total: 1, done: 0, failed: 0, cancelled: 0, canConfirmAll: true };
+  const fresh: NextStepsDto = { total: 1, done: 1, failed: 0, cancelled: 0, canConfirmAll: false };
+  const staleCard = { id: 'a1', queueId: 'q1', status: 'ready' } as unknown as ActionCardDto;
+  const freshCard = { id: 'a1', queueId: 'q1', status: 'confirmed' } as unknown as ActionCardDto;
+
+  async function setup(cardLookup?: ConstructorParameters<typeof SessionService>[0]['cardLookup']) {
+    const repo = new FakeRepo();
+    const svc = new SessionService({ repo, llm: makeLlm().llm, config, cardLookup });
+    const { sessionId } = await svc.getOrCreateActive('u1');
+    await svc.appendMessage('u1', sessionId, {
+      role: 'assistant', kind: 'action_cards', content: 'c', payload: { queueId: 'q1', actions: [staleCard], nextSteps: stale },
+    });
+    return { svc };
+  }
+
+  it('atualiza actions e nextSteps pelo estado real (consulta única por filas distintas)', async () => {
+    const lookup = jest.fn().mockResolvedValue(new Map([['q1', { actions: [freshCard], nextSteps: fresh }]]));
+    const { svc } = await setup(lookup);
+    const dto = await svc.getSessionDto('u1');
+    expect(lookup).toHaveBeenCalledWith('u1', ['q1']);
+    expect(dto.messages[0]).toMatchObject({ kind: 'action_cards', actions: [freshCard], nextSteps: fresh });
+  });
+
+  it('fila sem registro no lookup mantém o payload salvo', async () => {
+    const { svc } = await setup(jest.fn().mockResolvedValue(new Map()));
+    expect((await svc.getSessionDto('u1')).messages[0]).toMatchObject({ actions: [staleCard], nextSteps: stale });
+  });
+
+  it('lookup falhando não derruba a hidratação e não vaza detalhes no log', async () => {
+    const { svc } = await setup(jest.fn().mockRejectedValue(Object.assign(new Error('segredo'), { name: 'DbError' })));
+    const dto = await svc.getSessionDto('u1');
+    expect(dto.messages[0]).toMatchObject({ actions: [staleCard], nextSteps: stale });
+    expect(JSON.stringify(errSpy.mock.calls)).not.toContain('segredo');
+  });
+
+  it('sem cards não chama o lookup', async () => {
+    const lookup = jest.fn();
+    const repo = new FakeRepo();
+    const svc = new SessionService({ repo, llm: makeLlm().llm, config, cardLookup: lookup });
+    const { sessionId } = await svc.getOrCreateActive('u1');
+    await svc.appendMessage('u1', sessionId, { role: 'user', content: 'oi' });
+    await svc.getSessionDto('u1');
+    expect(lookup).not.toHaveBeenCalled();
+  });
+});
+
 describe('compactSession / maybeCompact', () => {
 
   async function setup(opts: { llmText?: string; openActions?: (u: string, s: string) => Promise<ReadonlySet<string>> } = {}) {
@@ -215,7 +264,11 @@ describe('compactSession / maybeCompact', () => {
     expect(byContent['card fechado']).toBe(true);
     expect(byContent['card aberto']).toBe(false);
     expect(byContent['recente 1']).toBe(false);
-    expect(repo.messages.at(-1)).toMatchObject({ kind: 'compacted', role: 'assistant' });
+    const divider = repo.messages.find((m) => m.kind === 'compacted');
+    expect(divider).toMatchObject({ role: 'assistant' });
+    // O divisor fica entre as mensagens antigas e as recentes (que são mantidas ao final).
+    const ordered = (await repo.listMessages(sessionId, 'u1')).map((m) => m.content);
+    expect(ordered.indexOf('Conversa anterior resumida para manter o contexto.')).toBe(ordered.indexOf('recente 1') - 1);
     expect(repo.sessions[0].summary).toBe('Resumo curto');
     // resumo (3) + card aberto (10) + recentes (15 + 15)
     expect(repo.sessions[0].tokenCount).toBe(estimateTokens('Resumo curto') + 40);

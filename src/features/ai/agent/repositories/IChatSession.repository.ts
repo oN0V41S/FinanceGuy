@@ -34,6 +34,8 @@ export interface NewChatMessage {
   content: string;
   payload?: JsonValue | null;
   tokens?: number | null;
+  /** Força a posição na linha do tempo (ex.: divisor de compactação). Padrão: agora. */
+  createdAt?: Date;
 }
 
 export interface IChatSessionRepository {

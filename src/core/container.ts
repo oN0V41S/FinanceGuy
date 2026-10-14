@@ -23,6 +23,7 @@ import { AgentService } from '../features/ai/agent/agent.service';
 import { ActionExecutor } from '../features/ai/agent/action.executor';
 import { createTransactionAdapter } from '../features/ai/agent/entityAdapters/transaction';
 import { createFinancialContextSource } from '../features/ai/agent/financialContextSource';
+import { createQueueCardLookup } from '../features/ai/agent/queueCards';
 import { PostgresPendingActionRepository } from '../features/ai/agent/repositories/postgresPendingAction.repository';
 import { PostgresAuditLogRepository } from '../features/ai/agent/repositories/postgresAuditLog.repository';
 import { PostgresChatSessionRepository } from '../features/ai/agent/repositories/postgresChatSession.repository';
@@ -75,14 +76,15 @@ async function openQueueIds(userId: string, sessionId: string): Promise<Readonly
   return new Set(rows.map((row) => row.queueId));
 }
 
+const aiAdapters = { transaction: createTransactionAdapter(transactionService) };
+
 export const aiSessionService: SessionService = new SessionService({
   repo: chatSessionRepository,
   llm: aiLlm,
   config: agentConfig,
   openActions: openQueueIds,
+  cardLookup: createQueueCardLookup({ pending: pendingActionRepository, adapters: aiAdapters }),
 });
-
-const aiAdapters = { transaction: createTransactionAdapter(transactionService) };
 
 export const aiAgent: AgentService = new AgentService({
   adapters: aiAdapters,

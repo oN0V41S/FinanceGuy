@@ -396,6 +396,7 @@ Consulte [docs/BACKEND.md](docs/BACKEND.md) para detalhes completos de payloads 
 | DELETE | `/api/transactions/[id]` | ✅ Implementado |
 | GET | `/api/transactions/opening-balance` | ✅ Implementado (saldo previsto por dia, #30) |
 | POST | `/api/ai/ask` | 🔄 Em implementação (assistente de IA, FING-7) |
+| `/api/ai/actions/*`, `/api/ai/session` | Agente de escrita e sessão de chat (FING-18) — ver BACKEND.md |
 
 ---
 
@@ -403,7 +404,7 @@ Consulte [docs/BACKEND.md](docs/BACKEND.md) para detalhes completos de payloads 
 
 > **ATENÇÃO — rotação de chave**: a `GEMINI_API_KEY` anterior foi exposta em um commit antigo. **Revogue/rotacione a chave no Google AI Studio antes de usar a integração**, gere uma nova e coloque-a apenas em `.env.local` (local) e nas variáveis de ambiente da Vercel (produção). Nunca commite chaves; defina um teto de gasto na chave.
 
-**Status (FING-7 — MVP)**: o assistente de perguntas e respostas (`POST /api/ai/ask` + página `/assistente`) está em implementação em `src/features/ai/`. Categorização automática, comandos de alteração (CRUD por IA), chatbot com sessões/tools (FING-18) e RAG/pgvector (FING-16) seguem planejados. O contrato do módulo já deixa *seams* para eles: `LlmRequest.messages[]` (histórico de sessão) e `FinancialContextSource` (recuperação vetorial).
+**Status (FING-7 — MVP)**: o assistente de perguntas e respostas (`POST /api/ai/ask` + página `/assistente`) está em implementação em `src/features/ai/`. Categorização automática, comandos de alteração (CRUD por IA), chatbot com sessões/tools (FING-18; em `src/features/ai/agent/`: tools só propõem, o `ActionExecutor` escreve após confirmação do usuário) e RAG/pgvector (FING-16) seguem planejados. O contrato do módulo já deixa *seams* para eles: `LlmRequest.messages[]` (histórico de sessão) e `FinancialContextSource` (recuperação vetorial).
 
 **Decisão de provedor**: o provedor é **Google Gemini**, via SDK oficial `@google/genai` (o `@google/generative-ai` está deprecated). Isso **diverge da spec original do FING-7 no Notion, que citava Claude**; a spec deve ser atualizada. O provedor fica atrás da interface `ILlmProvider`, então uma troca futura não afeta serviço, rota ou UI.
 
@@ -434,6 +435,12 @@ Consulte [docs/BACKEND.md](docs/BACKEND.md) para detalhes completos de payloads 
 | `AI_RATE_LIMIT_PER_MINUTE` | `10` | Perguntas por janela, por usuário |
 | `AI_RATE_LIMIT_WINDOW_SECONDS` | `60` | Tamanho da janela |
 | `AI_RATE_LIMIT_PER_DAY` | `50` | Perguntas por dia (data em BRT) |
+| `AI_ACTION_TTL_MINUTES` | `10` | FING-18: validade de uma ação proposta antes de expirar |
+| `AI_MAX_QUEUE` | `5` | FING-18: máx. de ações por pedido |
+| `AI_MAX_PENDING` | `20` | FING-18: máx. de ações abertas por usuário |
+| `AI_COMPACT_TOKENS` | `80000` | FING-18: tokens da sessão que disparam a compactação |
+| `AI_CONTEXT_CACHE_TTL_SECONDS` | `60` | FING-18: TTL do cache do contexto financeiro (invalidado após escrita) |
+| `AI_SESSION_KEEP_MESSAGES` | `10` | FING-18: mensagens recentes mantidas após compactar |
 
 **Observações operacionais**:
 - O cache de transações (`ICacheRepository`) pode atrasar dados em até 5 min; o assistente pode refletir esse atraso.

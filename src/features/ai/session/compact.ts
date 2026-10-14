@@ -64,6 +64,12 @@ function buildTranscript(previousSummary: string | null, messages: ChatMessageRe
   return `${head}Mensagens a resumir:\n${lines.join('\n')}`;
 }
 
+/** Divisor logo antes da primeira mensagem recente mantida; sem recentes, vai ao fim (padrão). */
+function dividerTime(live: ChatMessageRecord[], keepN: number): Date | undefined {
+  const firstRecent = keepN > 0 ? live.slice(-keepN)[0] : undefined;
+  return firstRecent ? new Date(firstRecent.createdAt.getTime() - 1) : undefined;
+}
+
 export async function compactSession(
   deps: CompactDeps,
   userId: string,
@@ -100,7 +106,15 @@ export async function compactSession(
     const newTokenCount = estimateTokens(summary) + kept.reduce((sum, m) => sum + tokensOf(m), 0);
     await repo.setSummary(sessionId, userId, summary, newTokenCount);
     await repo.markCompacted(sessionId, userId, toCompact.map((m) => m.id));
-    await repo.addMessage({ sessionId, userId, role: 'assistant', kind: 'compacted', content: DIVIDER_TEXT, tokens: 0 });
+    await repo.addMessage({
+      sessionId,
+      userId,
+      role: 'assistant',
+      kind: 'compacted',
+      content: DIVIDER_TEXT,
+      tokens: 0,
+      createdAt: dividerTime(live, keepN),
+    });
     return { compacted: true };
   } catch (error) {
     // Nunca logar conteúdo: apenas o nome do erro.

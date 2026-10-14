@@ -343,3 +343,52 @@ describe('ActionExecutor.cancel / cancelQueue', () => {
     await expect(executor.cancelQueue('user-1', 'nope')).rejects.toBeInstanceOf(ActionNotFoundError);
   });
 });
+
+describe('ActionExecutor — corrida com confirmação em andamento (409)', () => {
+  /** Faz a ação passar para `confirming` logo depois da leitura inicial (simula claim concorrente). */
+  async function racing() {
+    const ctx = await setup();
+    const original = ctx.pending.getByIdForUser.bind(ctx.pending);
+    let first = true;
+    ctx.pending.getByIdForUser = async (id: string, userId: string) => {
+      const record = await original(id, userId);
+      if (first) {
+        first = false;
+        await ctx.pending.claimForConfirm(id, userId, NOW);
+      }
+      return record;
+    };
+    return ctx;
+  }
+
+  it('cancel durante a confirmação dá 409 e não altera o estado', async () => {
+    const { executor, pending } = await racing();
+    await expect(executor.cancel('user-1', 'act-1')).rejects.toBeInstanceOf(ActionConflictError);
+    expect(pending.rows[0].status).toBe('confirming');
+  });
+
+  it('update durante a confirmação dá 409 e não reescreve o payload', async () => {
+    const { executor, pending } = await racing();
+    await expect(executor.update('user-1', 'act-1', { title: 'Outro' })).rejects.toBeInstanceOf(ActionConflictError);
+    expect(pending.rows[0].status).toBe('confirming');
+    expect(pending.rows[0].payload).toEqual(FULL_CREATE);
+  });
+
+  it('cancelar ação confirmada não a desfaz (repositório recusa)', async () => {
+    const { pending } = await setup();
+    await pending.claimForConfirm('act-1', 'user-1', NOW);
+    await pending.updateStatus('act-1', 'user-1', 'confirmed', NOW);
+    expect(await pending.updateStatus('act-1', 'user-1', 'cancelled', NOW)).toBe(false);
+    expect(pending.rows[0].status).toBe('confirmed');
+  });
+});
+
+describe('InMemoryPendingRepo.expireStale — confirming preso', () => {
+  it('confirming com claim antigo (> 2 min) volta a failed; recente permanece', async () => {
+    const { pending } = await setup([item(), item({ position: 2 })]);
+    await pending.claimForConfirm('act-1', 'user-1', new Date(NOW.getTime() - 3 * 60_000));
+    await pending.claimForConfirm('act-2', 'user-1', new Date(NOW.getTime() - 30_000));
+    expect(await pending.expireStale('user-1', NOW)).toBe(1);
+    expect(pending.rows.map((r) => r.status)).toEqual(['failed', 'confirming']);
+  });
+});

@@ -162,6 +162,12 @@ Saldo (receitas − despesas, incluindo pendentes) das transações **estritamen
 | Método | Rota | Status |
 |--------|------|--------|
 | POST | `/api/ai/ask` | 🔄 Em implementação (assistente de IA, provedor Google Gemini) |
+| PATCH | `/api/ai/actions/[id]` | FING-18 — edita campos de uma ação proposta |
+| POST | `/api/ai/actions/[id]/select` | FING-18 — escolhe a candidata (por `index`) |
+| POST | `/api/ai/actions/[id]/cancel` | FING-18 — cancela uma ação |
+| POST | `/api/ai/actions/confirm` | FING-18 — confirma 1..5 ações |
+| POST | `/api/ai/actions/cancel` | FING-18 — cancela as ações abertas de uma fila |
+| GET / POST | `/api/ai/session` | FING-18 — hidrata a conversa ativa / inicia nova |
 
 ### 1. **POST /api/ai/ask** – Perguntar ao assistente
 
@@ -209,6 +215,40 @@ Responde uma pergunta em linguagem natural com base em um **resumo** dos dados f
 **Segurança / privacidade**: apenas o DTO whitelist é enviado ao Google (sem ids, e-mail, senha, tokens, `description` ou `responsible`; títulos de transações sanitizados). Logs registram só `{name, status}` de erros e `{latencyMs, tokens, stopReason}`. Ver [docs/security.md](security.md).
 
 **Cache**: as transações vêm do serviço com cache de até 5 min (`transactions:{userId}:*`), portanto a resposta pode ter esse atraso.
+
+---
+
+### Agente de escrita (FING-18)
+
+`POST /api/ai/ask` aceita também `sessionId` opcional (≤ 64 chars) e, para pedidos de escrita ("adicione uma despesa de R$ 50..."), responde com `kind: "actions"`. Resposta estendida (campos novos opcionais; clientes antigos ignoram):
+
+```json
+{
+  "kind": "answer | clarify | actions | not_found | refused",
+  "answer": "Preparei 1 ação para você revisar: ...",
+  "truncated": false,
+  "sessionId": "…",
+  "queueId": "…",
+  "actions": [ActionCardDto],
+  "nextSteps": { "total": 1, "done": 0, "failed": 0, "cancelled": 0, "next": "…", "canConfirmAll": true }
+}
+```
+
+`ActionCardDto`: `{ id, queueId, position, entity, op, status, destructive, fields[{key,label,value,display,editable,missing,error?}], before?, missingFields[{key,label,example}], candidates?[{index,label}], expiresAt, message? }`. `status`: `needs_input | ready | awaiting_pick | confirming | confirmed | failed | cancelled | expired`. O card **nunca** inclui `targetId`, ids de candidatas nem `userId`.
+
+Todas as rotas abaixo: auth via `x-user-id`, `Cache-Control: no-store`, corpo ≤ 4 KB validado com Zod, `runtime = 'nodejs'`. Ação inexistente ou de outro usuário = 404.
+
+| Rota | Body | Resposta 200 | Erros |
+|---|---|---|---|
+| `PATCH /api/ai/actions/[id]` | `{ "fields": { "value": 50, "category": "Alimentação" } }` (≤ 12 chaves; `null`/vazio limpa o campo) | `{ card, nextSteps }` (status recalculado: `ready`/`needs_input`) | 400, 404, 409 (já resolvida), 410 (expirada) |
+| `POST /api/ai/actions/[id]/select` | `{ "index": 0 }` (0–4) | `{ card, nextSteps }` | 400 (índice inválido), 404, 409 (não aguarda escolha), 410 |
+| `POST /api/ai/actions/[id]/cancel` | — | `{ card, nextSteps }` | 404, 409 |
+| `POST /api/ai/actions/confirm` | `{ "ids": ["…"] }` (1–5 ids distintos) | `{ results: [{ id, status, message?, card }], nextSteps }` — sucesso parcial permitido, cada item tem seu status | 400, 404 (qualquer id alheio derruba o lote), 409/410 (somente lote de 1 id) |
+| `POST /api/ai/actions/cancel` | `{ "queueId": "…" }` | `{ cancelled, cards, nextSteps }` | 400, 404 |
+| `GET /api/ai/session` | — | `{ sessionId, messages: ChatMessage[], tokenCount }` (cria a sessão ativa se não existir) | 401 |
+| `POST /api/ai/session` | — | idem, após arquivar a ativa e criar uma nova | 401 |
+
+`ChatMessage.kind`: `text | action_cards | compacted`. A confirmação é um *claim* atômico: confirmar duas vezes a mesma ação retorna 409 e nunca executa duas vezes. Ações expiram em `AI_ACTION_TTL_MINUTES`. Variáveis de ambiente do agente: tabela em [TECHNICAL_DOCS.md](TECHNICAL_DOCS.md). Segurança: [security.md](security.md).
 
 ---
 

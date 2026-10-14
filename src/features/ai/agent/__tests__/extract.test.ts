@@ -175,6 +175,28 @@ describe('extractTransactionFields', () => {
     });
   });
 
+  describe('responsável', () => {
+    it('extrai uma palavra e não a mistura no título', () => {
+      const r = extractTransactionFields('gastei 50 no mercado responsável Maria', NOW);
+      expect(r.responsible).toBe('Maria');
+      expect(r.title).toBe('Mercado');
+    });
+
+    it('aceita "resp:" e segunda palavra capitalizada', () => {
+      expect(extractTransactionFields('paguei uber 20 resp: João Silva', NOW).responsible).toBe('João Silva');
+    });
+
+    it('não consome palavra minúscula seguinte', () => {
+      const r = extractTransactionFields('gastei 50 responsável Maria no mercado', NOW);
+      expect(r.responsible).toBe('Maria');
+      expect(r.title).toBe('Mercado');
+    });
+
+    it('ausente => undefined', () => {
+      expect(extractTransactionFields('gastei 50 no mercado', NOW).responsible).toBeUndefined();
+    });
+  });
+
   it('categoria por palavra-chave', () => {
     expect(extractTransactionFields('paguei uber 20', NOW).category).toBe('Transporte');
     expect(extractTransactionFields('paguei coisa 20', NOW).category).toBeUndefined();

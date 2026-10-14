@@ -94,6 +94,7 @@ export function toCard(record: PendingActionRecord, options: CardOptions): Actio
   else if (status === 'ready') card.message = adapter.describe(op, evaluation.fields, before ?? undefined);
   else if (status === 'awaiting_pick') card.message = 'Encontrei mais de um item. Escolha qual você quer.';
   else if (status === 'expired') card.message = 'Esta ação expirou. Peça novamente ao assistente.';
+  else if (status === 'failed') card.message = 'Não consegui concluir esta ação. Confira suas transações antes de tentar novamente.';
   return card;
 }
 

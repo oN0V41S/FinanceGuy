@@ -225,4 +225,121 @@ describe('useAssistant — histórico', () => {
     expect(result.current.status).toBe('error');
     fetchSpy.mockRestore();
   });
+
+  describe('FING-18: sessão e ações', () => {
+    let fetchSpy: jest.SpiedFunction<typeof fetch>;
+    beforeEach(() => {
+      fetchSpy = jest.spyOn(global, 'fetch');
+    });
+    afterEach(() => fetchSpy.mockRestore());
+
+    const card = {
+      id: 'c1', queueId: 'q1', position: 0, entity: 'transaction', op: 'create', status: 'ready',
+      destructive: false, fields: [], missingFields: [], expiresAt: '2030-01-01T00:00:00.000Z',
+    };
+    const nextSteps = { total: 1, done: 0, failed: 0, cancelled: 0, canConfirmAll: false };
+
+    it('hydrate carrega mensagens da sessão e reutiliza o sessionId no ask', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        jsonResponse({ sessionId: 's1', messages: [{ id: 'a', role: 'user', content: 'antigo' }], tokenCount: 3 }),
+      );
+      const { result } = renderHook(() => useAssistant());
+      await act(async () => {
+        await result.current.hydrate();
+      });
+      expect(fetchSpy.mock.calls[0][0]).toBe('/api/ai/session');
+      expect(result.current.messages).toEqual([{ id: 'a', role: 'user', content: 'antigo' }]);
+      expect(result.current.isHydrating).toBe(false);
+
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ answer: 'ok', truncated: false }));
+      await act(async () => {
+        await result.current.ask('oi');
+      });
+      expect(JSON.parse(fetchSpy.mock.calls[1][1]?.body as string)).toEqual({ question: 'oi', sessionId: 's1' });
+    });
+
+    it('hydrate com falha define erro calmo e não quebra', async () => {
+      fetchSpy.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+      const { result } = renderHook(() => useAssistant());
+      await act(async () => {
+        await result.current.hydrate();
+      });
+      expect(result.current.error).toMatch(/carregar a conversa anterior/);
+      expect(result.current.messages).toEqual([]);
+    });
+
+    it('hydrate não sobrescreve mensagens se o usuário já perguntou', async () => {
+      let resolveSession!: (r: Response) => void;
+      fetchSpy.mockReturnValueOnce(new Promise<Response>((r) => (resolveSession = r)));
+      const { result } = renderHook(() => useAssistant());
+      let hydrating!: Promise<void>;
+      act(() => {
+        hydrating = result.current.hydrate();
+      });
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ answer: 'resp', truncated: false }));
+      await act(async () => {
+        await result.current.ask('nova');
+      });
+      await act(async () => {
+        resolveSession(jsonResponse({ sessionId: 's1', messages: [{ id: 'z', role: 'user', content: 'velho' }], tokenCount: 1 }));
+        await hydrating;
+      });
+      expect(result.current.messages.map((m) => m.content)).toEqual(['nova', 'resp']);
+    });
+
+    it('ask com kind=actions cria mensagem action_cards', async () => {
+      fetchSpy.mockResolvedValueOnce(
+        jsonResponse({ answer: 'Revise', truncated: false, kind: 'actions', sessionId: 's9', queueId: 'q1', actions: [card], nextSteps }),
+      );
+      const { result } = renderHook(() => useAssistant());
+      await act(async () => {
+        await result.current.ask('Registre um gasto');
+      });
+      expect(result.current.status).toBe('success');
+      expect(result.current.messages[1]).toMatchObject({
+        role: 'assistant', kind: 'action_cards', queueId: 'q1', actions: [card], nextSteps, content: 'Revise',
+      });
+    });
+
+    it('newConversation chama POST, troca a sessão e limpa mensagens', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ answer: 'a', truncated: false }));
+      const { result } = renderHook(() => useAssistant());
+      await act(async () => {
+        await result.current.ask('q');
+      });
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ sessionId: 's2', messages: [], tokenCount: 0 }));
+      await act(async () => {
+        await result.current.newConversation();
+      });
+      expect(fetchSpy.mock.calls[1][1]?.method).toBe('POST');
+      expect(result.current.messages).toEqual([]);
+      expect(result.current.status).toBe('idle');
+
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ answer: 'b', truncated: false }));
+      await act(async () => {
+        await result.current.ask('q2');
+      });
+      expect(JSON.parse(fetchSpy.mock.calls[2][1]?.body as string)).toEqual({ question: 'q2', sessionId: 's2' });
+    });
+
+    it('newConversation com falha mantém mensagens e define erro', async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ answer: 'a', truncated: false }));
+      const { result } = renderHook(() => useAssistant());
+      await act(async () => {
+        await result.current.ask('q');
+      });
+      fetchSpy.mockResolvedValueOnce(jsonResponse({ error: 'x' }, 500));
+      await act(async () => {
+        await result.current.newConversation();
+      });
+      expect(result.current.error).toMatch(/conversa atual foi mantida/);
+      expect(result.current.messages).toHaveLength(2);
+      expect(result.current.isStartingNew).toBe(false);
+    });
+
+    it('expõe a API de ações', () => {
+      const { result } = renderHook(() => useAssistant());
+      expect(typeof result.current.actions.confirm).toBe('function');
+    });
+  });
 });
