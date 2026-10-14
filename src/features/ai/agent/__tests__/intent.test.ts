@@ -153,6 +153,17 @@ describe('classifyIntent', () => {
     });
   });
 
+  it('"e nova receita" / "e crie uma despesa" divide em 2 comandos de criação', () => {
+    const r = classifyIntent('Criar despesa de R$ 50,00 no mercado hoje e nova receita de R$ 3.000,00 de salário');
+    expect(r.kind).toBe('write');
+    if (r.kind !== 'write') return;
+    expect(r.segments).toHaveLength(2);
+    expect(r.segments[0].text).not.toMatch(/salário/);
+    expect(r.segments[1].text).toMatch(/3.000/);
+    const r2 = classifyIntent('Crie uma despesa de 10 e crie uma receita de 20');
+    expect(r2.kind === 'write' && r2.segments).toHaveLength(2);
+  });
+
   it('cabeçalho terminado em ":" dá o verbo às linhas seguintes (2 cards num só comando)', () => {
     const r = classifyIntent(
       [

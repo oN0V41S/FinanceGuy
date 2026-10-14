@@ -55,7 +55,14 @@ const INTERROGATIVE_START =
   /^(?:(?:por favor|oi|ola)[\s,]+)?(?:como|quanto|quantos|quantas|qual|quais|quando|por que|porque|onde|o que|quem|que)\b/;
 const HYPOTHETICAL = /\bse eu\b/;
 const BULK = /\b(?:todas?|todos|tudo)\b/;
-const SPLIT = /;|\r?\n|\s+e depois\s+|\s+e tamb[eé]m\s+|(?:^|\s)\d+[.)]\s+/i;
+const ENTITY_WORDS =
+  'transa[cç][aã]o|transa[cç][oõ]es|despesas?|receitas?|gastos?|lan[cç]amentos?|investimentos?|ativos?|categorias?';
+/** "... e nova receita de 3000" / "... e crie uma despesa": novo comando de criação com entidade explícita. */
+const AND_NEW_COMMAND = `\\s+e\\s+(?=(?:nov[ao]s?|criar?|crie|adicion(?:ar|e)|registr(?:ar|e)|lan[cç](?:ar|e)|inclu(?:ir|a)|anot(?:ar|e))\\s+(?:(?:uma?|outra?)\\s+)?(?:${ENTITY_WORDS})\\b)`;
+const SPLIT = new RegExp(
+  `;|\\r?\\n|\\s+e depois\\s+|\\s+e tamb[eé]m\\s+|(?:^|\\s)\\d+[.)]\\s+|${AND_NEW_COMMAND}`,
+  'i',
+);
 
 function wordRegex(words: string[]): RegExp {
   return new RegExp(`\\b(?:${words.join('|')})\\b`, 'g');
