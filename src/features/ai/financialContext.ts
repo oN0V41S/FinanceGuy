@@ -59,7 +59,7 @@ export function getBrtPeriod(now: Date, range?: QuestionPeriod | null): BrtPerio
   let allMonths = months;
   if (range) {
     const from = toIndex(range.startMonth);
-    const to = Math.min(toIndex(range.endMonth), year * 12 + (month - 1));
+    const to = toIndex(range.endMonth);
     const extra = new Set(months);
     detailMonths = [];
     for (let i = from; i <= to; i++) {
@@ -70,13 +70,16 @@ export function getBrtPeriod(now: Date, range?: QuestionPeriod | null): BrtPerio
     allMonths = [...extra].sort();
   }
 
-  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const endKey = allMonths[allMonths.length - 1];
+  const endYear = Number(endKey.slice(0, 4));
+  const endMonthNum = Number(endKey.slice(5, 7));
+  const lastDay = new Date(Date.UTC(endYear, endMonthNum, 0)).getUTCDate();
 
   return {
     today: `${year}-${pad(month)}-${pad(day)}`,
     month: `${year}-${pad(month)}`,
     startDate: `${allMonths[0]}-01`,
-    endDate: `${year}-${pad(month)}-${pad(lastDay)}`,
+    endDate: `${endKey}-${pad(lastDay)}`,
     months: allMonths,
     detailMonths,
   };

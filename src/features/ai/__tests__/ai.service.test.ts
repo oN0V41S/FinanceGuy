@@ -70,7 +70,13 @@ describe('AiService.ask', () => {
     expect(d.transactions.getAllTransactions).toHaveBeenCalledWith({ userId: 'user-1', startDate: '2024-01-01', endDate: '2026-10-31' });
   });
 
-  it('período futuro/recente já coberto não amplia a consulta', async () => {
+  it('período futuro (ex.: parcelas e contas agendadas) amplia o fim da consulta', async () => {
+    const d = makeDeps();
+    await d.service.ask('user-1', 'Quanto vou pagar em dezembro de 2026?');
+    expect(d.transactions.getAllTransactions).toHaveBeenCalledWith({ userId: 'user-1', startDate: '2026-05-01', endDate: '2026-12-31' });
+  });
+
+  it('período recente já coberto não amplia a consulta', async () => {
     const d = makeDeps();
     await d.service.ask('user-1', 'e no mês passado?');
     expect(d.transactions.getAllTransactions).toHaveBeenCalledWith({ userId: 'user-1', startDate: '2026-05-01', endDate: '2026-10-31' });

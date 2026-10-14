@@ -48,7 +48,7 @@ export function resolveQuestionPeriod(question: string, now: Date): QuestionPeri
 
   if (/\bmes passado\b|\bultimo mes\b/.test(text)) return make(current - 1, current - 1);
   if (/\bano passado\b/.test(text)) return make(idx(cy - 1, 1), idx(cy - 1, 12));
-  if (/\b(este|esse|neste|nesse|deste|desse) ano\b/.test(text)) return make(idx(cy, 1), current);
+  if (/\b(este|esse|neste|nesse|deste|desse) ano\b/.test(text)) return make(idx(cy, 1), idx(cy, 12));
 
   // dd/mm/aaaa ou mm/aaaa
   m = text.match(/\b(?:\d{1,2}\/)?(\d{1,2})\/(\d{4})\b/);
@@ -84,7 +84,7 @@ export function resolveQuestionPeriod(question: string, now: Date): QuestionPeri
   m = text.match(/\b(19\d{2}|20\d{2}|2100)\b/);
   if (m && validYear(Number(m[1]))) {
     const y = Number(m[1]);
-    return make(idx(y, 1), y === cy ? current : idx(y, 12));
+    return make(idx(y, 1), idx(y, 12));
   }
 
   return null;

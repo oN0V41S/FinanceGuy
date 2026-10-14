@@ -281,6 +281,12 @@ describe('buildFinancialContext', () => {
       expect(p.detailMonths).toEqual(['2024-01', '2024-02', '2024-03']);
     });
 
+    it('período futuro entra na janela e no detalhe', () => {
+      const p = getBrtPeriod(NOW, { startMonth: '2026-12', endMonth: '2027-01' });
+      expect(p.endDate).toBe('2027-01-31');
+      expect(p.detailMonths).toEqual(['2026-12', '2027-01']);
+    });
+
     it('sem período mantém o comportamento padrão', () => {
       expect(getBrtPeriod(NOW).detailMonths).toEqual(['2026-05', '2026-06', '2026-07', '2026-08', '2026-09']);
     });
