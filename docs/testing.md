@@ -9,6 +9,8 @@
 1. [Comandos de Testes (Jest)](#comandos-de-testes-jest)
 2. [Criar Testes Antes de Criar Funções (TDD)](#criar-testes-antes-de-criar-funções-tdd)
 
+> Estratégia (risco, EP/BVA, propriedades, mutation), checklist de regressão, armadilhas e cenários por persona: [docs/qa/README.md](./qa/README.md).
+
 ---
 
 ## Comandos de Testes (Jest)
