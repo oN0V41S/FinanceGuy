@@ -19,10 +19,10 @@ This skill helps developers verify functional integrity, edge-case coverage, and
 
 ## Workflow Phases
 1. **Identify Test Target** – Determine the function, component, or module to be tested.
-2. **Design Test Cases** – Outline happy path, edge cases, error conditions, and fallback scenarios.
+2. **Design Test Cases** – Rank by risk (money → authorization → external input → UI flow → cosmetic), then derive cases with equivalence partitioning and boundary value analysis (decision tables / state transitions for composite rules), plus error and fallback scenarios. For money calculations add invariants (property-based, integer cents). Details in `.opencode/agents/quality-assurance-analyst.md` ("Metodologia de Testes Eficientes").
 3. **Write Test Implementation** – Use Jest, `describe`/`it` blocks, appropriate mocks (`jest.mock`), and Zod for input validation.
 4. **Run & Debug** – Execute `npx jest <file>` or `npm run test:watch`; inspect failures.
-5. **Assert Coverage** – Run `npm run test:coverage` and confirm that new lines are covered.
+5. **Assert Coverage** – Run `npm run test:coverage` and confirm that new lines are covered. Coverage shows what ran, not what is verified: for critical modules also review surviving mutants once StrykerJS is adopted.
 6. **Review & Refactor** – Ensure tests are independent, avoid unnecessary imports, and follow the Arrange-Act-Assert pattern.
 7. **Commit** – Add/modify test files and optionally update documentation.
 
@@ -36,6 +36,10 @@ This skill helps developers verify functional integrity, edge-case coverage, and
 - Never use `console.log` inside a test; prefer Jest's `expect` assertions or `done` callbacks.
 - If a test requires external data, load it from a fixture file committed to the repo, never from a live API.
 - When a test fails due to a legitimate code change, update the test only after confirming the change is correct.
+- Prefer integration tests over many isolated unit tests; assert observable behavior, not implementation details.
+- Keep tests deterministic: fake timers/system time, no reliance on today's date, execution order or network.
+- Every fixed bug gets a regression test that fails before the fix.
+- Tools not yet installed (fast-check, StrykerJS, Playwright, MSW) are recommendations only: ask the user before adding a dependency.
 
 ## Quality Assurance
 - Run the newly written or modified test and ensure it passes (`npx jest <test-file>`).
