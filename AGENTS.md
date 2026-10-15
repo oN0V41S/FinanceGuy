@@ -21,6 +21,8 @@ Contexto do app: Um App que Te leva a Estabilidade Financeira; Um Nubank com IA 
 | Segurança | `docs/security.md` |
 | Autenticação (NextAuth v5) | `docs/auth.md` |
 | Testes & TDD | `docs/testing.md` |
+| QA: estratégia, regressão, armadilhas, cenários | `docs/qa/README.md` |
+| Personas (perfil de usuário: QA, UX/copy, IA) | `docs/product/personas/README.md` |
 | Depuração | `docs/debugging.md` |
 | UI / shadcn-ui / identidade visual | `docs/ui-guidelines.md` |
 | GitHub Flow & commits | `docs/git-workflow.md` |
