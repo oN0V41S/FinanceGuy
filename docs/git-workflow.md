@@ -66,9 +66,9 @@ Feature branches abrem PR contra **`staging`** (não direto em `main`). Depois d
 feat/minha-feature ──► PR ──► staging ──► PR ──► main
 ```
 
-## Exclusão automática de branches após merge
+## Exclusão de branches após merge
 
-O repositório tem **`delete_branch_on_merge: true`** ativado (GitHub → Settings → General → "Automatically delete head branches"). Isso apaga a branch remota automaticamente assim que o PR é mergeado — seja o PR contra `staging` ou contra `main`. Não é preciso rodar `git push origin --delete` manualmente após o merge; só limpar a referência local com `git branch -d`.
+O repositório tem **`delete_branch_on_merge: false`**: a exclusão automática foi desativada porque apagava a `staging` quando o PR `staging` → `main` era mergeado. Apague as branches de feature manualmente após o merge (`git push origin --delete <branch>` e `git branch -d <branch>`). **Nunca apague `staging` nem `main`.**
 
 ## Fluxo de Desenvolvimento Recomendado
 

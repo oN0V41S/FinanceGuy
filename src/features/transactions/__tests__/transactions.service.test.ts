@@ -236,7 +236,7 @@ describe('TransactionService', () => {
         new Date('2024-01-01')
       );
       // Como é o PAI, deleta o próprio pai após as filhas
-      expect(mockTransactionRepo.delete).toHaveBeenCalledWith('parent-id');
+      expect(mockTransactionRepo.delete).toHaveBeenCalledWith('parent-id', 'user-id');
       expect(count).toBe(3);
     });
 
@@ -293,6 +293,7 @@ describe('TransactionService', () => {
       );
       expect(mockTransactionRepo.update).toHaveBeenCalledWith(
         'parent-id',
+        'user-id',
         expect.objectContaining({ value: 500 })
       );
       expect(count).toBe(3);

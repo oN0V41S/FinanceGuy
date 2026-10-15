@@ -35,3 +35,13 @@ export const initialFormData: TransactionFormData = {
     is_recurring: false,
     paid: false
 };
+
+/** Busca escopada por usuário (FING-18). `limit` é limitado a 5 pelo service. */
+export interface SearchTransactionsFilters {
+  userId: string;
+  query?: string;
+  amount?: number;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}
