@@ -113,6 +113,10 @@ pnpm prisma:studio    # UI do banco de dados
 
 Tarefas recorrentes (scaffold, find/grep, mv, replace, route, test, db, pr) via `pnpm fg <grupo>` — dry-run por padrão. Ver `.claude/skills/fg-cli/SKILL.md`.
 
+## Skill `fg-pipeline`
+
+Pipeline manual `/fg-pipeline <tarefa|FING-N>`: tarefa → card no Notion → spec (grill-me) → worktree `../FinanceGuy-FING-N` a partir de `origin/main` → implementação e revisão por etapa via OpenCode headless → commits. Os agentes desta equipe são invocados por ela (implementação em modelos free; revisão por `project-review` + `security-secret-auditor` em Gemini). Ver `.claude/skills/fg-pipeline/` e `docs/specs/FING-26-fg-pipeline.md`.
+
 ## Contratos
 
 > **NENHUM PR pode ser aberto sem que TODOS os passos abaixo sejam executados e validados.**

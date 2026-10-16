@@ -102,7 +102,8 @@ Chamadas de outros arquivos não se aplicam: a skill é autocontida. `chains.con
  5. NOTION        Status=Em andamento; corpo da página = spec; Links = caminho da spec
  6. WORKTREE      git fetch origin main; git worktree add ../FinanceGuy-FING-N -b FING-N origin/main
  7. SETUP         pnpm install --frozen-lockfile; npx prisma generate; gravar .fg-pipeline.json
- 8. IMPLEMENTAR   para cada etapa do "Mapa de Execução" da spec:
+ 8. IMPLEMENTAR   (antes: lançar o agente monitor Claude em paralelo — ver 3.4b)
+                  para cada etapa do "Mapa de Execução" da spec:
                     run-agent.sh --chain IMPL --agent <agente> → validar (jest + lint) → commit
  9. REVISAR       run-agent.sh --chain REVIEW --agent project-review ; idem security-secret-auditor
                     achados críticos/altos → volta ao passo 8 (agente de implementação), máx. 2 ciclos
@@ -185,6 +186,16 @@ run-agent.sh --chain <IMPL|REVIEW> --agent <nome> --dir <worktree> --prompt-file
 | Corpo da página | vazio na criação | **conteúdo integral da spec** (markdown convertido) + link do caminho `docs/specs/…`; ao final da pipeline, acrescenta bloco "Execução": branch, commits, achados da revisão |
 
 Regras: a skill **mostra os campos e pede "ok"** antes de criar a página (escrita visível a outras pessoas). `Concluído` nunca é definido pela pipeline.
+
+### 3.4b Agente monitor (Claude, paralelo)
+
+Ao iniciar a fase de implementação (passo 8), o maestro dispara **um agente Claude somente leitura em background** (`Agent`, `run_in_background: true`, modelo barato como `haiku`) para que o usuário acompanhe o andamento:
+- Observa a cada ~30 s: `git status --short`, `git diff --stat`, arquivos novos da skill, tamanho/últimos eventos de `out/*.json|.err` dos agentes OpenCode e o `.fg-pipeline.json`.
+- Grava um painel em português em `.fg-pipeline.progress.md` na raiz da worktree (tabela: etapa, agente, modelo, status `aguardando|rodando|concluído|falhou`, arquivos tocados, última atividade, últimos 5 eventos). O arquivo entra em `.git/info/exclude` e nunca é commitado.
+- Nunca edita arquivos do repositório, nunca commita, nunca inicia `opencode`, nunca lê `.env`.
+- Encerra quando os agentes pararam de produzir saída por 2 min ou após 25 min; o relatório final tem no máximo 5 linhas.
+- Lançamento do OpenCode: cada `opencode run` deve rodar como **tarefa em background própria** do maestro (`run_in_background`), em primeiro plano dentro dela; `cmd &` solto é encerrado junto com o shell e deixa saída vazia.
+- O maestro lê `.fg-pipeline.progress.md` ao reportar andamento; `--dry-run` apenas imprime que o monitor seria lançado.
 
 ### 3.5 Templates de prompt
 - `impl-prompt.md`: caminho da spec, número/nome da etapa, lista de arquivos esperados da etapa, resumo da etapa anterior (último `text` do JSON), `git diff --stat`, regras (TDD primeiro, imports `@/`, Zod, sem `any`, **não ler/editar `.env`**, não rodar `prisma db push`), definição de pronto (testes da etapa passando).
@@ -277,7 +288,7 @@ Esta própria skill deve ser implementada numa **worktree nova a partir de `orig
 | 0 | maestro (Claude) | card Notion + worktree + setup; renomear a spec | aprovação da spec |
 | 1a | `devops-platform-engineer` | `scripts/run-agent.sh`, `chains.conf`, `fixtures/opencode-stub.sh` e `__tests__/run-agent.test.sh` (TDD: testes primeiro); ajuste do `test.yml` (`'FING-*'`) | 0 |
 | 1b | `docs-architect` | `references/*.md` (4 arquivos), `git-workflow.md`, menção no `AGENTS.md` | 0 — **em paralelo com 1a** |
-| 2 | `docs-architect` | `SKILL.md` integrando script e referências | 1a + 1b |
+| 2 | `docs-architect` | `SKILL.md` integrando script e referências, incluindo o agente monitor (3.4b) e a regra de lançar cada `opencode run` como tarefa em background | 1a + 1b |
 | 3 | `quality-assurance-analyst` | executa testes do script; `--dry-run`; e2e da tarefa trivial de documentação | 2 |
 | 4 | `project-review` + `security-secret-auditor` | revisão final (arquitetura, segredos, permissões, segurança do script) | 3 |
 | 5 | maestro (Claude) | commits por etapa (Conventional Commits `(FING-N)`), resumo e pergunta de push | 4 |
