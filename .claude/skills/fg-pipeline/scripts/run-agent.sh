@@ -169,7 +169,7 @@ for MODEL in "${MODELS[@]}"; do
   fi
 
   log "tentativa $ATTEMPTS/$TOTAL modelo=$MODEL${CURRENT_SESSION:+ sessão=$CURRENT_SESSION}"
-  "${CMD[@]}" "$PROMPT" >"$OUT_FILE" 2>"$ERR_FILE"
+  "${CMD[@]}" -- "$PROMPT" >"$OUT_FILE" 2>"$ERR_FILE"
   CODE=$?
   if [ -s "$ERR_FILE" ]; then
     cat "$ERR_FILE" >&2
@@ -184,7 +184,7 @@ for MODEL in "${MODELS[@]}"; do
 
   # Texto final: concatena os campos "text" dos eventos JSON. O corpo extraído já é
   # conteúdo válido de string JSON (a fonte é JSON válida), por isso é embutido cru.
-  TEXT=$(grep -o '"text":"[^"]*"' "$OUT_FILE" 2>/dev/null | sed 's/^"text":"//; s/"$//' | tr '\n' ' ' | sed 's/ *$//')
+  TEXT=$(grep -oE '"text":"([^"\\]|[\\].)*"' "$OUT_FILE" 2>/dev/null | sed 's/^"text":"//; s/"$//' | tr '\n' ' ' | sed 's/ *$//')
 
   # Falha = exit ≠ 0, OU "Request too large" / "Error:" / rate limit na saída, OU texto vazio.
   FAILED=0
@@ -192,7 +192,7 @@ for MODEL in "${MODELS[@]}"; do
   if grep -q 'Request too large' "$OUT_FILE" 2>/dev/null || grep -q 'Request too large' "$ERR_FILE" 2>/dev/null; then
     FAILED=1
     REASON="Request too large (modelo $MODEL)"
-  elif grep -q 'Error:' "$OUT_FILE" 2>/dev/null || grep -q 'Error:' "$ERR_FILE" 2>/dev/null; then
+  elif [[ "$TEXT" == Error:* ]] || grep -q 'Error:' "$ERR_FILE" 2>/dev/null; then
     FAILED=1
     ERR_TXT=$(grep -m1 -ho 'Error:[^"\\]*' "$OUT_FILE" "$ERR_FILE" 2>/dev/null | head -n1)
     REASON="${ERR_TXT:-Error} (modelo $MODEL)"

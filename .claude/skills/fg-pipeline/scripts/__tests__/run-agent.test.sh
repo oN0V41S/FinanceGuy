@@ -185,6 +185,16 @@ test_success_first_model() {
   assert_file_not_contains "nunca passa --auto" "$OPENCODE_STUB_LOG" "--auto"
 }
 
+# Texto com aspas escapadas não pode ser truncado na extração.
+test_escaped_quotes_in_text() {
+  OPENCODE_STUB_TEXT='ACHADO | descricao: use \"--\" antes do prompt | fim'
+  export OPENCODE_STUB_TEXT
+  run_agent --chain IMPL --agent test-agent --dir "$TMP/worktree" \
+    --prompt-file "$PROMPT_FILE" --timeout 10
+  assert_eq "exit code" 0 "$RA_CODE"
+  assert_contains "texto completo após aspas escapadas" "| fim" "$(cat "$RA_STDOUT")"
+}
+
 # Falha no 1º e sucesso no 2º → 2ª chamada usa -s <sessionID> e -m do 2º modelo.
 test_fallback_reuses_session() {
   OPENCODE_STUB_MODES="exit1,success"
@@ -361,6 +371,7 @@ echo "run-agent.test.sh — spec FING-26 §6 (stub: opencode-stub.sh, sem rede)"
 echo
 
 run_test test_success_first_model
+run_test test_escaped_quotes_in_text
 run_test test_fallback_reuses_session
 run_test test_error_text_with_exit0_is_failure
 run_test test_toolarge_with_exit0_is_failure
