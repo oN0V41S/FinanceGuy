@@ -10,16 +10,16 @@ Os arquivos `.md` ficam em `.opencode/agents/` (planos, sem diretórios).
 ```
 .opencode/agents/
 ├── tech-lead.md                     # Visível na lista — orquestrador da equipe
-├── backend-engineer.md              # Subagente — API, services, repositories
-├── frontend.md                      # Subagente — UI, shadcn-ui
-├── database-engineer.md             # Subagente — Prisma schema, PostgreSQL
-├── devops-platform-engineer.md      # Subagente — CI/CD, build, FinOps
-├── solutions-architect.md           # Subagente — ADRs, design de sistema
-├── product-manager.md               # Subagente — specs, requisitos, roadmap
-├── quality-assurance-analyst.md     # Subagente — testes Jest/RTL, coverage
-├── security-secret-auditor.md       # Subagente — auditoria de segurança
-├── docs-architect.md                # Subagente — documentação técnica
-└── project-review.md                # Subagente — revisão de arquitetura
+├── backend-engineer.md              # Agente — API, services, repositories
+├── frontend.md                      # Agente — UI, shadcn-ui
+├── database-engineer.md             # Agente — Prisma schema, PostgreSQL
+├── devops-platform-engineer.md      # Agente — CI/CD, build, FinOps
+├── solutions-architect.md           # Agente — ADRs, design de sistema
+├── product-manager.md               # Agente — specs, requisitos, roadmap
+├── quality-assurance-analyst.md     # Agente — testes Jest/RTL, coverage
+├── security-secret-auditor.md       # Agente — auditoria de segurança
+├── docs-architect.md                # Agente — documentação técnica
+└── project-review.md                # Agente — revisão de arquitetura
 ```
 
 ## Agentes
@@ -27,16 +27,16 @@ Os arquivos `.md` ficam em `.opencode/agents/` (planos, sem diretórios).
 | Agente | Modo | Cor | Especialização |
 |--------|------|-----|----------------|
 | **tech-lead** | `all` | primary | Orquestração, delegação, triagem de PRs, decisões técnicas |
-| **frontend** | `subagent` | info | UI/UX com shadcn-ui + VISUAL_IDENTITY.md | Spec-first + TDD: escrever Spec detalhada → testes → implementação; dark/light theme + mobile responsivo |
-| **backend-engineer** | `subagent` | secondary | API routes, services, repositories, Prisma, Zod |
-| **database-engineer** | `subagent` | accent | Schema Prisma, PostgreSQL, migrations, queries |
-| **devops-platform-engineer** | `subagent` | warning | CI/CD, build Next.js, deploy, FinOps |
-| **solutions-architect** | `subagent` | info | ADRs, design de sistema, Clean Architecture |
-| **product-manager** | `subagent` | secondary | Specs, user stories, roadmap, docs/features |
-| **quality-assurance-analyst** | `subagent` | success | Testes Jest/RTL, coverage, E2E |
-| **security-secret-auditor** | `subagent` | error | Secrets, SQL injection, CVEs, dados financeiros |
-| **docs-architect** | `subagent` | accent | Documentação técnica, ADRs, diagramas Mermaid |
-| **project-review** | `subagent` | secondary | Auditoria Clean Architecture, validação de padrões |
+| **frontend** | `all` | info | UI/UX com shadcn-ui + VISUAL_IDENTITY.md | Spec-first + TDD: escrever Spec detalhada → testes → implementação; dark/light theme + mobile responsivo |
+| **backend-engineer** | `all` | secondary | API routes, services, repositories, Prisma, Zod |
+| **database-engineer** | `all` | accent | Schema Prisma, PostgreSQL, migrations, queries |
+| **devops-platform-engineer** | `all` | warning | CI/CD, build Next.js, deploy, FinOps |
+| **solutions-architect** | `all` | info | ADRs, design de sistema, Clean Architecture |
+| **product-manager** | `all` | secondary | Specs, user stories, roadmap, docs/features |
+| **quality-assurance-analyst** | `all` | success | Testes Jest/RTL, coverage, E2E |
+| **security-secret-auditor** | `all` | error | Secrets, SQL injection, CVEs, dados financeiros |
+| **docs-architect** | `all` | accent | Documentação técnica, ADRs, diagramas Mermaid |
+| **project-review** | `all` | secondary | Auditoria Clean Architecture, validação de padrões |
 
 ## Como Usar
 
@@ -68,7 +68,7 @@ O projeto usa `@base-ui/react/select`. `SelectValue` **não** reflete automatica
 - Dados **nunca** devem ter `MOCK_DATA` como fallback de produção. Usar estado vazio (empty state) quando a API retorna `[]`.
 - `setTimeout` para simular loading é proibido em componentes com dados estáticos.
 
-### Subagentes (Todos seguem Spec-first + TDD)
+### Agentes (Todos seguem Spec-first + TDD)
 Todos os subagentes seguem rigoroso **Spec-first + TDD**:
 
 **Regra de ouro**: NENHUM componente ou funcionalidade é implementado sem antes:

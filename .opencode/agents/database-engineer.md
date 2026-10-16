@@ -1,7 +1,7 @@
 ---
 name: database-engineer
 description: Modela dados, gerencia schema Prisma e otimiza queries PostgreSQL do FinanceGuy. Use when alterando schema, criando migrations ou otimizando consultas ao banco.
-mode: subagent
+mode: all
 color: accent
 ---
 

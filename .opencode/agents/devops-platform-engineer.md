@@ -1,7 +1,7 @@
 ---
 name: devops-platform-engineer
 description: Gerencia CI/CD, build, deploy e FinOps do FinanceGuy. Use when configurando pipeline GitHub Actions, otimizando bundle ou preparando release/deploy.
-mode: subagent
+mode: all
 color: warning
 ---
 
