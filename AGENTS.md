@@ -62,6 +62,15 @@ O projeto usa `@base-ui/react/select` (não `@radix-ui/react-select`). **Diferen
 ```
 Também adicionar `className="bg-surface-container"` ao `SelectContent` para garantir fundo correto no portal.
 
+### Borda branca em cards/inputs — tokens `var()` + opacidade (Tailwind v3)
+**Sintoma:** componente novo com `border border-outline-variant/30` aparece com borda branca/clara no tema escuro.
+**Causa:** as cores do tema são `var(--x)` (hex). No Tailwind v3 o modificador `/NN` não funciona em `var()` opaco — a classe **não é gerada** (sem erro nem warning), e `border` cai no padrão do preflight (`#e5e7eb`). O mesmo vale para `bg-primary/10`, `ring-*/NN`, etc.
+**Tratamento (já na fonte):** `tailwind.config.ts` envolve `colors` em `withAlpha(...)` (usa `color-mix`) e define `borderColor.DEFAULT = var(--border)`. Teste de regressão: `src/lib/__tests__/tailwindAlpha.test.ts`.
+**Regras:**
+- Cor nova de tema entra **dentro** de `withAlpha({...})` em `tailwind.config.ts`; nunca fora dele nem como `rgb(var(--x))` ad hoc.
+- Ao criar componente, conferir a borda no navegador (tema escuro) antes de finalizar; se a borda ficar clara, suspeite de classe não gerada, não de CSS faltando.
+- Não resolver com `style={{ borderColor }}` ou `!border-...` no componente — isso esconde o problema.
+
 ### Lazy Loading — Política
 - **`<LazyLoad>`** (`src/shared/components/LazyLoad.tsx`): usar **apenas** em seções custosas que dependem de dados assíncronos (ex: lista de transações). Nunca envolver a página inteira ou cards estáticos.
 - **`<Skeleton>`**: preferir para estados de loading de componentes individuais — cards, gráficos, textos.

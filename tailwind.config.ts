@@ -1,5 +1,30 @@
 import type { Config } from 'tailwindcss';
 
+type ColorTree = { [key: string]: string | ColorTree };
+type AlphaColor = (params: { opacityValue?: string }) => string;
+type AlphaColorTree = { [key: string]: AlphaColor | string | AlphaColorTree };
+
+/**
+ * Tokens do tema são `var(--x)` com valor hex. O Tailwind v3 não consegue aplicar o
+ * modificador de opacidade (`border-outline-variant/30`) a um `var()` opaco: a classe
+ * simplesmente NÃO é gerada e a borda cai no padrão do preflight (#e5e7eb → "borda branca").
+ * Esta função faz toda cor `var(...)` aceitar `/NN` via `color-mix`.
+ */
+export function withAlpha(tree: ColorTree): AlphaColorTree {
+  const out: AlphaColorTree = {};
+  for (const [key, value] of Object.entries(tree)) {
+    if (typeof value === 'string' && value.startsWith('var(')) {
+      out[key] = ({ opacityValue }) =>
+        opacityValue === undefined
+          ? value
+          : `color-mix(in srgb, ${value} calc(${opacityValue} * 100%), transparent)`;
+    } else {
+      out[key] = typeof value === 'string' ? value : withAlpha(value);
+    }
+  }
+  return out;
+}
+
 const config: Config = {
   darkMode: 'class',
   content: [
@@ -13,7 +38,11 @@ const config: Config = {
         space: ['Space Grotesk', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
-      colors: {
+      // Cor de borda padrão do app: nunca deixar cair no #e5e7eb do preflight.
+      borderColor: {
+        DEFAULT: 'var(--border)',
+      },
+      colors: withAlpha({
         background: 'var(--background)',
         foreground: 'var(--foreground)',
         'on-primary': 'var(--on-primary)',
@@ -107,7 +136,7 @@ const config: Config = {
           DEFAULT: 'var(--destructive)',
           foreground: 'var(--destructive-foreground)',
         },
-      },
+      }),
       borderRadius: {
         DEFAULT: 'var(--radius)',
         'md': '0.375rem',
