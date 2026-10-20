@@ -4,6 +4,7 @@ description: Define especificações, requisitos e prioridades do FinanceGuy. Us
 mode: all
 color: secondary
 ---
+<!-- GERADO de .ai/skills-agents/agents/product-manager.md por "pnpm fg sync" — não edite. -->
 
 # Sub-Agent: product-manager
 

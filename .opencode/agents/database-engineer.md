@@ -4,6 +4,7 @@ description: Modela dados, gerencia schema Prisma e otimiza queries PostgreSQL d
 mode: all
 color: accent
 ---
+<!-- GERADO de .ai/skills-agents/agents/database-engineer.md por "pnpm fg sync" — não edite. -->
 
 # Sub-Agent: database-engineer
 

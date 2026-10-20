@@ -4,6 +4,7 @@ description: Gera documentação técnica, ADRs, diagramas Mermaid e docs de API
 mode: all
 color: accent
 ---
+<!-- GERADO de .ai/skills-agents/agents/docs-architect.md por "pnpm fg sync" — não edite. -->
 
 # Sub-Agent: docs-architect
 

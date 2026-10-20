@@ -3,6 +3,7 @@ name: frontend
 description: Cria componentes React/shadcn-ui do FinanceGuy seguindo docs/VISUAL_IDENTITY.md. Use when criando UI, componentes, telas, formulários, tabelas, modais.
 mode: all
 ---
+<!-- GERADO de .ai/skills-agents/agents/frontend.md por "pnpm fg sync" — não edite. -->
 
 # Sub-Agent: frontend
 

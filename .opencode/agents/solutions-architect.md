@@ -4,6 +4,7 @@ description: Define design de sistema, ADRs e arquitetura Clean do FinanceGuy. U
 mode: all
 color: info
 ---
+<!-- GERADO de .ai/skills-agents/agents/solutions-architect.md por "pnpm fg sync" — não edite. -->
 
 # Sub-Agent: solutions-architect
 

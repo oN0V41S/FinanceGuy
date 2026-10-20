@@ -1,4 +1,7 @@
-# Skill: quality-assurance-analyst
+---
+name: quality-assurance-analyst
+description: Projeta e escreve testes Jest/RTL eficientes (risco, EP/BVA, propriedades, mutation) e valida cobertura do FinanceGuy. Use ao criar testes, depurar falhas ou revisar a suite.
+---
 
 # QA Specialist Skill
 
