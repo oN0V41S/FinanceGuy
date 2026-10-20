@@ -46,15 +46,15 @@ model User {
   aiProfile     String? // Descrição livre do usuário para personalizar o assistente (FING-18)
 
   // Relacionamentos
-  accounts       Account[]
-  sessions       Session[]
-  transactions   Transaction[] // Relacionamento reverso adicionado
-  investments    Investment[]
-  goals          Goal[]
-  chatSessions   ChatSession[]
-  chatMessages   ChatMessage[]
-  pendingActions PendingAction[]
-  auditLogs      AuditLog[]
+  accounts               Account[]
+  sessions               Session[]
+  transactions           Transaction[] // Relacionamento reverso adicionado
+  investments            Investment[]
+  goals                  Goal[]
+  chatSessions           ChatSession[]
+  chatMessages           ChatMessage[]
+  pendingActions         PendingAction[]
+  auditLogs              AuditLog[]
   investmentTransactions InvestmentTransaction[]
   categories             Category[]
 
@@ -161,13 +161,16 @@ model Investment {
   status       String    @default("ACTIVE") @db.VarChar(10) // 'ACTIVE' | 'REDEEMED'
 
   userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
 
   history InvestmentTransaction[]
 
   @@index([userId])
+  @@index([categoryId])
   @@map("investments")
 }
 
@@ -258,12 +261,15 @@ model Category {
   color      String?  @db.VarChar(9) // hex '#RRGGBB'
   icon       String?  @db.VarChar(40) // chave de ícone (allowlist no Zod)
   isDefault  Boolean  @default(false)
+  scope      String   @default("transaction") @db.VarChar(12) // 'transaction' | 'investment' (validado no Zod)
   userId     String
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  @@unique([userId, nameKey])
+  investments Investment[]
+
+  @@unique([userId, scope, nameKey])
   @@index([userId])
   @@map("categories")
 }
