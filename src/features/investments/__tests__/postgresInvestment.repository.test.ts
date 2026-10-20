@@ -42,6 +42,7 @@ describe('PostgresInvestmentRepository', () => {
       expect(prisma.investment.findMany).toHaveBeenCalledWith({
         where: { userId },
         orderBy: { created_at: 'desc' },
+        include: { category: { select: { id: true, name: true, color: true } } },
       });
       expect(result).toEqual([
         {
@@ -51,6 +52,8 @@ describe('PostgresInvestmentRepository', () => {
           value: 1000.5,
           quantity: '10 cotas',
           term: '2 anos',
+          categoryId: null,
+          category: null,
           createdAt: dbRow.created_at,
           updatedAt: dbRow.updated_at,
         },
@@ -72,6 +75,7 @@ describe('PostgresInvestmentRepository', () => {
 
       expect(prisma.investment.findFirst).toHaveBeenCalledWith({
         where: { id: 'inv-1', userId },
+        include: { category: { select: { id: true, name: true, color: true } } },
       });
       expect(result?.id).toBe('inv-1');
       expect(result?.value).toBe(1000.5);
@@ -106,8 +110,38 @@ describe('PostgresInvestmentRepository', () => {
           term: '2 anos',
           user: { connect: { id: userId } },
         },
+        include: { category: { select: { id: true, name: true, color: true } } },
       });
       expect(result.id).toBe('inv-1');
+    });
+
+    it('conecta a categoria via relação quando categoryId é informado', async () => {
+      (prisma.investment.create as jest.Mock).mockResolvedValue({
+        ...dbRow,
+        categoryId: 'ckxyz0000000000000000000a',
+        category: { id: 'ckxyz0000000000000000000a', name: 'Cripto', color: '#EAB308' },
+      });
+
+      const result = await repository.create({
+        name: 'BTC',
+        type: 'Renda Variável',
+        value: 500,
+        categoryId: 'ckxyz0000000000000000000a',
+        userId,
+      });
+
+      const call = (prisma.investment.create as jest.Mock).mock.calls.at(-1)[0];
+      expect(call.data.category).toEqual({ connect: { id: 'ckxyz0000000000000000000a' } });
+      expect(call.data.categoryId).toBeUndefined();
+      expect(result.categoryId).toBe('ckxyz0000000000000000000a');
+      expect(result.category).toEqual({ id: 'ckxyz0000000000000000000a', name: 'Cripto', color: '#EAB308' });
+    });
+
+    it('não conecta categoria quando categoryId é null/ausente', async () => {
+      (prisma.investment.create as jest.Mock).mockResolvedValue(dbRow);
+      await repository.create({ name: 'X', type: 'Renda Fixa', value: 1, categoryId: null, userId });
+      const call = (prisma.investment.create as jest.Mock).mock.calls.at(-1)[0];
+      expect(call.data.category).toBeUndefined();
     });
   });
 
@@ -120,8 +154,19 @@ describe('PostgresInvestmentRepository', () => {
       expect(prisma.investment.update).toHaveBeenCalledWith({
         where: { id: 'inv-1' },
         data: { name: 'Novo nome' },
+        include: { category: { select: { id: true, name: true, color: true } } },
       });
       expect(result?.name).toBe('Novo nome');
+    });
+
+    it('persiste categoryId (e permite limpar com null)', async () => {
+      (prisma.investment.update as jest.Mock).mockResolvedValue({ ...dbRow, categoryId: null });
+
+      await repository.update('inv-1', { categoryId: null });
+
+      expect(prisma.investment.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { categoryId: null } })
+      );
     });
 
     it('returns null when update fails (not found)', async () => {

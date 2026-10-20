@@ -1,7 +1,12 @@
 import { CategoriesService, CategoryError } from '../categories.service';
 import { ICategoryRepository } from '../ICategory.repository';
 import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
-import { DEFAULT_CATEGORIES, MAX_CATEGORIES_PER_USER } from '../defaults';
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_INVESTMENT_CATEGORIES,
+  FALLBACK_INVESTMENT_CATEGORY_KEY,
+  MAX_CATEGORIES_PER_USER,
+} from '../defaults';
 import type { Category } from '../validations';
 
 const userId = 'user-1';
@@ -36,6 +41,8 @@ describe('CategoriesService', () => {
       create: jest.fn(),
       update: jest.fn(),
       remove: jest.fn().mockResolvedValue(true),
+      countInvestments: jest.fn().mockResolvedValue(0),
+      removeInvestmentCategory: jest.fn().mockResolvedValue(0),
     };
     cache = {
       get: jest.fn(),
@@ -296,6 +303,132 @@ describe('CategoriesService', () => {
       await expect(service.assertUsable(userId, 'Salário', 'expense')).rejects.toMatchObject({
         code: 'INCOMPATIBLE_TYPE',
       });
+    });
+  });
+
+  describe('escopo investment', () => {
+    const invCat = (o: Partial<Category> = {}): Category =>
+      cat({ id: 'i1', name: 'Cripto', type: 'both', isDefault: false, scope: 'investment', ...o });
+    const fallbackCat = (): Category =>
+      invCat({ id: 'fb', name: 'Outros investimentos', isDefault: true });
+
+    it('seed lazy por escopo: semeia os padrões de investimento com scope e fallback protegido', async () => {
+      repo.count.mockResolvedValueOnce(0);
+      repo.findAll.mockResolvedValue([invCat()]);
+
+      await service.list(userId, undefined, 'investment');
+
+      expect(repo.count).toHaveBeenCalledWith(userId, 'investment');
+      const [, items] = repo.createMany.mock.calls[0];
+      expect(items).toHaveLength(DEFAULT_INVESTMENT_CATEGORIES.length);
+      expect(items.every((i) => i.scope === 'investment' && i.isDefault && i.type === 'both')).toBe(true);
+      expect(items[items.length - 1].nameKey).toBe(FALLBACK_INVESTMENT_CATEGORY_KEY);
+      expect(repo.findAll).toHaveBeenCalledWith(userId, 'investment');
+    });
+
+    it('seed é independente: transações já semeadas não impedem o seed de investimentos', async () => {
+      repo.count.mockImplementation(async (_u, scope) => (scope === 'transaction' ? 9 : 0));
+      await service.list(userId, undefined, 'investment');
+      expect(repo.createMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('list padrão continua no escopo transaction', async () => {
+      await service.list(userId);
+      expect(repo.findAll).toHaveBeenCalledWith(userId, 'transaction');
+    });
+
+    it('falha no seed devolve padrões de investimento em memória', async () => {
+      repo.count.mockRejectedValue(new Error('db down'));
+      const result = await service.list(userId, undefined, 'investment');
+      expect(result).toHaveLength(DEFAULT_INVESTMENT_CATEGORIES.length);
+      expect(result.every((c) => c.scope === 'investment')).toBe(true);
+    });
+
+    it('create usa o scope: duplicado checado só no mesmo escopo (mesmo nome em outro escopo é permitido)', async () => {
+      repo.create.mockResolvedValue(invCat({ name: 'Casa' }));
+      await service.create({ name: 'Casa', scope: 'investment' }, userId);
+      expect(repo.findByKey).toHaveBeenCalledWith(userId, 'casa', 'investment');
+      expect(repo.create).toHaveBeenCalledWith(userId, expect.objectContaining({ scope: 'investment', type: 'both' }));
+    });
+
+    it('create duplicado no mesmo escopo => DUPLICATE', async () => {
+      repo.findByKey.mockResolvedValue(invCat());
+      await expect(service.create({ name: 'cripto', scope: 'investment' }, userId)).rejects.toMatchObject({
+        code: 'DUPLICATE',
+      });
+    });
+
+    it('create sem scope assume transaction', async () => {
+      repo.create.mockResolvedValue(cat());
+      await service.create({ name: 'Nova' }, userId);
+      expect(repo.create).toHaveBeenCalledWith(userId, expect.objectContaining({ scope: 'transaction' }));
+    });
+
+    it('limite MAX_CATEGORIES_PER_USER vale por escopo', async () => {
+      repo.count.mockImplementation(async (_u, scope) => (scope === 'transaction' ? MAX_CATEGORIES_PER_USER : 7));
+      repo.create.mockResolvedValue(invCat());
+      await expect(service.create({ name: 'Nova', scope: 'investment' }, userId)).resolves.toBeDefined();
+      await expect(service.create({ name: 'Nova' }, userId)).rejects.toMatchObject({ code: 'LIMIT' });
+    });
+
+    it('"Outros investimentos" não pode ser renomeada, mas aceita cor', async () => {
+      repo.findById.mockResolvedValue(fallbackCat());
+      await expect(service.update('fb', { name: 'Diversos' }, userId)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+      repo.update.mockResolvedValue({ ...fallbackCat(), color: '#112233' });
+      await expect(service.update('fb', { color: '#112233' }, userId)).resolves.toBeDefined();
+    });
+
+    it('rename de categoria de investimento usa o escopo do registro e não propaga a transações', async () => {
+      repo.findById.mockResolvedValue(invCat());
+      repo.update.mockResolvedValue(invCat({ name: 'Bitcoin' }));
+
+      await service.update('i1', { name: 'Bitcoin' }, userId);
+
+      expect(repo.findByKey).toHaveBeenCalledWith(userId, 'bitcoin', 'investment');
+      expect(repo.update).toHaveBeenCalledWith('i1', userId, expect.objectContaining({ name: 'Bitcoin' }), undefined);
+      expect(cache.delByPattern).not.toHaveBeenCalled();
+    });
+
+    it('excluir categoria de investimento migra ativos para o fallback na mesma operação', async () => {
+      repo.findById.mockResolvedValue(invCat());
+      repo.count.mockResolvedValue(7);
+      repo.findByKey.mockResolvedValue(fallbackCat());
+      repo.removeInvestmentCategory.mockResolvedValue(3);
+
+      const result = await service.remove('i1', {}, userId);
+
+      expect(repo.findByKey).toHaveBeenCalledWith(userId, FALLBACK_INVESTMENT_CATEGORY_KEY, 'investment');
+      expect(repo.removeInvestmentCategory).toHaveBeenCalledWith('i1', userId, 'fb');
+      expect(repo.remove).not.toHaveBeenCalled();
+      expect(result).toEqual({ moved: 3 });
+    });
+
+    it('excluir sem ativos também funciona (moved 0)', async () => {
+      repo.findById.mockResolvedValue(invCat());
+      repo.count.mockResolvedValue(7);
+      repo.findByKey.mockResolvedValue(fallbackCat());
+      repo.removeInvestmentCategory.mockResolvedValue(0);
+      await expect(service.remove('i1', {}, userId)).resolves.toEqual({ moved: 0 });
+    });
+
+    it('fallback ausente => INVALID_REASSIGN amigável, sem excluir', async () => {
+      repo.findById.mockResolvedValue(invCat());
+      repo.count.mockResolvedValue(7);
+      repo.findByKey.mockResolvedValue(null);
+      await expect(service.remove('i1', {}, userId)).rejects.toMatchObject({ code: 'INVALID_REASSIGN' });
+      expect(repo.removeInvestmentCategory).not.toHaveBeenCalled();
+    });
+
+    it('categoria padrão/fallback de investimento não pode ser excluída', async () => {
+      repo.findById.mockResolvedValue(fallbackCat());
+      await expect(service.remove('fb', {}, userId)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    });
+
+    it('assertUsable consulta sempre o escopo transaction', async () => {
+      repo.findByKey.mockResolvedValue(cat({ type: 'both' }));
+      await service.assertUsable(userId, 'Mercado', 'expense');
+      expect(repo.findByKey).toHaveBeenCalledWith(userId, 'mercado', 'transaction');
     });
   });
 

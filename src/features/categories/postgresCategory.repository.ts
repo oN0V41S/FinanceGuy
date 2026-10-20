@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import type { ICategoryRepository, NewCategoryRecord, CategoryChanges } from './ICategory.repository';
 import { CategoryError } from './categories.service';
-import type { Category } from './validations';
+import type { Category, CategoryScopeValue } from './validations';
 
 interface CategoryRow {
   id: string;
@@ -10,9 +10,12 @@ interface CategoryRow {
   color: string | null;
   icon: string | null;
   isDefault: boolean;
+  scope: string;
 }
 
-function toCategory(row: CategoryRow, transactionCount?: number): Category {
+type CountField = 'transactionCount' | 'investmentCount';
+
+function toCategory(row: CategoryRow, count?: number, field: CountField = 'transactionCount'): Category {
   const category = {
     id: row.id,
     name: row.name,
@@ -20,24 +23,33 @@ function toCategory(row: CategoryRow, transactionCount?: number): Category {
     color: row.color,
     icon: row.icon as Category['icon'],
     isDefault: row.isDefault,
+    scope: row.scope as CategoryScopeValue,
   };
-  return transactionCount === undefined ? category : { ...category, transactionCount };
+  return count === undefined ? category : { ...category, [field]: count };
 }
 
 export class PostgresCategoryRepository implements ICategoryRepository {
-  async findAll(userId: string): Promise<Category[]> {
-    const [rows, counts] = await Promise.all([
-      prisma.category.findMany({
-        where: { userId },
-        orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
-      }),
-      prisma.transaction.groupBy({
-        by: ['category'],
-        where: { userId },
-        _count: { _all: true },
-      }),
-    ]);
+  async findAll(userId: string, scope: CategoryScopeValue): Promise<Category[]> {
+    const rows = await prisma.category.findMany({
+      where: { userId, scope },
+      orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
+    });
 
+    if (scope === 'investment') {
+      const counts = await prisma.investment.groupBy({
+        by: ['categoryId'],
+        where: { userId, categoryId: { not: null } },
+        _count: { _all: true },
+      });
+      const byId = new Map(counts.map((c) => [c.categoryId, c._count._all]));
+      return rows.map((row) => toCategory(row, byId.get(row.id) ?? 0, 'investmentCount'));
+    }
+
+    const counts = await prisma.transaction.groupBy({
+      by: ['category'],
+      where: { userId },
+      _count: { _all: true },
+    });
     const byName = new Map(counts.map((c) => [c.category, c._count._all]));
     return rows.map((row) => toCategory(row, byName.get(row.name) ?? 0));
   }
@@ -47,13 +59,17 @@ export class PostgresCategoryRepository implements ICategoryRepository {
     return row ? toCategory(row) : null;
   }
 
-  async findByKey(userId: string, nameKey: string): Promise<Category | null> {
-    const row = await prisma.category.findFirst({ where: { userId, nameKey } });
+  async findByKey(userId: string, nameKey: string, scope: CategoryScopeValue): Promise<Category | null> {
+    const row = await prisma.category.findFirst({ where: { userId, scope, nameKey } });
     return row ? toCategory(row) : null;
   }
 
-  count(userId: string): Promise<number> {
-    return prisma.category.count({ where: { userId } });
+  count(userId: string, scope: CategoryScopeValue): Promise<number> {
+    return prisma.category.count({ where: { userId, scope } });
+  }
+
+  countInvestments(userId: string, categoryId: string): Promise<number> {
+    return prisma.investment.count({ where: { userId, categoryId } });
   }
 
   countTransactions(userId: string, categoryName: string): Promise<number> {
@@ -119,6 +135,20 @@ export class PostgresCategoryRepository implements ICategoryRepository {
       }
       const result = await tx.category.deleteMany({ where: { id, userId } });
       return result.count > 0;
+    });
+  }
+
+  async removeInvestmentCategory(id: string, userId: string, fallbackId: string): Promise<number | null> {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.category.findFirst({ where: { id, userId, scope: 'investment' } });
+      if (!existing) return null;
+
+      const moved = await tx.investment.updateMany({
+        where: { userId, categoryId: id },
+        data: { categoryId: fallbackId },
+      });
+      await tx.category.deleteMany({ where: { id, userId } });
+      return moved.count;
     });
   }
 }

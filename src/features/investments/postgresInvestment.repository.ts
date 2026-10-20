@@ -6,7 +6,11 @@ import { prisma } from '@/lib/prisma';
 const num = (value: Prisma.Decimal | null | undefined): number | undefined =>
   value === null || value === undefined ? undefined : Number(value);
 
-const toDomain = (row: PrismaInvestment): Investment => ({
+type InvestmentRow = PrismaInvestment & { category?: { id: string; name: string; color: string | null } | null };
+
+const CATEGORY_SELECT = { select: { id: true, name: true, color: true } } as const;
+
+const toDomain = (row: InvestmentRow): Investment => ({
   id: row.id,
   name: row.name,
   type: row.type as Investment['type'],
@@ -20,6 +24,8 @@ const toDomain = (row: PrismaInvestment): Investment => ({
   unitPrice: num(row.unitPrice),
   shares: num(row.shares),
   status: row.status as Investment['status'],
+  categoryId: row.categoryId ?? null,
+  category: row.category ?? null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -29,18 +35,22 @@ export class PostgresInvestmentRepository implements IInvestmentRepository {
     const investments = await prisma.investment.findMany({
       where: { userId },
       orderBy: { created_at: 'desc' },
+      include: { category: CATEGORY_SELECT },
     });
 
     return investments.map(toDomain);
   }
 
   async getById(id: string, userId: string): Promise<Investment | null> {
-    const investment = await prisma.investment.findFirst({ where: { id, userId } });
+    const investment = await prisma.investment.findFirst({
+      where: { id, userId },
+      include: { category: CATEGORY_SELECT },
+    });
     return investment ? toDomain(investment) : null;
   }
 
   async create(data: InvestmentInput): Promise<Investment> {
-    const { userId, ...investmentData } = data;
+    const { userId, categoryId, ...investmentData } = data;
 
     const investment = await prisma.investment.create({
       data: {
@@ -48,7 +58,10 @@ export class PostgresInvestmentRepository implements IInvestmentRepository {
         user: {
           connect: { id: userId },
         },
+        // Com a relação `user` (checked input), a categoria também precisa ser conectada via relação.
+        ...(categoryId ? { category: { connect: { id: categoryId } } } : {}),
       },
+      include: { category: CATEGORY_SELECT },
     });
 
     return toDomain(investment);
@@ -61,6 +74,7 @@ export class PostgresInvestmentRepository implements IInvestmentRepository {
       const investment = await prisma.investment.update({
         where: { id },
         data: updateData,
+        include: { category: CATEGORY_SELECT },
       });
 
       return toDomain(investment);

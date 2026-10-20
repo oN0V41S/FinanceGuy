@@ -45,16 +45,37 @@ describe('Categories API', () => {
       const res = await GET(req('/api/categories', 'GET'));
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ data: [{ id: 'c' }] });
-      expect(svc.list).toHaveBeenCalledWith(userId, undefined);
+      expect(svc.list).toHaveBeenCalledWith(userId, undefined, 'transaction');
     });
 
     it('forwards a valid type filter and rejects an invalid one', async () => {
       svc.list.mockResolvedValue([]);
       await GET(req('/api/categories?type=income', 'GET'));
-      expect(svc.list).toHaveBeenCalledWith(userId, 'income');
+      expect(svc.list).toHaveBeenCalledWith(userId, 'income', 'transaction');
 
       const bad = await GET(req('/api/categories?type=foo', 'GET'));
       expect(bad.status).toBe(400);
+    });
+  });
+
+  describe('scope', () => {
+    it('GET ?scope=investment repassa o escopo ao service', async () => {
+      svc.list.mockResolvedValue([]);
+      await GET(req('/api/categories?scope=investment', 'GET'));
+      expect(svc.list).toHaveBeenCalledWith(userId, undefined, 'investment');
+    });
+
+    it('GET com scope inválido => 400 amigável', async () => {
+      const res = await GET(req('/api/categories?scope=foo', 'GET'));
+      expect(res.status).toBe(400);
+      expect(svc.list).not.toHaveBeenCalled();
+    });
+
+    it('POST repassa o body (com scope) ao service', async () => {
+      svc.create.mockResolvedValue({ id: 'n' });
+      const res = await POST(req('/api/categories', 'POST', { name: 'Cripto', scope: 'investment' }));
+      expect(res.status).toBe(201);
+      expect(svc.create).toHaveBeenCalledWith({ name: 'Cripto', scope: 'investment' }, userId);
     });
   });
 

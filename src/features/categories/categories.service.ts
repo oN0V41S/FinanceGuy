@@ -3,14 +3,20 @@ import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
 import { normalizeCategoryName } from './normalizeCategoryName';
 import {
   DEFAULT_CATEGORIES,
+  DEFAULT_INVESTMENT_CATEGORIES,
   FALLBACK_CATEGORY_KEY,
+  FALLBACK_CATEGORY_NAME,
+  FALLBACK_INVESTMENT_CATEGORY_KEY,
+  FALLBACK_INVESTMENT_CATEGORY_NAME,
   MAX_CATEGORIES_PER_USER,
+  type DefaultCategory,
 } from './defaults';
 import {
   CreateCategorySchema,
   UpdateCategorySchema,
   DeleteCategorySchema,
   type Category,
+  type CategoryScopeValue,
 } from './validations';
 
 export type CategoryErrorCode =
@@ -43,8 +49,19 @@ function isCompatible(categoryType: Category['type'], transactionType: 'income' 
   return categoryType === 'both' || categoryType === transactionType;
 }
 
-function toRecord(item: (typeof DEFAULT_CATEGORIES)[number]): NewCategoryRecord {
+function defaultsFor(scope: CategoryScopeValue): readonly DefaultCategory[] {
+  return scope === 'investment' ? DEFAULT_INVESTMENT_CATEGORIES : DEFAULT_CATEGORIES;
+}
+
+function fallbackFor(scope: CategoryScopeValue): { name: string; key: string } {
+  return scope === 'investment'
+    ? { name: FALLBACK_INVESTMENT_CATEGORY_NAME, key: FALLBACK_INVESTMENT_CATEGORY_KEY }
+    : { name: FALLBACK_CATEGORY_NAME, key: FALLBACK_CATEGORY_KEY };
+}
+
+function toRecord(item: DefaultCategory, scope: CategoryScopeValue): NewCategoryRecord {
   return {
+    scope,
     name: item.name,
     nameKey: normalizeCategoryName(item.name),
     type: item.type,
@@ -60,52 +77,59 @@ export class CategoriesService {
     private readonly cacheRepository: ICacheRepository
   ) {}
 
-  /** Semeia os padrões de forma lazy/idempotente. Retorna o total de categorias do usuário. */
-  private async ensureDefaults(userId: string): Promise<number> {
-    const total = await this.repository.count(userId);
+  /** Semeia os padrões do escopo de forma lazy/idempotente. Retorna o total de categorias do usuário no escopo. */
+  private async ensureDefaults(userId: string, scope: CategoryScopeValue = 'transaction'): Promise<number> {
+    const total = await this.repository.count(userId, scope);
     if (total > 0) return total;
 
-    await this.repository.createMany(userId, DEFAULT_CATEGORIES.map(toRecord));
-    return DEFAULT_CATEGORIES.length;
+    const defaults = defaultsFor(scope);
+    await this.repository.createMany(userId, defaults.map((d) => toRecord(d, scope)));
+    return defaults.length;
   }
 
   private invalidateTransactions(userId: string): Promise<void> {
     return this.cacheRepository.delByPattern(`transactions:${escapeGlobChars(userId)}:*`);
   }
 
-  async list(userId: string, type?: 'income' | 'expense'): Promise<Category[]> {
+  async list(
+    userId: string,
+    type?: 'income' | 'expense',
+    scope: CategoryScopeValue = 'transaction'
+  ): Promise<Category[]> {
     let categories: Category[];
 
     try {
-      await this.ensureDefaults(userId);
-      categories = await this.repository.findAll(userId);
+      await this.ensureDefaults(userId, scope);
+      categories = await this.repository.findAll(userId, scope);
     } catch (error) {
       // Falha ao semear/ler não pode bloquear o fluxo: fallback somente leitura.
       console.error('Erro ao carregar categorias; usando padrões em memória:', error);
-      categories = DEFAULT_CATEGORIES.map((c) => ({
-        id: `default-${normalizeCategoryName(c.name)}`,
+      categories = defaultsFor(scope).map((c) => ({
+        id: `default-${scope === 'investment' ? 'investment-' : ''}${normalizeCategoryName(c.name)}`,
         name: c.name,
         type: c.type,
         color: c.color,
         icon: c.icon,
         isDefault: true,
-        transactionCount: 0,
+        scope,
+        ...(scope === 'investment' ? { investmentCount: 0 } : { transactionCount: 0 }),
       }));
     }
 
-    return type ? categories.filter((c) => isCompatible(c.type, type)) : categories;
+    return type && scope === 'transaction' ? categories.filter((c) => isCompatible(c.type, type)) : categories;
   }
 
   async create(data: unknown, userId: string): Promise<Category> {
     const input = CreateCategorySchema.parse(data);
-    const total = await this.ensureDefaults(userId);
+    const scope = input.scope;
+    const total = await this.ensureDefaults(userId, scope);
 
     if (total >= MAX_CATEGORIES_PER_USER) {
       throw new CategoryError('LIMIT', `Você atingiu o limite de ${MAX_CATEGORIES_PER_USER} categorias.`);
     }
 
     const nameKey = normalizeCategoryName(input.name);
-    if (await this.repository.findByKey(userId, nameKey)) {
+    if (await this.repository.findByKey(userId, nameKey, scope)) {
       throw new CategoryError('DUPLICATE', 'Já existe uma categoria com esse nome.');
     }
 
@@ -113,10 +137,11 @@ export class CategoriesService {
       return await this.repository.create(userId, {
         name: input.name.trim().replace(/\s+/g, ' '),
         nameKey,
-        type: input.type,
+        type: scope === 'investment' ? 'both' : input.type,
         color: input.color ?? null,
         icon: input.icon ?? null,
         isDefault: false,
+        scope,
       });
     } catch (error) {
       if ((error as { code?: string })?.code === 'P2002') {
@@ -134,23 +159,28 @@ export class CategoriesService {
       throw new CategoryError('NOT_FOUND', 'Categoria não encontrada.');
     }
 
-    const isFallback = normalizeCategoryName(existing.name) === FALLBACK_CATEGORY_KEY && existing.isDefault;
+    const scope: CategoryScopeValue = existing.scope ?? 'transaction';
+    const fallback = fallbackFor(scope);
+    const isFallback = normalizeCategoryName(existing.name) === fallback.key && existing.isDefault;
     const changes: CategoryChanges = { ...input };
     let renameFrom: string | undefined;
 
+    // Categorias de investimento sempre aceitam "both": o tipo não se aplica.
+    if (scope === 'investment') delete changes.type;
+
     if (isFallback) {
       if (input.name !== undefined && input.name !== existing.name) {
-        throw new CategoryError('FORBIDDEN', 'A categoria "Outros" não pode ser renomeada.');
+        throw new CategoryError('FORBIDDEN', `A categoria "${fallback.name}" não pode ser renomeada.`);
       }
-      if (input.type !== undefined && input.type !== 'both') {
-        throw new CategoryError('FORBIDDEN', 'A categoria "Outros" precisa aceitar receitas e despesas.');
+      if (scope === 'transaction' && input.type !== undefined && input.type !== 'both') {
+        throw new CategoryError('FORBIDDEN', `A categoria "${fallback.name}" precisa aceitar receitas e despesas.`);
       }
     }
 
     if (input.name !== undefined) {
       const name = input.name.trim().replace(/\s+/g, ' ');
       const nameKey = normalizeCategoryName(name);
-      const clash = await this.repository.findByKey(userId, nameKey);
+      const clash = await this.repository.findByKey(userId, nameKey, scope);
 
       if (clash && clash.id !== existing.id) {
         throw new CategoryError('DUPLICATE', 'Já existe uma categoria com esse nome.');
@@ -158,10 +188,11 @@ export class CategoriesService {
 
       changes.name = name;
       changes.nameKey = nameKey;
-      if (name !== existing.name) renameFrom = existing.name;
+      // Só transações referenciam a categoria pelo nome; investimentos usam o id.
+      if (name !== existing.name && scope === 'transaction') renameFrom = existing.name;
     }
 
-    if (input.type !== undefined && input.type !== 'both' && input.type !== existing.type) {
+    if (scope === 'transaction' && input.type !== undefined && input.type !== 'both' && input.type !== existing.type) {
       const opposite = input.type === 'income' ? 'expense' : 'income';
       const conflicting = await this.repository.countTransactionsByType(userId, existing.name, opposite);
       if (conflicting > 0) {
@@ -206,6 +237,10 @@ export class CategoriesService {
       throw new CategoryError('FORBIDDEN', 'Categorias padrão não podem ser excluídas.');
     }
 
+    if ((existing.scope ?? 'transaction') === 'investment') {
+      return this.removeInvestmentCategory(existing, userId);
+    }
+
     const transactionCount = await this.repository.countTransactions(userId, existing.name);
 
     if (transactionCount === 0) {
@@ -248,14 +283,33 @@ export class CategoriesService {
     return { moved: transactionCount };
   }
 
+  /** Exclui categoria de investimento migrando os ativos para o fallback protegido (mesma transação). */
+  private async removeInvestmentCategory(existing: Category, userId: string): Promise<{ moved: number }> {
+    await this.ensureDefaults(userId, 'investment');
+    const fallback = await this.repository.findByKey(userId, FALLBACK_INVESTMENT_CATEGORY_KEY, 'investment');
+
+    if (!fallback || fallback.id === existing.id) {
+      throw new CategoryError(
+        'INVALID_REASSIGN',
+        `Não encontramos a categoria "${FALLBACK_INVESTMENT_CATEGORY_NAME}" para receber os ativos. Tente novamente em instantes.`
+      );
+    }
+
+    const moved = await this.repository.removeInvestmentCategory(existing.id, userId, fallback.id);
+    if (moved === null) {
+      throw new CategoryError('NOT_FOUND', 'Categoria não encontrada.');
+    }
+    return { moved };
+  }
+
   /**
    * Usada pelo service de transações: garante que a categoria existe para o
    * usuário e é compatível com o tipo (receita/despesa).
    */
   async assertUsable(userId: string, categoryName: string, transactionType: 'income' | 'expense'): Promise<Category> {
-    await this.ensureDefaults(userId);
+    await this.ensureDefaults(userId, 'transaction');
 
-    const category = await this.repository.findByKey(userId, normalizeCategoryName(categoryName));
+    const category = await this.repository.findByKey(userId, normalizeCategoryName(categoryName), 'transaction');
     if (!category) {
       throw new CategoryError('NOT_FOUND', `Categoria "${categoryName}" não encontrada.`);
     }

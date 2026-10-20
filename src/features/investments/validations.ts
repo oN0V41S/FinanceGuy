@@ -6,6 +6,9 @@ import { MarketEnum } from './quotes/types';
 export const InvestmentTypeEnum = z.enum(['Renda Fixa', 'Renda Variável']);
 export const InvestmentStatusEnum = z.enum(['ACTIVE', 'REDEEMED']);
 
+// Categoria de investimento (escopo 'investment'); pertencimento validado no service.
+export const InvestmentCategoryIdSchema = z.string().cuid('Categoria inválida.').nullable().optional();
+
 // Complete Schema
 export const InvestmentSchema = z.object({
   id: z.string().min(1, 'ID deve ser uma string não vazia'),
@@ -28,13 +31,19 @@ export const InvestmentSchema = z.object({
   unitPrice: z.number().positive('Preço unitário deve ser positivo').optional(),
   shares: z.number().positive('Quantidade deve ser positiva').optional(),
   status: InvestmentStatusEnum.optional(),
+  categoryId: InvestmentCategoryIdSchema,
+  // Somente leitura (join): badge e resumo por categoria. Nunca aceito em create/update.
+  category: z
+    .object({ id: z.string(), name: z.string(), color: z.string().nullable() })
+    .nullable()
+    .optional(),
   createdAt: z.date().optional(),
   updatedAt: z.date().optional(),
 });
 
 // Schema for Create (without id, createdAt, updatedAt).
 // Ativo de mercado (ticker informado): exige mercado, data, preço e quantidade; o valor investido é calculado.
-export const CreateInvestmentSchema = InvestmentSchema.omit({ id: true, createdAt: true, updatedAt: true, status: true })
+export const CreateInvestmentSchema = InvestmentSchema.omit({ id: true, createdAt: true, updatedAt: true, status: true, category: true })
   .extend({ value: z.number().positive('Valor deve ser positivo').optional() })
   .superRefine((data, ctx) => {
     if (data.ticker) {
@@ -64,7 +73,7 @@ export const CreateInvestmentSchema = InvestmentSchema.omit({ id: true, createdA
   }));
 
 // Schema for Update (all optional)
-export const UpdateInvestmentSchema = InvestmentSchema.partial();
+export const UpdateInvestmentSchema = InvestmentSchema.omit({ category: true }).partial();
 
 // Resgate (preview e confirmação)
 export const RedeemSchema = z.object({
@@ -83,4 +92,4 @@ export type UpdateInvestmentInput = z.infer<typeof UpdateInvestmentSchema>;
 export type RedeemRequest = z.infer<typeof RedeemSchema>;
 
 // Tipo para input do repository (exclui campos gerados pelo DB, adiciona userId)
-export type InvestmentInput = Omit<Investment, 'id' | 'createdAt' | 'updatedAt'> & { userId: string };
+export type InvestmentInput = Omit<Investment, 'id' | 'createdAt' | 'updatedAt' | 'category'> & { userId: string };

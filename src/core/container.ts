@@ -61,7 +61,7 @@ export const categoryRepository: ICategoryRepository = new PostgresCategoryRepos
 export const categoriesService: CategoriesService = new CategoriesService(categoryRepository, cacheRepository);
 export const transactionService: TransactionService = new TransactionService(transactionRepository, userRepository, cacheRepository, categoriesService);
 export const authService: AuthService = new AuthService(userRepository);
-export const investmentService: InvestmentService = new InvestmentService(investmentRepository, investmentHistoryRepository);
+export const investmentService: InvestmentService = new InvestmentService(investmentRepository, investmentHistoryRepository, categoryRepository);
 export const quoteService: QuoteService = new QuoteService(
   { brapi: new BrapiQuoteProvider(), yahoo: new YahooQuoteProvider() },
   cacheRepository

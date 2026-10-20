@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { categoriesService } from '@/core/container';
+import { CategoryScopeEnum } from '../validations';
 import { handleCategoryError, invalidJsonResponse, readJsonBody } from './handleError';
 
 const UNAUTHORIZED = { error: 'Usuário não identificado' };
 
-// GET /api/categories?type=income|expense - Listar categorias do usuário (semeia os padrões)
+// GET /api/categories?type=income|expense&scope=transaction|investment - Listar categorias do usuário (semeia os padrões)
 export async function GET(request: NextRequest) {
   try {
     const userId = request.headers.get('x-user-id');
@@ -15,7 +16,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Tipo inválido' }, { status: 400 });
     }
 
-    const data = await categoriesService.list(userId, type ?? undefined);
+    const parsedScope = CategoryScopeEnum.safeParse(request.nextUrl.searchParams.get('scope') ?? 'transaction');
+    if (!parsedScope.success) {
+      return NextResponse.json({ error: 'Escopo inválido' }, { status: 400 });
+    }
+
+    const data = await categoriesService.list(userId, type ?? undefined, parsedScope.data);
     return NextResponse.json({ data });
   } catch (error) {
     return handleCategoryError(error, 'listar categorias');

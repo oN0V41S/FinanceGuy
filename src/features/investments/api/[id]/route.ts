@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { investmentService } from '@/core/container';
+import { InvalidInvestmentCategoryError } from '../../investment.service';
 
 // PUT /api/investments/[id] - Atualizar investimento existente
 export async function PUT(
@@ -19,6 +20,10 @@ export async function PUT(
 
     return NextResponse.json({ data: updated });
   } catch (error: any) {
+    if (error instanceof InvalidInvestmentCategoryError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     if (error?.name === 'ZodError') {
       return NextResponse.json(
         { error: 'Validação falhou', details: error.errors },

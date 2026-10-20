@@ -16,9 +16,15 @@ jest.mock('@/lib/prisma', () => {
     count: jest.fn(),
     updateMany: jest.fn(),
   };
+  const investment = {
+    groupBy: jest.fn(),
+    count: jest.fn(),
+    updateMany: jest.fn(),
+  };
   const client = {
     category,
     transaction,
+    investment,
     $transaction: jest.fn(),
   };
   client.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => fn(client));
@@ -28,6 +34,7 @@ jest.mock('@/lib/prisma', () => {
 const db = prisma as unknown as {
   category: Record<string, jest.Mock>;
   transaction: Record<string, jest.Mock>;
+  investment: Record<string, jest.Mock>;
   $transaction: jest.Mock;
 };
 
@@ -43,6 +50,7 @@ describe('PostgresCategoryRepository', () => {
     color: '#F97316',
     icon: 'tag',
     isDefault: false,
+    scope: 'transaction',
     userId,
     created_at: new Date('2026-01-01'),
     updated_at: new Date('2026-01-02'),
@@ -55,6 +63,7 @@ describe('PostgresCategoryRepository', () => {
     color: '#F97316',
     icon: 'tag',
     isDefault: false,
+    scope: 'transaction',
   };
 
   beforeEach(() => {
@@ -67,10 +76,10 @@ describe('PostgresCategoryRepository', () => {
       db.category.findMany.mockResolvedValue([row]);
       db.transaction.groupBy.mockResolvedValue([{ category: 'Mercado', _count: { _all: 3 } }]);
 
-      const result = await repository.findAll(userId);
+      const result = await repository.findAll(userId, 'transaction');
 
       expect(db.category.findMany).toHaveBeenCalledWith({
-        where: { userId },
+        where: { userId, scope: 'transaction' },
         orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
       });
       expect(db.transaction.groupBy).toHaveBeenCalledWith(
@@ -83,7 +92,7 @@ describe('PostgresCategoryRepository', () => {
       db.category.findMany.mockResolvedValue([row]);
       db.transaction.groupBy.mockResolvedValue([]);
 
-      const [first] = await repository.findAll(userId);
+      const [first] = await repository.findAll(userId, 'transaction');
 
       expect(first.transactionCount).toBe(0);
     });
@@ -107,17 +116,17 @@ describe('PostgresCategoryRepository', () => {
     it('findByKey searches by userId + nameKey', async () => {
       db.category.findFirst.mockResolvedValue(row);
 
-      await repository.findByKey(userId, 'mercado');
+      await repository.findByKey(userId, 'mercado', 'transaction');
 
-      expect(db.category.findFirst).toHaveBeenCalledWith({ where: { userId, nameKey: 'mercado' } });
+      expect(db.category.findFirst).toHaveBeenCalledWith({ where: { userId, scope: 'transaction', nameKey: 'mercado' } });
     });
   });
 
   describe('count / countTransactions', () => {
     it('counts categories by user', async () => {
       db.category.count.mockResolvedValue(9);
-      expect(await repository.count(userId)).toBe(9);
-      expect(db.category.count).toHaveBeenCalledWith({ where: { userId } });
+      expect(await repository.count(userId, 'transaction')).toBe(9);
+      expect(db.category.count).toHaveBeenCalledWith({ where: { userId, scope: 'transaction' } });
     });
 
     it('counts transactions by user + category name', async () => {
@@ -142,12 +151,12 @@ describe('PostgresCategoryRepository', () => {
       db.category.createMany.mockResolvedValue({ count: 1 });
 
       await repository.createMany(userId, [
-        { name: 'Casa', nameKey: 'casa', type: 'expense', color: null, icon: null, isDefault: true },
+        { name: 'Casa', nameKey: 'casa', type: 'expense', color: null, icon: null, isDefault: true, scope: 'transaction' },
       ]);
 
       expect(db.category.createMany).toHaveBeenCalledWith({
         data: [
-          { name: 'Casa', nameKey: 'casa', type: 'expense', color: null, icon: null, isDefault: true, userId },
+          { name: 'Casa', nameKey: 'casa', type: 'expense', color: null, icon: null, isDefault: true, scope: 'transaction', userId },
         ],
         skipDuplicates: true,
       });
@@ -165,6 +174,7 @@ describe('PostgresCategoryRepository', () => {
         color: '#F97316',
         icon: 'tag',
         isDefault: false,
+        scope: 'transaction',
       });
 
       expect(db.category.create).toHaveBeenCalledWith({
@@ -252,6 +262,63 @@ describe('PostgresCategoryRepository', () => {
       db.transaction.count.mockResolvedValue(0);
       db.category.deleteMany.mockResolvedValue({ count: 0 });
       expect(await repository.remove('cat-1', userId, 'Mercado')).toBe(false);
+    });
+  });
+
+  describe('escopo investment', () => {
+    const invRow = { ...row, id: 'inv-cat-1', name: 'Cripto', nameKey: 'cripto', type: 'both', scope: 'investment' };
+
+    it('findAll filtra por scope e anexa investmentCount (por categoryId)', async () => {
+      db.category.findMany.mockResolvedValue([invRow]);
+      db.investment.groupBy.mockResolvedValue([{ categoryId: 'inv-cat-1', _count: { _all: 2 } }]);
+
+      const [first] = await repository.findAll(userId, 'investment');
+
+      expect(db.category.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { userId, scope: 'investment' } })
+      );
+      expect(db.transaction.groupBy).not.toHaveBeenCalled();
+      expect(first.investmentCount).toBe(2);
+      expect(first.scope).toBe('investment');
+    });
+
+    it('findByKey e count respeitam o scope', async () => {
+      db.category.findFirst.mockResolvedValue(invRow);
+      db.category.count.mockResolvedValue(7);
+
+      await repository.findByKey(userId, 'cripto', 'investment');
+      expect(await repository.count(userId, 'investment')).toBe(7);
+
+      expect(db.category.findFirst).toHaveBeenCalledWith({ where: { userId, scope: 'investment', nameKey: 'cripto' } });
+      expect(db.category.count).toHaveBeenCalledWith({ where: { userId, scope: 'investment' } });
+    });
+
+    it('countInvestments é escopado por usuário + categoria', async () => {
+      db.investment.count.mockResolvedValue(3);
+      expect(await repository.countInvestments(userId, 'inv-cat-1')).toBe(3);
+      expect(db.investment.count).toHaveBeenCalledWith({ where: { userId, categoryId: 'inv-cat-1' } });
+    });
+
+    it('removeInvestmentCategory migra ativos para o fallback e exclui na mesma transação', async () => {
+      db.category.findFirst.mockResolvedValue(invRow);
+      db.investment.updateMany.mockResolvedValue({ count: 4 });
+      db.category.deleteMany.mockResolvedValue({ count: 1 });
+
+      const moved = await repository.removeInvestmentCategory('inv-cat-1', userId, 'fallback-id');
+
+      expect(moved).toBe(4);
+      expect(db.$transaction).toHaveBeenCalledTimes(1);
+      expect(db.investment.updateMany).toHaveBeenCalledWith({
+        where: { userId, categoryId: 'inv-cat-1' },
+        data: { categoryId: 'fallback-id' },
+      });
+      expect(db.category.deleteMany).toHaveBeenCalledWith({ where: { id: 'inv-cat-1', userId } });
+    });
+
+    it('removeInvestmentCategory retorna null se a categoria não for do usuário/escopo', async () => {
+      db.category.findFirst.mockResolvedValue(null);
+      expect(await repository.removeInvestmentCategory('x', userId, 'fb')).toBeNull();
+      expect(db.investment.updateMany).not.toHaveBeenCalled();
     });
   });
 });
