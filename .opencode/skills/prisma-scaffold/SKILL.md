@@ -1,4 +1,7 @@
-# Skill: prisma-scaffold
+---
+name: prisma-scaffold
+description: Gera modelos Prisma, repositories, services, schemas Zod e API routes CRUD seguindo Clean Architecture. Use ao criar uma nova entidade de banco.
+---
 
 # Prisma Scaffold Skill
 

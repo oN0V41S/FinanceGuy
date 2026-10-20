@@ -45,8 +45,28 @@ Contexto do app: Um App que Te leva a Estabilidade Financeira; Um Nubank com IA 
 - **TDD**: testes antes de implementação
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`)
 - **Branches**: GitHub Flow — nasce de `main`, squash merge de volta
+- **Worktrees**: uma worktree por tarefa (`git worktree add ../FinanceGuy-<tarefa> -b <branch> origin/main`); nunca misturar tarefas nem mexer em alterações não commitadas de outro checkout
 - **Tratamento de Erros/UX**: É CRÍTICO o código tratar de exceções de erro, trazendo tranquilidade no fluxo para o Usuário. 
-- **Planejamento**: SEMPRE que o usuário quiser planejar algo, ao consolidar o plano, crie um mapa completo de execução com sub-agents, etapas, sequências (tasks cruzadas).
+- **Planejamento**: SEMPRE que o usuário quiser planejar algo, ao consolidar o plano, crie um mapa completo de execução com sub-agents, etapas, sequências (tasks cruzadas), ou em paralelo.
+
+## 🚨 Armadilhas Conhecidas (evitar repetir)
+
+### Select — `@base-ui/react` vs Radix
+O projeto usa `@base-ui/react/select` (não `@radix-ui/react-select`). **Diferença crítica**: `SelectValue` no base-ui NÃO exibe automaticamente o `ItemText` do item selecionado como o Radix faz. Sempre passar o label mapeado como `children`:
+```tsx
+// ❌ Errado — exibe a chave interna ("last6", "2025-s1")
+<SelectValue placeholder="Selecionar" />
+
+// ✅ Correto — mapear value → label explicitamente
+<SelectValue>{getLabelForValue(value)}</SelectValue>
+```
+Também adicionar `className="bg-surface-container"` ao `SelectContent` para garantir fundo correto no portal.
+
+### Lazy Loading — Política
+- **`<LazyLoad>`** (`src/shared/components/LazyLoad.tsx`): usar **apenas** em seções custosas que dependem de dados assíncronos (ex: lista de transações). Nunca envolver a página inteira ou cards estáticos.
+- **`<Skeleton>`**: preferir para estados de loading de componentes individuais — cards, gráficos, textos.
+- **Nunca** usar `setTimeout` para simular loading (conteúdo estático deve aparecer imediatamente sem skeleton).
+- Dados reais devem sempre vir de hooks (`useDashboardData`, `useMonthlySummary`) — nunca usar `MOCK_DATA` como fallback de produção.
 
 ## 🧰 CLI `fg` (ferramentas do agente)
 
@@ -59,9 +79,17 @@ Use `pnpm fg <grupo>` em vez de comandos ad-hoc para tarefas recorrentes. Detalh
 | `scaffold` | `feature`, `component`, `hook`, `api-route`, `page`, `service`, `repository`, `test` (TDD: stubs + `it.todo`) |
 | `find` / `grep` | busca por nome / regex (`--area frontend`, `backend`, `tests`, `db`) |
 | `mv` / `replace` | mover com reescrita de imports / substituição em lote (≤50 arquivos) |
+| `sync` | gera `.claude/` e `.opencode/` (agentes e skills) a partir de `.ai/skills-agents/` (`--write`, `--check`) |
 | `test` · `dev` · `db` · `pr` · `audit` | jest filtrado · lint/build · prisma (`push --yes`) · pipeline pré-PR · context-audit |
 
 Segurança: **dry-run por padrão** (`--write` grava, `--force` sobrescreve); escrita só em `src/`, `docs/`, `.claude/skills/`; `--json` para saída estruturada.
+
+## 🔁 Agentes e Skills — fonte única
+
+Edite **apenas** `.ai/skills-agents/` (agentes em `agents/`, skills em `skills/`; índice em `INDEX.md`). `.claude/` e `.opencode/` são **gerados** — não edite à mão.
+
+- `pnpm fg sync` (dry-run) · `pnpm fg sync --write` (grava) · `pnpm fg sync --check` (falha se divergir; usar no CI/pré-PR)
+- Frontmatter neutro do agente: `name`, `description` (obrigatórios), `mode`/`color` (só OpenCode), `claude-<chave>` / `opencode-<chave>` para chaves de uma ferramenta só. Chave desconhecida é rejeitada.
 
 ## 🤖 Sub-Agentes
 
