@@ -15,13 +15,6 @@ interface CardTransactionProps {
   isLoading: boolean;
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
-  /**
-   * Saldo acumulado ANTERIOR ao período exibido (issue #30). `undefined`
-   * desliga o "Saldo previsto"; `null` = indisponível (erro) → só o total do dia.
-   */
-  openingBalance?: number | null;
-  /** Saldo inicial ainda carregando: mostra skeleton no lugar do valor. */
-  isBalanceLoading?: boolean;
 }
 
 // ---- Helpers ----
@@ -79,8 +72,6 @@ function CardTransaction({
   isLoading,
   onEdit,
   onDelete,
-  openingBalance,
-  isBalanceLoading = false,
 }: CardTransactionProps) {
   if (isLoading) {
     return (
@@ -108,18 +99,14 @@ function CardTransaction({
 
   const groups = groupByDate(transactions);
 
-  // Saldo previsto só existe com o recurso ligado (openingBalance !== undefined).
-  const showBalanceSlot = openingBalance !== undefined && (isBalanceLoading || openingBalance !== null);
-  const balances =
-    typeof openingBalance === 'number' && !isBalanceLoading
-      ? computeRunningBalances(transactions, openingBalance)
-      : null;
+  // Saldo previsto parte de zero: acumula só as transações do período exibido.
+  const balances = computeRunningBalances(transactions);
 
   return (
     <div data-testid="transactions-list" className="rounded-xl bg-surface-container-low overflow-hidden">
       {groups.map(([date, txs], groupIdx) => {
         const dailyTotal = calcDailyTotal(txs);
-        const projectedBalance = balances?.get(date);
+        const projectedBalance = balances.get(date) ?? 0;
         return (
           <div key={date} data-testid="date-group">
             {/* Date header */}
@@ -131,30 +118,24 @@ function CardTransaction({
                 {formatDateHeader(date)}
               </span>
               <div className="flex flex-col items-end gap-0.5">
-                {showBalanceSlot && (
-                  <span data-testid="projected-balance" className="flex items-center gap-1.5">
-                    <span className="text-[10px] uppercase tracking-wider text-on-surface-variant">
-                      Saldo previsto
-                    </span>
-                    {projectedBalance === undefined ? (
-                      <Skeleton data-testid="balance-skeleton" className="h-4 w-20" />
-                    ) : (
-                      <span
-                        data-testid="projected-balance-value"
-                        className={cn(
-                          'text-sm font-bold',
-                          projectedBalance >= 0 ? 'text-finance-income' : 'text-finance-expense',
-                        )}
-                      >
-                        {projectedBalance < 0 ? '-' : ''}{formatCurrency(Math.abs(projectedBalance))}
-                      </span>
-                    )}
+                <span data-testid="projected-balance" className="flex items-center gap-1.5">
+                  <span className="text-[10px] uppercase tracking-wider text-on-surface-variant">
+                    Saldo previsto
                   </span>
-                )}
+                  <span
+                    data-testid="projected-balance-value"
+                    className={cn(
+                      'text-sm font-bold',
+                      projectedBalance >= 0 ? 'text-finance-income' : 'text-finance-expense',
+                    )}
+                  >
+                    {projectedBalance < 0 ? '-' : ''}{formatCurrency(Math.abs(projectedBalance))}
+                  </span>
+                </span>
                 <span
                   data-testid="daily-total"
                   className={cn(
-                    showBalanceSlot ? 'text-[11px] font-medium' : 'text-xs font-semibold',
+                    'text-[11px] font-medium',
                     dailyTotal >= 0 ? 'text-finance-income' : 'text-finance-expense',
                   )}
                 >

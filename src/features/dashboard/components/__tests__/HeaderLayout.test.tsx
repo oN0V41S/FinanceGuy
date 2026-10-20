@@ -28,6 +28,14 @@ describe('HeaderLayout', () => {
     expect(screen.getByRole('link', { name: /categorias/i })).toHaveAttribute('href', '/categorias');
   });
 
+  it('renderiza o item Assistente apontando para /assistente', () => {
+    render(<HeaderLayout />);
+    expect(screen.getByRole('link', { name: /assistente/i })).toHaveAttribute(
+      'href',
+      '/assistente',
+    );
+  });
+
   it('renderiza botão de Configurações', () => {
     render(<HeaderLayout />);
     expect(screen.getByLabelText('Configurações')).toBeInTheDocument();

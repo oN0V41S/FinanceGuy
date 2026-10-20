@@ -1,8 +1,9 @@
 ---
 name: security-secret-auditor
 description: Audita segurança do código: secrets expostos, SQL injection, CVEs e dados financeiros. Use when auditando segurança, verificando secrets, ou antes de deploy.
-mode: subagent
+mode: all
 ---
+<!-- GERADO de .ai/skills-agents/agents/security-secret-auditor.md por "pnpm fg sync" — não edite. -->
 
 # Sub-Agent: security-secret-auditor
 

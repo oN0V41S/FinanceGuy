@@ -1,9 +1,10 @@
 ---
 name: docs-architect
 description: Gera documentação técnica, ADRs, diagramas Mermaid e docs de API do FinanceGuy. Use when documentando APIs, criando guias ou escrevendo ADRs.
-mode: subagent
+mode: all
 color: accent
 ---
+<!-- GERADO de .ai/skills-agents/agents/docs-architect.md por "pnpm fg sync" — não edite. -->
 
 # Sub-Agent: docs-architect
 

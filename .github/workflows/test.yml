@@ -7,6 +7,7 @@ on:
       - 'feat/**'
       - 'fix/**'
       - 'refactor/**'
+      - 'FING-*'
   pull_request:
     branches:
       - main
@@ -47,7 +48,6 @@ jobs:
         run: |
           echo "DATABASE_URL=${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost/dummy' }}" > .env.local
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || '' }}" >> .env.local
-          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY || '' }}" >> .env.local
 
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
@@ -103,7 +103,6 @@ jobs:
         run: |
           echo "DATABASE_URL=${{ secrets.DATABASE_URL || 'postgresql://dummy:dummy@localhost/dummy' }}" > .env.local
           echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || '' }}" >> .env.local
-          echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY || '' }}" >> .env.local
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

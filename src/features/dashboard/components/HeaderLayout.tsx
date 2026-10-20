@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ArrowLeftRight, TrendingUp, Tags } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, TrendingUp, Tags, Sparkles } from 'lucide-react';
 import { HeaderBrand } from './HeaderBrand';
 import { HeaderActions } from './HeaderActions';
 import { logoutAction } from '@/features/auth/actions/logoutAction';
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { label: 'Transações', href: '/transactions', icon: ArrowLeftRight },
   { label: 'Investimentos', href: '/investimentos', icon: TrendingUp },
   { label: 'Categorias', href: '/categorias', icon: Tags },
+  { label: 'Assistente', href: '/assistente', icon: Sparkles },
 ];
 
 export function HeaderLayout() {

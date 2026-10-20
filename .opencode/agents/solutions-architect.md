@@ -1,9 +1,10 @@
 ---
 name: solutions-architect
 description: Define design de sistema, ADRs e arquitetura Clean do FinanceGuy. Use when desenhando nova feature, decidindo trade-offs técnicos ou escrevendo ADRs.
-mode: subagent
+mode: all
 color: info
 ---
+<!-- GERADO de .ai/skills-agents/agents/solutions-architect.md por "pnpm fg sync" — não edite. -->
 
 # Sub-Agent: solutions-architect
 

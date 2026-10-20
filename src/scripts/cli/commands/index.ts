@@ -10,6 +10,7 @@ import { replaceCommand } from './replace';
 import { routeCommand } from './route';
 import { scaffoldCommand } from './scaffold';
 import { specCommand } from './specCommand';
+import { syncCommand } from './sync';
 import { testCommand } from './testCommand';
 
 export const COMMANDS: Command[] = [
@@ -25,6 +26,7 @@ export const COMMANDS: Command[] = [
   grepCommand,
   mvCommand,
   replaceCommand,
+  syncCommand,
 ];
 
 export function findCommandByName(name: string): Command | undefined {

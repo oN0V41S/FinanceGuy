@@ -5,7 +5,7 @@ import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
 import { CreateTransactionSchema, UpdateTransactionSchema, TransactionInput } from './validations';
 import type { Transaction, FinancialSummary } from '@/types/finance';
 import type { CategoriesService } from '@/features/categories/categories.service';
-import type { MonthlyPoint, OpeningBalanceFilters } from './types';
+import type { MonthlyPoint, SearchTransactionsFilters } from './types';
 
 /**
  * Soma `months` a uma data 'YYYY-MM-DD' preservando o dia.
@@ -25,6 +25,9 @@ function addMonths(dateString: string, months: number): string {
 
 /** TTL padrão do cache quando CACHE_TTL não está definido (em segundos). */
 const DEFAULT_CACHE_TTL = 300;
+
+/** Máximo de resultados de searchTransactions. */
+const MAX_SEARCH_LIMIT = 5;
 
 /**
  * Escapa caracteres glob (`*`, `?`, `[`, `]`) presentes no userId ao montar
@@ -232,7 +235,12 @@ export class TransactionService {
     const validatedData = UpdateTransactionSchema.parse(data);
     const userId = (data as Partial<TransactionInput>).userId;
 
-    if (this.categoriesService && userId && validatedData.category !== undefined) {
+    // Anti-IDOR: sem userId não há como escopar a escrita — trata como não encontrada.
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('Transação não encontrada.');
+    }
+
+    if (this.categoriesService && validatedData.category !== undefined) {
       // Sem `type` no payload, usa o da transação existente para checar compatibilidade.
       const txType = validatedData.type ?? (await this.transactionRepository.getById(id, userId))?.type;
       if (txType) {
@@ -241,21 +249,23 @@ export class TransactionService {
       }
     }
 
-    const updated = await this.transactionRepository.update(id, validatedData);
+    const updated = await this.transactionRepository.update(id, userId, validatedData);
 
     if (!updated) {
       throw new Error('Transação não encontrada.');
     }
 
-    if (userId) {
-      await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));
-    }
+    await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));
 
     return updated;
   }
 
   async deleteTransaction(id: string, userId: string) {
-    const success = await this.transactionRepository.delete(id);
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('Transação não encontrada.');
+    }
+
+    const success = await this.transactionRepository.delete(id, userId);
 
     if (!success) {
       throw new Error('Transação não encontrada.');
@@ -264,6 +274,16 @@ export class TransactionService {
     await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));
 
     return true;
+  }
+
+  /** Busca escopada por usuário (FING-18): no máximo 5 resultados, data desc. */
+  async searchTransactions(filters: SearchTransactionsFilters): Promise<Transaction[]> {
+    if (typeof filters.userId !== 'string' || filters.userId.trim() === '') {
+      return [];
+    }
+    const limit = Math.min(Math.max(Math.trunc(filters.limit ?? MAX_SEARCH_LIMIT), 1), MAX_SEARCH_LIMIT);
+
+    return this.transactionRepository.search({ ...filters, limit });
   }
 
   async deleteFutureTransactions(id: string, userId: string): Promise<number> {
@@ -283,7 +303,7 @@ export class TransactionService {
     // Se for o PAI (parent_transaction_id null), remove o próprio pai também.
     // Parcelas anteriores (histórico) NUNCA são alteradas — o deleteMany filtra date >= referencia.
     if (transaction.parent_transaction_id === null) {
-      await this.transactionRepository.delete(id);
+      await this.transactionRepository.delete(id, userId);
     }
 
     await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));
@@ -313,38 +333,6 @@ export class TransactionService {
     return data;
   }
 
-  /**
-   * Saldo acumulado anterior a `filters.before` (issue #30). Chave sob o
-   * prefixo `transactions:{userId}:` — invalidada junto com lista/summary nas
-   * mutations. Retorna número (0 é um valor válido de cache).
-   */
-  async getOpeningBalance(filters: OpeningBalanceFilters): Promise<{ data: number; fromCache: boolean }> {
-    if (typeof filters.userId !== 'string' || filters.userId.trim() === '') {
-      throw new Error('Usuário não identificado.');
-    }
-
-    const { userId, ...rest } = filters;
-    const hash = createHash('md5').update(JSON.stringify(rest)).digest('hex');
-    const cacheKey = `transactions:${escapeGlobChars(userId)}:opening:${hash}`;
-
-    const cached = await this.cacheRepository.get(cacheKey);
-    if (cached !== null) {
-      try {
-        const parsed = JSON.parse(cached) as unknown;
-        if (typeof parsed === 'number' && Number.isFinite(parsed)) {
-          return { data: parsed, fromCache: true };
-        }
-      } catch {
-        // A01 — payload corrompido: trata como MISS.
-      }
-      await this.cacheRepository.del(cacheKey);
-    }
-
-    const data = await this.transactionRepository.getOpeningBalance(filters);
-    await this.cacheRepository.set(cacheKey, JSON.stringify(data), this.getTtl());
-
-    return { data, fromCache: false };
-  }
 
   async getAvailableYears(userId: string): Promise<number[]> {
     return this.transactionRepository.getAvailableYears(userId);
@@ -379,7 +367,7 @@ export class TransactionService {
 
     // Se for o PAI, atualiza o próprio pai também.
     if (transaction.parent_transaction_id === null) {
-      await this.transactionRepository.update(id, validatedData);
+      await this.transactionRepository.update(id, userId, validatedData);
     }
 
     await this.cacheRepository.delByPattern(this.buildInvalidationPattern(userId));

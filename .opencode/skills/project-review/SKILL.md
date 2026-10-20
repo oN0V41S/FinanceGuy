@@ -1,4 +1,7 @@
-# Skill: project-review
+---
+name: project-review
+description: Revisa arquitetura, manutenibilidade e simplicidade do FinanceGuy (Clean Architecture, Prisma, Zod, FinOps). Use antes de PRs, releases ou ao auditar uma feature.
+---
 
 # Project Review Skill
 
@@ -23,8 +26,9 @@ This skill helps developers analyze complete project structures, identify code p
 3. **Dependency & License Check** – Use `bash` to audit `package.json` and license files.
 4. **Test Coverage Verification** – Run `npm run test:coverage` and ensure thresholds are met.
 5. **FinOps Metrics Collection** – Count lines of code per function, assess context window usage, look for memoization.
-6. **Report Generation** – Produce a markdown summary with findings, severity levels, and actionable recommendations.
-7. **Follow-Up** – Create issues or pull requests for each high-priority finding.
+6. **Quality Axes Review** – Evaluate **architecture** (dependency direction, repository/DI boundaries, Zod at entry, ownership by `userId`), **maintainability** (cohesion, duplication, naming, testability, visible debt) and **simplicity** (no speculative abstraction, dead code, minimal state and dependencies). The checklist and thresholds live in `.opencode/agents/project-review.md` ("Pontos de Qualidade"); thresholds are alert signals that require justification, not automatic failures.
+7. **Report Generation** – Produce a markdown summary with findings (axis, severity, file:line, signal, suggested fix), a per-axis summary and the top 3 highest-return items.
+8. **Follow-Up** – Create issues or pull requests for each high-priority finding.
 
 ## Tool Usage & Permissions
 - Allowed: `read`, `glob`, `grep`, `bash` (to run lint, test, coverage scripts), `write` (to create review reports), `edit` (to fix minor formatting issues if authorized), `webfetch` (to retrieve license texts), `websearch` (to lookup latest TypeScript/Prisma versions).

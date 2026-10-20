@@ -52,7 +52,7 @@ describe('TransactionService — integração com categorias do usuário', () =>
     await service.updateTransaction('t1', { category: 'salário', userId: 'user-1' });
 
     expect(categories.assertUsable).toHaveBeenCalledWith('user-1', 'salário', 'income');
-    expect(repo.update).toHaveBeenCalledWith('t1', expect.objectContaining({ category: 'Salário' }));
+    expect(repo.update).toHaveBeenCalledWith('t1', 'user-1', expect.objectContaining({ category: 'Salário' }));
   });
 
   it('update: não consulta categorias quando a categoria não muda', async () => {

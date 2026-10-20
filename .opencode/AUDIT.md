@@ -17,7 +17,8 @@
 | Componente, UI, formulário, tabela, modal, estilo, cor, tema, responsividade | `docs/ui-guidelines.md` | `frontend` |
 | API, service, repository, schema, validação, endpoint, middleware, DI, arquitetura | `docs/architecture.md` | `backend-engineer` |
 | Prisma, migration, PostgreSQL, query, schema do banco | `docs/architecture.md` | `database-engineer` |
-| Teste, jest, coverage, TDD, spec, RTL, mock | `docs/testing.md` | `quality-assurance-analyst` |
+| Teste, jest, coverage, TDD, spec, RTL, mock | `docs/testing.md` + `docs/qa/README.md` | `quality-assurance-analyst` |
+| Cenário de teste, regressão, persona, perfil de usuário, copy/UX, prompt de IA | `docs/qa/README.md` + `docs/product/personas/README.md` | `quality-assurance-analyst` |
 | Segurança, secret, injeção, XSS, SQLi, token, audit, deploy | `docs/security.md` | `security-secret-auditor` |
 | Login, registro, NextAuth, JWT, sessão, server action de auth | `docs/auth.md` | `backend-engineer` |
 | Branch, commit, PR, merge, conventional commits, git | `docs/git-workflow.md` | — (processo) |
