@@ -1,7 +1,7 @@
 ---
 name: quality-assurance-analyst
 description: Escreve testes Jest/RTL, valida coverage e garante qualidade do código FinanceGuy. Use when escrevendo testes, validando cobertura, ou debugando falhas em testes.
-mode: subagent
+mode: all
 ---
 
 # Sub-Agent: quality-assurance-analyst

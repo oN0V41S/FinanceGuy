@@ -1,7 +1,7 @@
 ---
 name: product-manager
 description: Define especificações, requisitos e prioridades do FinanceGuy. Use when escrevendo specs, user stories ou priorizando o roadmap.
-mode: subagent
+mode: all
 color: secondary
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: frontend
 description: Cria componentes React/shadcn-ui do FinanceGuy seguindo docs/VISUAL_IDENTITY.md. Use when criando UI, componentes, telas, formulários, tabelas, modais.
-mode: subagent
+mode: all
 ---
 
 # Sub-Agent: frontend
