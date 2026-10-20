@@ -8,9 +8,10 @@
 
 1. [Modelo](#modelo)
 2. [Nomenclatura de Branches](#nomenclatura-de-branches)
-3. [Ciclo de Vida de uma Branch](#ciclo-de-vida-de-uma-branch)
-4. [Regras do GitHub Flow](#regras-do-github-flow)
-5. [Fluxo de Desenvolvimento Recomendado](#fluxo-de-desenvolvimento-recomendado)
+3. [Branches de Tarefa (`FING-N`)](#branches-de-tarefa-fing-n)
+4. [Ciclo de Vida de uma Branch](#ciclo-de-vida-de-uma-branch)
+5. [Regras do GitHub Flow](#regras-do-github-flow)
+6. [Fluxo de Desenvolvimento Recomendado](#fluxo-de-desenvolvimento-recomendado)
 
 ---
 
@@ -35,6 +36,17 @@ main ── feat/nova-feature ──► PR ──► main ── feat/outra ─�
 | `refactor/` | Refatoração sem mudança de comportamento | `refactor/auth-service` |
 | `chore/` | Tarefa de infra/setup | `chore/update-deps` |
 | `docs/` | Documentação | `docs/api-endpoints` |
+| `FING-N` | Branch de tarefa da pipeline `fg-pipeline` (apenas o código do Notion) | `FING-12` |
+
+## Branches de Tarefa (`FING-N`)
+
+Regra da skill `fg-pipeline` (ver `docs/specs/FING-26-fg-pipeline.md`):
+
+- Branch de tarefa é nomeada **apenas pelo código do Notion**, em **maiúsculas**: `FING-N` (ex.: `FING-12`). Sem prefixo semântico, sem sufixo descritivo.
+- É criada a partir de **`origin/main`** atualizado (`git fetch origin main`), nunca da `main` local desatualizada.
+- O trabalho acontece em uma **worktree irmã** `../FinanceGuy-FING-N` (`git worktree add ../FinanceGuy-FING-N -b FING-N origin/main`), deixando o checkout principal intocado.
+- Commits seguem Conventional Commits com o código: `feat(transactions): ... (FING-12)`.
+- O **CI também dispara em `FING-*`** (o `push.branches` do workflow inclui `main`, `feat/**`, `fix/**`, `refactor/**` e `'FING-*'`).
 
 ## Ciclo de Vida de uma Branch
 

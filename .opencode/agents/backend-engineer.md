@@ -1,7 +1,7 @@
 ---
 name: backend-engineer
 description: Implementa API routes Next.js, services, repositories e acesso a dados Prisma do FinanceGuy. Use when criando ou modificando backend, API routes, lógica de domínio ou integrações com serviços externos.
-mode: subagent
+mode: all
 color: secondary
 ---
 
