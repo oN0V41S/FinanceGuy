@@ -124,5 +124,68 @@ export const swaggerSpec = {
         responses: { 200: { description: 'Transação deletada' }, 404: { description: 'Transação não encontrada' } },
       },
     },
+    '/api/categories': {
+      get: {
+        summary: 'Listar categorias do usuário (cria os padrões na primeira chamada)',
+        tags: ['Categories'],
+        parameters: [{ name: 'type', in: 'query', schema: { type: 'string', enum: ['income', 'expense'] } }],
+        responses: { 200: { description: 'Lista de categorias com transactionCount' }, 400: { description: 'Validação falhou' } },
+      },
+      post: {
+        summary: 'Criar categoria',
+        tags: ['Categories'],
+        requestBody: {
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', minLength: 1, maxLength: 40 },
+                  type: { type: 'string', enum: ['income', 'expense', 'both'] },
+                  color: { type: 'string', example: '#22C55E' },
+                  icon: { type: 'string', example: 'wallet' },
+                },
+                required: ['name', 'type'],
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Categoria criada' },
+          400: { description: 'Validação falhou' },
+          409: { description: 'Já existe categoria com esse nome (DUPLICATE)' },
+          422: { description: 'Limite de 50 categorias (LIMIT)' },
+        },
+      },
+    },
+    '/api/categories/{id}': {
+      patch: {
+        summary: 'Editar categoria (renomear propaga para as transações)',
+        tags: ['Categories'],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        responses: {
+          200: { description: 'Categoria atualizada' },
+          403: { description: 'Operação não permitida em "Outros" (FORBIDDEN)' },
+          404: { description: 'Categoria não encontrada' },
+          409: { description: 'Nome duplicado (DUPLICATE)' },
+          422: { description: 'Tipo incompatível com transações existentes (INCOMPATIBLE_TYPE)' },
+        },
+      },
+      delete: {
+        summary: 'Excluir categoria (com transações exige reassignTo)',
+        tags: ['Categories'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+          { name: 'reassignTo', in: 'query', schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Categoria excluída; retorna { success, moved }' },
+          403: { description: 'Padrões não podem ser excluídos (FORBIDDEN)' },
+          404: { description: 'Categoria não encontrada' },
+          409: { description: 'Há transações: informe reassignTo (REASSIGN_REQUIRED)' },
+          422: { description: 'Destino inválido ou incompatível (INVALID_REASSIGN)' },
+        },
+      },
+    },
   },
 };

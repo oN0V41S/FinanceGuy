@@ -23,6 +23,11 @@ describe('HeaderLayout', () => {
     expect(screen.getByText('FinanceGuy')).toBeInTheDocument();
   });
 
+  it('inclui o link para Categorias na navegação', () => {
+    render(<HeaderLayout />);
+    expect(screen.getByRole('link', { name: /categorias/i })).toHaveAttribute('href', '/categorias');
+  });
+
   it('renderiza botão de Configurações', () => {
     render(<HeaderLayout />);
     expect(screen.getByLabelText('Configurações')).toBeInTheDocument();

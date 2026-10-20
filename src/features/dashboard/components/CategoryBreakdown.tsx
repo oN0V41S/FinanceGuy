@@ -1,6 +1,8 @@
 'use client';
 
+import { useMemo } from 'react';
 import { PieChart as PieChartIcon } from 'lucide-react';
+import { useCategories } from '@/features/categories/hooks/useCategories';
 import { PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { ChartWrapper, ChartTooltipStyle, ChartLabelStyle, ChartItemStyle } from './ChartWrapper';
@@ -26,7 +28,10 @@ interface CategorySlice {
   percent: number;
 }
 
-function buildSlices(transactions: Transaction[]): CategorySlice[] {
+function buildSlices(
+  transactions: Transaction[],
+  colorByName: ReadonlyMap<string, string> = new Map()
+): CategorySlice[] {
   const expenses = transactions.filter((t) => t.type === 'expense');
   if (expenses.length === 0) return [];
 
@@ -54,13 +59,22 @@ function buildSlices(transactions: Transaction[]): CategorySlice[] {
   return slices.map((s, i) => ({
     name: s.name,
     value: s.value,
-    color: DONUT_COLORS[i % DONUT_COLORS.length],
+    // Cor definida pelo usuário na categoria; senão, a paleta do donut.
+    color: colorByName.get(s.name) ?? DONUT_COLORS[i % DONUT_COLORS.length],
     percent: total > 0 ? Math.round((s.value / total) * 100) : 0,
   }));
 }
 
 export function CategoryBreakdown({ transactions }: CategoryBreakdownProps) {
-  const slices = buildSlices(transactions);
+  const { categories, isFallback } = useCategories();
+  const colorByName = useMemo(
+    () =>
+      isFallback
+        ? new Map<string, string>()
+        : new Map(categories.flatMap((c) => (c.color ? [[c.name, c.color] as const] : []))),
+    [categories, isFallback]
+  );
+  const slices = buildSlices(transactions, colorByName);
 
   return (
     <Card>

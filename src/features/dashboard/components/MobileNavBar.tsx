@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ArrowLeftRight, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, TrendingUp, Tags } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -20,6 +20,11 @@ const navItems = [
     label: 'Investimentos',
     href: '/investimentos',
     icon: TrendingUp,
+  },
+  {
+    label: 'Categorias',
+    href: '/categorias',
+    icon: Tags,
   },
 ];
 

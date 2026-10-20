@@ -2,6 +2,10 @@ import {z} from 'zod';
 
 // Enums
 export const TransactionTypeEnum = z.enum(['income', 'expense']);
+/**
+ * @deprecated Categorias agora são por usuário (`src/features/categories`).
+ * Mantido apenas como alias dos nomes padrão; não usar para validar entrada.
+ */
 export const CategoryEnum = z.enum([
     'Alimentação',
     'Transporte',
@@ -25,7 +29,8 @@ export const TransactionSchema = z.object({
         (val) => !isNaN(Date.parse(val)),
         'Data deve estar em (YYYY-MM-DD)'
     ),
-    category: CategoryEnum,
+    // Nome da categoria do usuário; existência/compatibilidade validadas no service.
+    category: z.string().trim().min(1, 'Categoria é obrigatória').max(40, 'Categoria muito longa'),
     responsible: z.string().min(1, 'Responsável é Obrigatório').max(100),
     installment_number: z.number().positive().optional(),
     total_installments: z.number().positive().optional(),

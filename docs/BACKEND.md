@@ -157,6 +157,23 @@ Saldo (receitas − despesas, incluindo pendentes) das transações **estritamen
 **Front**: `useOpeningBalance` (2ª quinzena usa `before` = dia 16; mês/1ª quinzena = dia 01) + `computeRunningBalances` (`features/transactions/utils/runningBalance.ts`) → `CardTransaction` (`openingBalance`, `isBalanceLoading`). Falha no endpoint não derruba a lista: só o total do dia é exibido.
 ---
 
+## Endpoints de Categorias (issue #38)
+
+Autenticados (`x-user-id` do `proxy.ts`). Handlers em `src/features/categories/api/**`, re-exportados em `src/app/api/categories/**`. Categorias são por usuário; `Transaction.category` continua guardando o **nome**. Os padrões são criados de forma preguiçosa e idempotente (`createMany` + `skipDuplicates`) no primeiro `GET`; se o seed/leitura falhar, a lista cai para os padrões em memória.
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/api/categories?type=` | Lista (`type` income/expense inclui `both`) com `transactionCount` |
+| POST | `/api/categories` | Cria (`name` ≤ 40, `type`, `color`, `icon` de listas permitidas) |
+| PATCH | `/api/categories/[id]` | Edita; renomear propaga às transações de forma atômica |
+| DELETE | `/api/categories/[id]?reassignTo=<id>` | Exclui; com transações exige `reassignTo` (atômico) → `{ data: { success, moved } }` |
+
+**Regras**: nome único por usuário (normalizado: sem acento/caixa/espaços extras); máx. 50 por usuário; padrões podem ser renomeados/recoloridos mas não excluídos; "Outros" não pode ser renomeada, excluída nem mudar de tipo.
+**Erros** (`CategoryError`): `404` NOT_FOUND · `409` DUPLICATE / REASSIGN_REQUIRED (`details.transactionCount`) · `422` LIMIT / INVALID_REASSIGN / INCOMPATIBLE_TYPE · `403` FORBIDDEN · `400` Zod · `500` genérico, sem detalhes internos.
+**Transações**: criar/editar valida a categoria via `CategoriesService.assertUsable` (existe e é compatível com o tipo) → `422 { error, code }`.
+**Cache**: mutações invalidam `transactions:{userId}:*`.
+---
+
 ## Endpoints de Investimentos — ativos de mercado (issue #34 · FING-22)
 
 Requisições autenticadas (`x-user-id` do `proxy.ts`). Handlers em `src/features/investments/api/**`, re-exportados em `src/app/api/investments/**`. `GET/POST /api/investments` e `PUT/DELETE /api/investments/[id]` seguem como antes; o POST aceita ativo de mercado (`ticker`, `market`, `purchaseDate`, `unitPrice`, `shares`) e calcula o valor investido.

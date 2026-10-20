@@ -306,9 +306,9 @@ describe('TransactionService', () => {
       expect(mockTransactionRepo.getById).not.toHaveBeenCalled();
     });
 
-    it('deve lançar ZodError para categoria fora do enum', async () => {
+    it('deve lançar ZodError para categoria vazia', async () => {
       await expect(
-        service.updateFutureTransactions('child-2', 'user-id', { category: 'CategoriaInexistente' })
+        service.updateFutureTransactions('child-2', 'user-id', { category: '' })
       ).rejects.toMatchObject({ name: 'ZodError' });
     });
 

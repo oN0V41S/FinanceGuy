@@ -398,8 +398,8 @@ describe('TransactionModal — Interações', () => {
     const incomeItem = screen.getByTestId('select-item-income');
     fireEvent.click(incomeItem);
 
-    // Selecionar categoria
-    const categoryItem = screen.getByTestId('select-item-Alimentação');
+    // Selecionar categoria compatível com receita (a lista é filtrada pelo tipo)
+    const categoryItem = screen.getByTestId('select-item-Salário');
     fireEvent.click(categoryItem);
 
     // Marcar como pago

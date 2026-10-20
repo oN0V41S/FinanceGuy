@@ -51,6 +51,7 @@ model User {
   investments            Investment[]
   goals                  Goal[]
   investmentTransactions InvestmentTransaction[]
+  categories             Category[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -160,6 +161,25 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Catálogo de categorias por usuário. `Transaction.category` guarda o NOME (sem FK nesta fase).
+model Category {
+  id         String   @id @default(cuid())
+  name       String   @db.VarChar(40)
+  nameKey    String   @db.VarChar(40) // normalizado (lowercase, sem acento) p/ unicidade
+  type       String   @default("both") @db.VarChar(10) // 'income' | 'expense' | 'both' (validado no Zod)
+  color      String?  @db.VarChar(9) // hex '#RRGGBB'
+  icon       String?  @db.VarChar(40) // chave de ícone (allowlist no Zod)
+  isDefault  Boolean  @default(false)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@unique([userId, nameKey])
+  @@index([userId])
+  @@map("categories")
 }
 
 model VerificationToken {

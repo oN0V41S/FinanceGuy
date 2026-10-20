@@ -21,6 +21,10 @@ import { IGoalRepository } from '../features/goals/IGoal.repository';
 import { PostgresGoalRepository } from '../features/goals/postgresGoal.repository';
 import { GoalService } from '../features/goals/goal.service';
 
+import { ICategoryRepository } from '../features/categories/ICategory.repository';
+import { PostgresCategoryRepository } from '../features/categories/postgresCategory.repository';
+import { CategoriesService } from '../features/categories/categories.service';
+
 import { cache } from '@/lib/cache';
 import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
 
@@ -31,9 +35,11 @@ export const cacheRepository: ICacheRepository = cache;
 export const investmentRepository: IInvestmentRepository = new PostgresInvestmentRepository();
 export const investmentHistoryRepository: IInvestmentHistoryRepository = new PostgresInvestmentHistoryRepository();
 export const goalRepository: IGoalRepository = new PostgresGoalRepository();
+export const categoryRepository: ICategoryRepository = new PostgresCategoryRepository();
 
 // Services
-export const transactionService: TransactionService = new TransactionService(transactionRepository, userRepository, cacheRepository);
+export const categoriesService: CategoriesService = new CategoriesService(categoryRepository, cacheRepository);
+export const transactionService: TransactionService = new TransactionService(transactionRepository, userRepository, cacheRepository, categoriesService);
 export const authService: AuthService = new AuthService(userRepository);
 export const investmentService: InvestmentService = new InvestmentService(investmentRepository, investmentHistoryRepository);
 export const quoteService: QuoteService = new QuoteService(

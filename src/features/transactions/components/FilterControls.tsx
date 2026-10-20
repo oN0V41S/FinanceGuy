@@ -3,6 +3,7 @@
 import React from 'react';
 import { Search } from 'lucide-react';
 import { useTransactionYears } from '@/shared/hooks/useTransactionYears';
+import { useCategories } from '@/features/categories/hooks/useCategories';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { SegmentedToggle } from '@/components/ui/segmented-toggle';
@@ -51,18 +52,6 @@ const MONTHS = [
   { value: '12', label: 'Dezembro' },
 ];
 
-const CATEGORIES = [
-  'Alimentação',
-  'Transporte',
-  'Casa',
-  'Saúde',
-  'Educação',
-  'Lazer',
-  'Salário',
-  'Investimentos',
-  'Outros',
-];
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -107,6 +96,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({
   yearsRefreshTrigger = 0,
 }) => {
   const yearOptions = useTransactionYears(yearsRefreshTrigger);
+  const { categories } = useCategories();
 
   return (
     <div className="space-y-3 p-4 bg-surface-container-low rounded-xl">
@@ -172,9 +162,9 @@ const FilterControls: React.FC<FilterControlsProps> = ({
             </SelectTrigger>
             <SelectContent className="bg-surface-container">
               <SelectItem value="all">Todas</SelectItem>
-              {CATEGORIES.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.name}>
+                  {cat.name}
                 </SelectItem>
               ))}
             </SelectContent>
