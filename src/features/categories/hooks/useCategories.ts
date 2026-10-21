@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { DEFAULT_CATEGORIES } from '../defaults';
-import type { Category, CreateCategoryInput, UpdateCategoryInput } from '../validations';
+import { DEFAULT_CATEGORIES, DEFAULT_INVESTMENT_CATEGORIES } from '../defaults';
+import type { Category, CategoryScopeValue, CreateCategoryInput, UpdateCategoryInput } from '../validations';
 
 /** Erro de API com `code`/`details` para a UI reagir (ex.: REASSIGN_REQUIRED). */
 export class CategoryApiError extends Error {
@@ -26,6 +26,22 @@ export const FALLBACK_CATEGORIES: Category[] = DEFAULT_CATEGORIES.map((c) => ({
   isDefault: true,
 }));
 
+/** Padrões de investimento em memória (ids não são cuids: não devem ser enviados ao salvar). */
+export const FALLBACK_INVESTMENT_CATEGORIES: Category[] = DEFAULT_INVESTMENT_CATEGORIES.map((c) => ({
+  id: `default-investment-${c.name}`,
+  name: c.name,
+  type: c.type,
+  color: c.color,
+  icon: c.icon,
+  isDefault: true,
+  scope: 'investment',
+  investmentCount: 0,
+}));
+
+function fallbackFor(scope: CategoryScopeValue): Category[] {
+  return scope === 'investment' ? FALLBACK_INVESTMENT_CATEGORIES : FALLBACK_CATEGORIES;
+}
+
 async function toApiError(response: Response, fallback: string): Promise<CategoryApiError> {
   try {
     const body = await response.json();
@@ -43,6 +59,8 @@ function asError(err: unknown, fallback: string): CategoryApiError {
 interface UseCategoriesOptions {
   /** Filtra por compatibilidade com o tipo da transação (income inclui "both"). */
   type?: 'income' | 'expense';
+  /** Escopo das categorias: transações (padrão) ou investimentos. */
+  scope?: CategoryScopeValue;
 }
 
 export interface UseCategoriesResult {
@@ -58,8 +76,8 @@ export interface UseCategoriesResult {
 }
 
 export function useCategories(options: UseCategoriesOptions = {}): UseCategoriesResult {
-  const { type } = options;
-  const [loaded, setCategories] = useState<Category[]>(FALLBACK_CATEGORIES);
+  const { type, scope = 'transaction' } = options;
+  const [loaded, setCategories] = useState<Category[]>(() => fallbackFor(scope));
   // Último valor commitado: base síncrona para o rollback das mutações otimistas.
   const loadedRef = useRef(loaded);
   useEffect(() => {
@@ -68,11 +86,22 @@ export function useCategories(options: UseCategoriesOptions = {}): UseCategories
   const [isLoading, setIsLoading] = useState(true);
   const [isFallback, setIsFallback] = useState(true);
   // Enquanto for fallback, filtra pelo tipo ATUAL (o tipo pode mudar antes da API responder).
-  const categories = isFallback && type
+  const categories = isFallback && scope === 'transaction' && type
     ? FALLBACK_CATEGORIES.filter((c) => c.type === 'both' || c.type === type)
     : loaded;
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Ao trocar de escopo, nunca mostrar a lista do escopo anterior.
+  const prevScopeRef = useRef<CategoryScopeValue>(scope);
+  useEffect(() => {
+    if (prevScopeRef.current !== scope) {
+      prevScopeRef.current = scope;
+      setCategories(fallbackFor(scope));
+      setIsFallback(true);
+      setError(null);
+    }
+  }, [scope]);
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -82,12 +111,15 @@ export function useCategories(options: UseCategoriesOptions = {}): UseCategories
     async function load() {
       setIsLoading(true);
       try {
-        const query = type ? `?type=${type}` : '';
-        const response = await fetch(`/api/categories${query}`);
+        const params = new URLSearchParams();
+        if (type && scope === 'transaction') params.set('type', type);
+        params.set('scope', scope);
+        const response = await fetch(`/api/categories?${params.toString()}`);
         if (!response.ok) throw await toApiError(response, 'Não foi possível carregar as categorias.');
         const result = await response.json();
+        const data = Array.isArray(result.data) ? result.data : [];
         if (!cancelled) {
-          setCategories(result.data ?? []);
+          setCategories(data);
           setIsFallback(false);
           setError(null);
         }
@@ -105,23 +137,31 @@ export function useCategories(options: UseCategoriesOptions = {}): UseCategories
     return () => {
       cancelled = true;
     };
-  }, [type, refreshKey]);
+  }, [scope, type, refreshKey]);
 
-  const create = useCallback(async (input: CreateCategoryInput): Promise<Category> => {
-    try {
-      const response = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(input),
-      });
-      if (!response.ok) throw await toApiError(response, 'Não foi possível criar a categoria.');
-      const { data } = await response.json();
-      setCategories((prev) => [...prev, { ...data, transactionCount: data.transactionCount ?? 0 }]);
-      return data;
-    } catch (err) {
-      throw asError(err, 'Não foi possível criar a categoria.');
-    }
-  }, []);
+  const create = useCallback(
+    async (input: CreateCategoryInput): Promise<Category> => {
+      try {
+        const response = await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...input, scope }),
+        });
+        if (!response.ok) throw await toApiError(response, 'Não foi possível criar a categoria.');
+        const { data } = await response.json();
+        setCategories((prev) => [
+          ...prev,
+          scope === 'investment'
+            ? { ...data, investmentCount: data.investmentCount ?? 0 }
+            : { ...data, transactionCount: data.transactionCount ?? 0 },
+        ]);
+        return data;
+      } catch (err) {
+        throw asError(err, 'Não foi possível criar a categoria.');
+      }
+    },
+    [scope]
+  );
 
   const update = useCallback(async (id: string, input: UpdateCategoryInput): Promise<Category> => {
     // Otimista: aplica já e reverte se falhar.

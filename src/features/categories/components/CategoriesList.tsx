@@ -2,7 +2,7 @@
 
 import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { Category } from '../validations';
+import type { Category, CategoryScopeValue } from '../validations';
 import { CategoryIcon } from './CategoryIcon';
 
 const TYPE_LABEL: Record<Category['type'], string> = {
@@ -13,11 +13,15 @@ const TYPE_LABEL: Record<Category['type'], string> = {
 
 interface CategoriesListProps {
   categories: Category[];
+  /** Escopo exibido: transações (padrão) ou investimentos. */
+  scope?: CategoryScopeValue;
   onEdit: (category: Category) => void;
   onDelete: (category: Category) => void;
 }
 
-export function CategoriesList({ categories, onEdit, onDelete }: CategoriesListProps) {
+export function CategoriesList({ categories, scope = 'transaction', onEdit, onDelete }: CategoriesListProps) {
+  const isInvestment = scope === 'investment';
+
   return (
     <ul className="flex flex-col gap-2" aria-label="Lista de categorias">
       {categories.map((category) => (
@@ -40,9 +44,16 @@ export function CategoriesList({ categories, onEdit, onDelete }: CategoriesListP
               )}
             </p>
             <p className="text-xs text-on-surface-variant">
-              {TYPE_LABEL[category.type]}
-              {category.transactionCount !== undefined &&
-                ` · ${category.transactionCount} ${category.transactionCount === 1 ? 'transação' : 'transações'}`}
+              {isInvestment ? (
+                category.investmentCount !== undefined &&
+                `${category.investmentCount} ${category.investmentCount === 1 ? 'ativo' : 'ativos'}`
+              ) : (
+                <>
+                  {TYPE_LABEL[category.type]}
+                  {category.transactionCount !== undefined &&
+                    ` · ${category.transactionCount} ${category.transactionCount === 1 ? 'transação' : 'transações'}`}
+                </>
+              )}
             </p>
           </div>
 

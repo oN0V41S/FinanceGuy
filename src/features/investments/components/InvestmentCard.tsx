@@ -43,6 +43,16 @@ export function InvestmentCard({ investment, portfolio, isQuoteLoading, onEdit, 
               <Badge variant="outline">{investment.type}</Badge>
               {isMarketAsset && <Badge variant="outline">{investment.ticker}</Badge>}
               {isRedeemed && <Badge variant="outline">Resgatado</Badge>}
+              {investment.category && (
+                <Badge variant="outline" className="gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: investment.category.color ?? 'var(--on-surface-variant)' }}
+                  />
+                  {investment.category.name}
+                </Badge>
+              )}
             </div>
           </div>
         </div>

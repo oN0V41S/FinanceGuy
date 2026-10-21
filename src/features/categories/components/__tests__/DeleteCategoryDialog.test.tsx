@@ -12,6 +12,13 @@ const outros: Category = {
   id: 'c2', name: 'Outros', type: 'both', color: '#222222', icon: 'tag', isDefault: true, transactionCount: 0,
 };
 
+const cripto: Category = {
+  id: 'i1', name: 'Cripto', type: 'both', color: '#EAB308', icon: 'tag', isDefault: false, scope: 'investment', investmentCount: 2,
+};
+const outrosInvestimentos: Category = {
+  id: 'i2', name: 'Outros investimentos', type: 'both', color: '#64748B', icon: 'tag', isDefault: true, scope: 'investment',
+};
+
 function setup(category: Category, onConfirm = jest.fn().mockResolvedValue(undefined)) {
   const onOpenChange = jest.fn();
   render(
@@ -55,5 +62,46 @@ describe('DeleteCategoryDialog', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível excluir a categoria.');
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it('escopo investment avisa que os ativos migram para "Outros investimentos"', async () => {
+    const onConfirm = jest.fn().mockResolvedValue(undefined);
+    const onOpenChange = jest.fn();
+    render(
+      <DeleteCategoryDialog
+        open
+        onOpenChange={onOpenChange}
+        category={cripto}
+        scope="investment"
+        otherCategories={[outrosInvestimentos]}
+        onConfirm={onConfirm}
+      />
+    );
+
+    expect(screen.getByText(/Há 2 ativos/)).toBeInTheDocument();
+    expect(screen.getByText(/Outros investimentos/)).toBeInTheDocument();
+    expect(screen.queryByText('Mover transações para')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith(undefined));
+  });
+
+  it('escopo investment sem ativos confirma direto', async () => {
+    const onConfirm = jest.fn().mockResolvedValue(undefined);
+    render(
+      <DeleteCategoryDialog
+        open
+        onOpenChange={jest.fn()}
+        category={{ ...cripto, investmentCount: 0 }}
+        scope="investment"
+        otherCategories={[outrosInvestimentos]}
+        onConfirm={onConfirm}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith(undefined));
   });
 });

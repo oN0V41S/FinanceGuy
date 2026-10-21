@@ -13,9 +13,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FALLBACK_CATEGORY_KEY } from '../defaults';
+import { FALLBACK_CATEGORY_KEY, FALLBACK_INVESTMENT_CATEGORY_NAME } from '../defaults';
 import { normalizeCategoryName } from '../normalizeCategoryName';
-import type { Category } from '../validations';
+import type { Category, CategoryScopeValue } from '../validations';
 
 interface DeleteCategoryDialogProps {
   open: boolean;
@@ -23,6 +23,8 @@ interface DeleteCategoryDialogProps {
   category: Category | null;
   /** Demais categorias do usuário (candidatas a receber as transações). */
   otherCategories: Category[];
+  /** Escopo das categorias: transações (padrão) ou investimentos. */
+  scope?: CategoryScopeValue;
   onConfirm: (reassignTo?: string) => Promise<void>;
 }
 
@@ -31,10 +33,14 @@ export function DeleteCategoryDialog({
   onOpenChange,
   category,
   otherCategories,
+  scope = 'transaction',
   onConfirm,
 }: DeleteCategoryDialogProps) {
+  const isInvestment = scope === 'investment';
   const transactionCount = category?.transactionCount ?? 0;
-  const needsReassign = transactionCount > 0;
+  const investmentCount = category?.investmentCount ?? 0;
+  // No escopo investment o backend migra os ativos para o fallback automaticamente.
+  const needsReassign = !isInvestment && transactionCount > 0;
 
   const targets = useMemo(
     () => otherCategories.filter((c) => c.id !== category?.id),
@@ -74,9 +80,13 @@ export function DeleteCategoryDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Excluir categoria &quot;{category?.name}&quot;?</AlertDialogTitle>
           <AlertDialogDescription>
-            {needsReassign
-              ? `Há ${transactionCount} ${transactionCount === 1 ? 'transação' : 'transações'} nesta categoria. Escolha para qual categoria movê-${transactionCount === 1 ? 'la' : 'las'} antes de excluir.`
-              : 'Esta ação não pode ser desfeita.'}
+            {isInvestment
+              ? investmentCount > 0
+                ? `Há ${investmentCount} ${investmentCount === 1 ? 'ativo' : 'ativos'} nesta categoria. ${investmentCount === 1 ? 'Ele será movido' : 'Eles serão movidos'} para "${FALLBACK_INVESTMENT_CATEGORY_NAME}" ao excluir.`
+                : 'Esta ação não pode ser desfeita.'
+              : needsReassign
+                ? `Há ${transactionCount} ${transactionCount === 1 ? 'transação' : 'transações'} nesta categoria. Escolha para qual categoria movê-${transactionCount === 1 ? 'la' : 'las'} antes de excluir.`
+                : 'Esta ação não pode ser desfeita.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
 

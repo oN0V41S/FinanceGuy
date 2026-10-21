@@ -45,7 +45,11 @@ describe('InvestmentsSection', () => {
   });
 
   it('opens delete confirmation and deletes an investment', async () => {
-    mockFetch.mockResolvedValueOnce(makeResponse({ data: [investment] }));
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/categories')) return Promise.resolve(makeResponse({ data: [] }));
+      return Promise.resolve(makeResponse({ data: [investment] }));
+    });
     render(<InvestmentsSection />);
     await screen.findByText('Tesouro Selic');
 
@@ -60,7 +64,11 @@ describe('InvestmentsSection', () => {
   });
 
   it('does not delete when the confirmation dialog is cancelled', async () => {
-    mockFetch.mockResolvedValueOnce(makeResponse({ data: [investment] }));
+    mockFetch.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/categories')) return Promise.resolve(makeResponse({ data: [] }));
+      return Promise.resolve(makeResponse({ data: [investment] }));
+    });
     render(<InvestmentsSection />);
     await screen.findByText('Tesouro Selic');
 
@@ -68,6 +76,7 @@ describe('InvestmentsSection', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
 
     expect(screen.getByText('Tesouro Selic')).toBeInTheDocument();
-    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const deleteCalls = mockFetch.mock.calls.filter(([url]) => String(url).includes('/api/investments/'));
+    expect(deleteCalls).toHaveLength(0);
   });
 });

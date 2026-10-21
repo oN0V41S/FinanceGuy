@@ -57,13 +57,14 @@ describe('InvestmentFormDialog — histórico do ticker', () => {
     expect(screen.getByLabelText('Preço por unidade (BRL)')).toBeEnabled();
   });
 
-  it('não consulta a API enquanto o ticker é inválido/curto', async () => {
+  it('não consulta a API de cotações enquanto o ticker é inválido/curto', async () => {
     mockFetch({ history: true, quote: true });
     openMarketForm();
 
     fireEvent.change(screen.getByLabelText('Ticker'), { target: { value: 'P' } });
     await new Promise((resolve) => setTimeout(resolve, 700));
 
-    await waitFor(() => expect(global.fetch).not.toHaveBeenCalled());
+    const quoteCalls = (global.fetch as jest.Mock).mock.calls.filter(([url]) => String(url).includes('/quotes'));
+    expect(quoteCalls).toHaveLength(0);
   });
 });

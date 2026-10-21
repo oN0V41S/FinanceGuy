@@ -46,6 +46,23 @@ describe('InvestmentCard', () => {
     fireEvent.click(screen.getByLabelText('Excluir investimento'));
     expect(onDelete).toHaveBeenCalledWith(investment);
   });
+
+  it('shows a colored category badge when the investment has a category', () => {
+    const withCategory: Investment = {
+      ...investment,
+      categoryId: 'clx1a2b3c4d5',
+      category: { id: 'clx1a2b3c4d5', name: 'Cripto', color: '#3B82F6' },
+    };
+    render(<InvestmentCard investment={withCategory} onEdit={jest.fn()} onDelete={jest.fn()} />);
+
+    expect(screen.getByText('Cripto')).toBeInTheDocument();
+  });
+
+  it('omits the category badge when there is no category', () => {
+    render(<InvestmentCard investment={investment} onEdit={jest.fn()} onDelete={jest.fn()} />);
+
+    expect(screen.queryByText('Cripto')).not.toBeInTheDocument();
+  });
 });
 
 describe('InvestmentCard market asset', () => {

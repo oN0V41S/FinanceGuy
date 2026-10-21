@@ -16,6 +16,11 @@ const SERVER_CATEGORIES: Category[] = [
   { id: 'c2', name: 'Outros', type: 'both', color: '#222222', icon: 'tag', isDefault: true, transactionCount: 0 },
 ];
 
+const SERVER_INVESTMENT_CATEGORIES: Category[] = [
+  { id: 'i1', name: 'Renda Fixa', type: 'both', color: '#3B82F6', icon: 'wallet', isDefault: true, scope: 'investment', investmentCount: 2 },
+  { id: 'i2', name: 'Cripto', type: 'both', color: '#EAB308', icon: 'smartphone', isDefault: false, scope: 'investment', investmentCount: 1 },
+];
+
 describe('useCategories', () => {
   beforeEach(() => {
     mockFetch.mockReset();
@@ -125,5 +130,57 @@ describe('useCategories', () => {
 
     expect(thrown).toMatchObject({ code: 'REASSIGN_REQUIRED', details: { transactionCount: 2 } });
     expect(result.current.categories).toHaveLength(2);
+  });
+
+  it('busca com scope=investment quando o escopo é investment', async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: SERVER_INVESTMENT_CATEGORIES }));
+    const { result } = renderHook(() => useCategories({ scope: 'investment' }));
+
+    expect(mockFetch).toHaveBeenCalledWith('/api/categories?scope=investment');
+    await waitFor(() => expect(result.current.isFallback).toBe(false));
+    expect(result.current.categories).toEqual(SERVER_INVESTMENT_CATEGORIES);
+  });
+
+  it('fallback do escopo investment usa os padrões de investimento', async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ error: 'Falhou' }, false, 500));
+    const { result } = renderHook(() => useCategories({ scope: 'investment' }));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const names = result.current.categories.map((c) => c.name);
+    expect(names).toContain('Outros investimentos');
+    expect(names).not.toContain('Alimentação');
+  });
+
+  it('create envia o escopo no corpo da requisição', async () => {
+    const created: Category = { id: 'i3', name: 'Cripto', type: 'both', color: '#EAB308', icon: 'smartphone', isDefault: false, scope: 'investment' };
+    mockFetch
+      .mockResolvedValueOnce(jsonResponse({ data: SERVER_INVESTMENT_CATEGORIES }))
+      .mockResolvedValueOnce(jsonResponse({ data: created }, true, 201));
+    const { result } = renderHook(() => useCategories({ scope: 'investment' }));
+    await waitFor(() => expect(result.current.isFallback).toBe(false));
+
+    await act(async () => {
+      await result.current.create({ name: 'Cripto' });
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      '/api/categories',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Cripto', scope: 'investment' }) })
+    );
+  });
+
+  it('trocar de escopo reseta a lista e refaz a busca com o novo escopo', async () => {
+    mockFetch.mockResolvedValue(jsonResponse({ data: SERVER_CATEGORIES }));
+    const { result, rerender } = renderHook(({ scope }) => useCategories({ scope }), {
+      initialProps: { scope: 'transaction' as 'transaction' | 'investment' },
+    });
+    await waitFor(() => expect(result.current.isFallback).toBe(false));
+
+    mockFetch.mockResolvedValue(jsonResponse({ data: SERVER_INVESTMENT_CATEGORIES }));
+    rerender({ scope: 'investment' });
+
+    expect(result.current.categories.some((c) => c.name === 'Mercado')).toBe(false);
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledWith('/api/categories?scope=investment'));
+    await waitFor(() => expect(result.current.categories).toEqual(SERVER_INVESTMENT_CATEGORIES));
   });
 });

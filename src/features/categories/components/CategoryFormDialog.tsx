@@ -14,9 +14,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SegmentedToggle } from '@/components/ui/segmented-toggle';
 import { cn } from '@/lib/utils';
-import { CATEGORY_COLORS, CATEGORY_ICONS, FALLBACK_CATEGORY_KEY } from '../defaults';
+import {
+  CATEGORY_COLORS,
+  CATEGORY_ICONS,
+  FALLBACK_CATEGORY_KEY,
+  FALLBACK_CATEGORY_NAME,
+  FALLBACK_INVESTMENT_CATEGORY_KEY,
+  FALLBACK_INVESTMENT_CATEGORY_NAME,
+} from '../defaults';
 import { normalizeCategoryName } from '../normalizeCategoryName';
-import { CreateCategorySchema, type Category, type CreateCategoryInput } from '../validations';
+import { CreateCategorySchema, type Category, type CategoryScopeValue, type CreateCategoryInput } from '../validations';
 import { CategoryIcon } from './CategoryIcon';
 
 const TYPE_OPTIONS = [
@@ -29,10 +36,12 @@ interface CategoryFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   category?: Category | null;
+  /** Escopo das categorias: transações (padrão) ou investimentos. */
+  scope?: CategoryScopeValue;
   onSubmit: (input: CreateCategoryInput) => Promise<void>;
 }
 
-export function CategoryFormDialog({ open, onOpenChange, category, onSubmit }: CategoryFormDialogProps) {
+export function CategoryFormDialog({ open, onOpenChange, category, scope = 'transaction', onSubmit }: CategoryFormDialogProps) {
   const [name, setName] = useState('');
   const [type, setType] = useState<CreateCategoryInput['type']>('expense');
   const [color, setColor] = useState<string>(CATEGORY_COLORS[0]);
@@ -42,8 +51,11 @@ export function CategoryFormDialog({ open, onOpenChange, category, onSubmit }: C
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isEditing = Boolean(category);
-  // "Outros" é o fallback: nome e tipo ficam travados (só aparência muda).
-  const isFallback = Boolean(category?.isDefault) && normalizeCategoryName(category?.name ?? '') === FALLBACK_CATEGORY_KEY;
+  const isInvestment = scope === 'investment';
+  // O fallback do escopo ("Outros" / "Outros investimentos") não pode ser renomeado.
+  const fallbackKey = isInvestment ? FALLBACK_INVESTMENT_CATEGORY_KEY : FALLBACK_CATEGORY_KEY;
+  const fallbackName = isInvestment ? FALLBACK_INVESTMENT_CATEGORY_NAME : FALLBACK_CATEGORY_NAME;
+  const isFallback = Boolean(category?.isDefault) && normalizeCategoryName(category?.name ?? '') === fallbackKey;
 
   useEffect(() => {
     if (!open) return;
@@ -59,7 +71,13 @@ export function CategoryFormDialog({ open, onOpenChange, category, onSubmit }: C
     event.preventDefault();
     setSubmitError(null);
 
-    const parsed = CreateCategorySchema.safeParse({ name, type, color, icon });
+    const parsed = CreateCategorySchema.safeParse({
+      name,
+      type: isInvestment ? 'both' : type,
+      color,
+      icon,
+      scope,
+    });
     if (!parsed.success) {
       setNameError(parsed.error.issues.find((i) => i.path[0] === 'name')?.message ?? 'Confira os campos.');
       return;
@@ -85,8 +103,12 @@ export function CategoryFormDialog({ open, onOpenChange, category, onSubmit }: C
           <DialogTitle>{isEditing ? 'Editar categoria' : 'Nova categoria'}</DialogTitle>
           <DialogDescription>
             {isEditing
-              ? 'Ao renomear, suas transações são atualizadas automaticamente.'
-              : 'Crie uma categoria para organizar melhor seus gastos e ganhos.'}
+              ? isInvestment
+                ? 'Ao renomear, seus ativos continuam na mesma categoria.'
+                : 'Ao renomear, suas transações são atualizadas automaticamente.'
+              : isInvestment
+                ? 'Crie uma categoria para classificar seus investimentos por objetivo.'
+                : 'Crie uma categoria para organizar melhor seus gastos e ganhos.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -105,7 +127,7 @@ export function CategoryFormDialog({ open, onOpenChange, category, onSubmit }: C
               />
               {isFallback && (
                 <p className="text-xs text-on-surface-variant">
-                  &quot;Outros&quot; é a categoria padrão de segurança e não pode ser renomeada.
+                  &quot;{fallbackName}&quot; é a categoria padrão de segurança e não pode ser renomeada.
                 </p>
               )}
               {nameError && (
@@ -115,15 +137,17 @@ export function CategoryFormDialog({ open, onOpenChange, category, onSubmit }: C
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <Label>Tipo</Label>
-              <SegmentedToggle
-                options={TYPE_OPTIONS}
-                value={type ?? 'expense'}
-                onChange={(value) => !isFallback && setType(value)}
-                className={cn('w-fit', isFallback && 'opacity-60 pointer-events-none')}
-              />
-            </div>
+            {!isInvestment && (
+              <div className="flex flex-col gap-2">
+                <Label>Tipo</Label>
+                <SegmentedToggle
+                  options={TYPE_OPTIONS}
+                  value={type ?? 'expense'}
+                  onChange={(value) => !isFallback && setType(value)}
+                  className={cn('w-fit', isFallback && 'opacity-60 pointer-events-none')}
+                />
+              </div>
+            )}
 
             <div className="flex flex-col gap-2">
               <Label>Cor</Label>
