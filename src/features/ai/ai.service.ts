@@ -1,9 +1,12 @@
 import type { TransactionService } from '@/features/transactions/transactions.service';
 import type { GoalService } from '@/features/goals/goal.service';
 import type { InvestmentService } from '@/features/investments/investment.service';
+import type { ICategoryRepository } from '@/features/categories/ICategory.repository';
+import type { Category } from '@/features/categories/validations';
 import { AiContextLoadError } from './errors';
 import { buildFinancialContext, getBrtPeriod } from './financialContext';
 import { resolveQuestionPeriod } from './questionPeriod';
+import { wantsPortfolio } from './portfolioIntent';
 import { buildSystemPrompt, buildUserMessage } from './systemPrompt';
 import type { AskResult, ILlmProvider, LlmMessage } from './types';
 
@@ -11,6 +14,8 @@ export interface AiServiceDeps {
   transactions: Pick<TransactionService, 'getAllTransactions'>;
   goals: Pick<GoalService, 'getAllGoals'>;
   investments: Pick<InvestmentService, 'getAllInvestments'>;
+  /** Categorias via container (repositório, sem seed no caminho da IA); usadas só com `wantsPortfolio`. */
+  categories: Pick<ICategoryRepository, 'findAll'>;
   llm: ILlmProvider;
   now?: () => Date;
 }
@@ -58,7 +63,24 @@ export class AiService {
       return { answer: NO_DATA_ANSWER, truncated: false };
     }
 
-    const context = buildFinancialContext({ transactions: transactions.data, goals, investments }, now, range);
+    // Seção de carteira sob demanda (FING-27): falha ao carregar categorias → seção omitida, resposta segue.
+    let portfolioCategories: Category[] | undefined;
+    if (wantsPortfolio(question)) {
+      try {
+        portfolioCategories = await this.deps.categories.findAll(userId, 'investment');
+      } catch (error) {
+        console.error('[ai.service] Falha ao carregar categorias; carteira omitida', {
+          name: error instanceof Error ? error.name : 'UnknownError',
+        });
+      }
+    }
+
+    const context = buildFinancialContext(
+      { transactions: transactions.data, goals, investments },
+      now,
+      range,
+      portfolioCategories,
+    );
 
     const startedAt = Date.now();
     const response = await this.deps.llm.complete({

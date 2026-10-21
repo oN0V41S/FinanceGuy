@@ -129,6 +129,11 @@ export interface FinancialContextDto {
     ticker: string | null;
     status: string;
   }>;
+  /**
+   * FING-27: carteira agrupada por categoria (top 8 + "Outras").
+   * Presente SOMENTE quando a pergunta trata de investimentos (`wantsPortfolio`).
+   */
+  portfolioByCategory?: Array<{ name: string; total: number; pct: number; count: number }>;
   omitted: { transactions: number; goals: number; investments: number };
 }
 

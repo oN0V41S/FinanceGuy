@@ -6,7 +6,7 @@ const NOW = new Date('2026-10-15T15:00:00Z');
 
 const SENTINELS = ['DESCRICAO_SENTINELA', 'RESPONSAVEL_SENTINELA', 'USERID_SENTINELA', 'EMAIL_SENTINELA', 'HASH_SENTINELA', 'ID_SENTINELA'];
 
-function makeDeps(over: { transactions?: unknown[]; goals?: unknown[]; investments?: unknown[] } = {}) {
+function makeDeps(over: { transactions?: unknown[]; goals?: unknown[]; investments?: unknown[]; categories?: unknown[] } = {}) {
   const transactions = {
     getAllTransactions: jest.fn().mockResolvedValue({
       data: over.transactions ?? [
@@ -30,11 +30,12 @@ function makeDeps(over: { transactions?: unknown[]; goals?: unknown[]; investmen
   };
   const goals = { getAllGoals: jest.fn().mockResolvedValue(over.goals ?? []) };
   const investments = { getAllInvestments: jest.fn().mockResolvedValue(over.investments ?? []) };
+  const categories = { findAll: jest.fn().mockResolvedValue(over.categories ?? []) };
   const llm: jest.Mocked<ILlmProvider> = {
     complete: jest.fn().mockResolvedValue({ text: 'Você gastou R$ 123,45.', stopReason: 'stop', usage: { inputTokens: 100, outputTokens: 20 } }),
   };
-  const service = new AiService({ transactions, goals, investments, llm, now: () => NOW });
-  return { service, transactions, goals, investments, llm };
+  const service = new AiService({ transactions, goals, investments, categories, llm, now: () => NOW });
+  return { service, transactions, goals, investments, categories, llm };
 }
 
 describe('AiService.ask', () => {
@@ -136,5 +137,59 @@ describe('AiService.ask', () => {
     expect(logged).not.toContain('user-1');
     expect(logged).not.toContain('Mercado');
     expect(logged).toContain('stopReason');
+  });
+
+  describe('carteira por categoria (sob demanda)', () => {
+    const investment = {
+      id: 'i1',
+      name: 'CDB',
+      type: 'Renda Fixa',
+      value: 250,
+      status: 'ACTIVE',
+      categoryId: 'c1',
+      category: { id: 'c1', name: 'Renda Fixa', color: '#3B82F6' },
+    };
+    const investmentCategory = {
+      id: 'c1',
+      name: 'Renda Fixa',
+      type: 'both',
+      color: '#3B82F6',
+      icon: null,
+      isDefault: true,
+      scope: 'investment',
+    };
+
+    const userMessage = (d: ReturnType<typeof makeDeps>): string => d.llm.complete.mock.calls[0][0].messages[0].content;
+
+    it('pergunta sobre carteira consulta categorias do escopo investment e envia a seção', async () => {
+      const d = makeDeps({ investments: [investment], categories: [investmentCategory] });
+      await d.service.ask('user-1', 'Como está minha carteira?');
+      expect(d.categories.findAll).toHaveBeenCalledWith('user-1', 'investment');
+      expect(userMessage(d)).toContain('portfolioByCategory');
+      expect(userMessage(d)).toContain('Renda Fixa');
+    });
+
+    it('pergunta sem o tema não consulta categorias nem envia a seção', async () => {
+      const d = makeDeps({ investments: [investment], categories: [investmentCategory] });
+      await d.service.ask('user-1', 'Quanto gastei?');
+      expect(d.categories.findAll).not.toHaveBeenCalled();
+      expect(userMessage(d)).not.toContain('portfolioByCategory');
+    });
+
+    it('falha ao carregar categorias: seção omitida e a resposta segue', async () => {
+      const d = makeDeps({ investments: [investment] });
+      d.categories.findAll.mockRejectedValue(new Error('db down'));
+      const result = await d.service.ask('user-1', 'Como está minha carteira?');
+      expect(result.answer).toBe('Você gastou R$ 123,45.');
+      expect(userMessage(d)).not.toContain('portfolioByCategory');
+      const logged = JSON.stringify([...logSpy.mock.calls, ...errSpy.mock.calls]);
+      expect(logged).not.toContain('db down');
+    });
+
+    it('sem carteira ativa a seção fica ausente mesmo pedindo o tema', async () => {
+      const d = makeDeps({ investments: [], categories: [investmentCategory] });
+      await d.service.ask('user-1', 'Como está minha carteira?');
+      expect(userMessage(d)).not.toContain('portfolioByCategory');
+    });
   });
 });

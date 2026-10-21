@@ -82,6 +82,7 @@ export const aiService: AiService = new AiService({
   transactions: transactionService,
   goals: goalService,
   investments: investmentService,
+  categories: categoryRepository,
   llm: aiLlm,
 });
 
@@ -122,7 +123,12 @@ export const aiAgent: AgentService = new AgentService({
   rateLimiter: aiRateLimiter,
   categorySuggester: aiCategorySuggester,
   context: withContextCache(
-    createFinancialContextSource({ transactions: transactionService, goals: goalService, investments: investmentService }),
+    createFinancialContextSource({
+      transactions: transactionService,
+      goals: goalService,
+      investments: investmentService,
+      categories: categoryRepository,
+    }),
     aiContextCache,
   ),
   config: agentConfig,
