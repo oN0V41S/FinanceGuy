@@ -19,10 +19,8 @@ FAIL=0
 # Cadeias esperadas — devem bater com chains.conf (spec §2.2, seção 2.2 da spec FING-26)
 IMPL_MODELS=(
   "opencode/mimo-v2.6-flash-free"
-  "opencode/longcat-2.5-preview-free"
   "opencode/beam-free"
   "openrouter/xingchen-agi/xing4.0-29b-a4b:free"
-  "openrouter/poolside/laguna-xs-2.1:free"
   "openrouter/openrouter/free"
   "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
   "openrouter/nvidia/nemotron-3.5-lightning:free"
@@ -57,7 +55,11 @@ EOF
   OPENCODE_STUB_TEXT="$STUB_TEXT"
   export OPENCODE_STUB_LOG OPENCODE_STUB_COUNTER OPENCODE_STUB_MODES OPENCODE_STUB_TEXT
   FG_RETRY_DELAY=0
-  export FG_RETRY_DELAY
+  FG_POLL_INTERVAL=1
+  FG_PROBE=0
+  FG_HANG_TIMEOUT=4
+  export FG_RETRY_DELAY FG_POLL_INTERVAL FG_PROBE FG_HANG_TIMEOUT
+  unset OPENCODE_STUB_MODEL_MODES FG_PROBE_JOBS 2>/dev/null || true
   unset FG_CHAINS_FILE 2>/dev/null || true
   PROMPT_FILE="$TMP/prompt.md"
   printf '%s\n' "Implemente a etapa 1: criar o modulo de teste (TDD)." > "$PROMPT_FILE"
@@ -206,11 +208,10 @@ test_fallback_reuses_session() {
   assert_eq "ok" "true" "$(json_bool ok)"
   assert_eq "attempts" "2" "$(json_num attempts)"
   assert_eq "sessionID" "ses_stub_1" "$(json_str sessionID)"
-  assert_eq "model" "opencode/longcat-2.5-preview-free" "$(json_str model)"
   assert_eq "nº de chamadas" "2" "$(log_count)"
   assert_contains "1ª chamada: 1º modelo" "model=opencode/mimo-v2.6-flash-free" "$(log_line 1)"
   assert_contains "1ª chamada: sem -s" "session=-" "$(log_line 1)"
-  assert_contains "2ª chamada: -m do 2º modelo" "model=opencode/longcat-2.5-preview-free" "$(log_line 2)"
+  assert_contains "2ª chamada: -m do 2º modelo" "model=opencode/beam-free" "$(log_line 2)"
   assert_contains "2ª chamada: reutiliza -s" "session=ses_stub_1" "$(log_line 2)"
   assert_file_not_contains "nunca passa --auto" "$OPENCODE_STUB_LOG" "--auto"
 }
@@ -224,7 +225,6 @@ test_error_text_with_exit0_is_failure() {
   assert_eq "exit code" 0 "$RA_CODE"
   assert_eq "ok" "true" "$(json_bool ok)"
   assert_eq "attempts (fallback ocorreu)" "2" "$(json_num attempts)"
-  assert_eq "model" "opencode/longcat-2.5-preview-free" "$(json_str model)"
 }
 
 # Saída com "Request too large" com exit 0 é tratada como falha.
@@ -296,7 +296,7 @@ test_impl_chain_order() {
   run_agent --chain IMPL --agent devops-platform-engineer --dir "$TMP/worktree" \
     --prompt-file "$PROMPT_FILE" --timeout 10
   assert_eq "exit code" 1 "$RA_CODE"
-  assert_eq "nº de chamadas" "9" "$(log_count)"
+  assert_eq "nº de chamadas" "7" "$(log_count)"
   local i=1 m
   for m in "${IMPL_MODELS[@]}"; do
     assert_contains "IMPL[$i]=$m" "model=$m " "$(log_line "$i")"
@@ -364,6 +364,86 @@ test_chains_file_missing() {
   assert_eq "exit code" 2 "$RA_CODE"
 }
 
+# Provedor sem cota: o opencode loga `stream error` e NÃO sai. O vigia mata e cai para o próximo.
+test_quota_hang_falls_back() {
+  OPENCODE_STUB_MODES="quota,success"
+  export OPENCODE_STUB_MODES
+  run_agent --chain IMPL --agent test-agent --dir "$TMP/worktree" \
+    --prompt-file "$PROMPT_FILE" --timeout 60
+  assert_eq "exit code" 0 "$RA_CODE"
+  assert_eq "ok" "true" "$(json_bool ok)"
+  assert_eq "attempts" "2" "$(json_num attempts)"
+  assert_contains "motivo no stderr" "Free usage limit reached" "$(cat "$RA_STDERR")"
+}
+
+# Sem nenhuma saída por FG_HANG_TIMEOUT: considerado travado e troca de modelo.
+test_silent_hang_falls_back() {
+  OPENCODE_STUB_MODES="hang,success"
+  export OPENCODE_STUB_MODES
+  run_agent --chain IMPL --agent test-agent --dir "$TMP/worktree" \
+    --prompt-file "$PROMPT_FILE" --timeout 60
+  assert_eq "exit code" 0 "$RA_CODE"
+  assert_eq "attempts" "2" "$(json_num attempts)"
+  assert_contains "motivo no stderr" "travado" "$(cat "$RA_STDERR")"
+}
+
+# O teto duro (--timeout) vale mesmo sem o limite de hang ser atingido.
+test_hard_timeout() {
+  OPENCODE_STUB_MODES="hang"
+  FG_HANG_TIMEOUT=100
+  export OPENCODE_STUB_MODES FG_HANG_TIMEOUT
+  run_agent --chain REVIEW --agent test-agent --dir "$TMP/worktree" \
+    --prompt-file "$PROMPT_FILE" --start-at 4 --timeout 3
+  assert_eq "exit code" 1 "$RA_CODE"
+  assert_contains "timeout no erro" "timeout de 3s" "$RA_OUT"
+}
+
+# O erro benigno do agente `title` (small=true) não pode derrubar uma execução bem-sucedida.
+test_title_error_is_ignored() {
+  OPENCODE_STUB_MODES="titleerror"
+  export OPENCODE_STUB_MODES
+  run_agent --chain IMPL --agent test-agent --dir "$TMP/worktree" \
+    --prompt-file "$PROMPT_FILE" --timeout 10
+  assert_eq "exit code" 0 "$RA_CODE"
+  assert_eq "attempts" "1" "$(json_num attempts)"
+}
+
+# Sonda antes de cada tentativa: modelo morto é pulado sem gastar o prompt real.
+test_probe_skips_dead_model() {
+  FG_PROBE=1
+  OPENCODE_STUB_MODEL_MODES="opencode/mimo-v2.6-flash-free=quota"
+  export FG_PROBE OPENCODE_STUB_MODEL_MODES
+  run_agent --chain IMPL --agent test-agent --dir "$TMP/worktree" \
+    --prompt-file "$PROMPT_FILE" --timeout 60
+  assert_eq "exit code" 0 "$RA_CODE"
+  assert_contains "pulada no stderr" "sonda falhou" "$(cat "$RA_STDERR")"
+  # o prompt real nunca foi enviado ao modelo morto (só a sonda)
+  assert_eq "chamadas ao modelo morto" "1" "$(grep -c 'model=opencode/mimo-v2.6-flash-free' "$OPENCODE_STUB_LOG")"
+  assert_contains "sonda é mínima" "Responda apenas com a palavra OK" "$(log_line 1)"
+}
+
+# --probe: testa a cadeia em paralelo, sem agente nem prompt-file, e lista os índices saudáveis.
+test_probe_mode_reports_healthy() {
+  FG_PROBE=1; FG_PROBE_JOBS=2
+  OPENCODE_STUB_MODEL_MODES="opencode/mimo-v2.6-flash-free=quota,opencode/beam-free=hang"
+  export FG_PROBE FG_PROBE_JOBS OPENCODE_STUB_MODEL_MODES
+  run_agent --chain IMPL --dir "$TMP/worktree" --probe
+  assert_eq "exit code" 0 "$RA_CODE"
+  assert_single_line_stdout
+  assert_contains "mimo fora" '"index":1,"model":"opencode/mimo-v2.6-flash-free","ok":false' "$RA_OUT"
+  assert_contains "beam fora" '"index":2,"model":"opencode/beam-free","ok":false' "$RA_OUT"
+  assert_contains "healthy" '"healthy":[3,4,5,6,7]' "$RA_OUT"
+}
+
+# --probe sem nenhum modelo saudável → exit 1.
+test_probe_mode_none_healthy() {
+  OPENCODE_STUB_MODES="quota"
+  export OPENCODE_STUB_MODES
+  run_agent --chain REVIEW --dir "$TMP/worktree" --probe
+  assert_eq "exit code" 1 "$RA_CODE"
+  assert_contains "healthy vazio" '"healthy":[]' "$RA_OUT"
+}
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -385,6 +465,13 @@ run_test test_start_at
 run_test test_session_option
 run_test test_title_accepted
 run_test test_chains_file_missing
+run_test test_quota_hang_falls_back
+run_test test_silent_hang_falls_back
+run_test test_hard_timeout
+run_test test_title_error_is_ignored
+run_test test_probe_skips_dead_model
+run_test test_probe_mode_reports_healthy
+run_test test_probe_mode_none_healthy
 
 echo
 echo "Resultados: $PASSED passaram, $FAILED falharam."

@@ -25,6 +25,7 @@ Você (Claude) é o **maestro**: orquestra, valida e commita. O **OpenCode headl
 3. `git fetch origin main` — se `origin/main` inacessível, pare (não criar worktree de `main` local desatualizado sem confirmação).
 4. Notion MCP acessível (banco "Gestão do Projeto"); indisponível → pare antes da worktree e ofereça seguir com código manual.
 5. Verifique retomada: entrada `FING-N` com worktree + `.fg-pipeline.json` → mostrar "última etapa concluída: X; retomar de Y?" e seguir só com confirmação (ver `references/state-schema.md`). Worktree órfã sem estado → abortar; **nunca sobrescrever**.
+6. **Teste os modelos** (diretriz abaixo): `scripts/run-agent.sh --chain IMPL --dir <repo> --probe` (e `--chain REVIEW` se for revisar). Nenhum saudável → pare e avise qual provedor falhou (quota, chave, rede) antes de criar qualquer coisa.
 
 ## Fluxo (passos 1–11)
 
@@ -38,6 +39,7 @@ Siga o mapeamento de propriedades do card e do corpo da página em `references/n
 6. **WORKTREE** — `git worktree add ../FinanceGuy-FING-N -b FING-N origin/main` (o checkout principal nunca é tocado; alterações não commitadas nele são ignoradas).
 7. **SETUP** — na worktree: `pnpm install --frozen-lockfile`, `npx prisma generate`; grave `.fg-pipeline.json` (schema em `references/state-schema.md`) e adicione-o a `.git/info/exclude`. Falha aqui → estado `failed(setup)`; variável de ambiente faltando → informe **qual**, sem procurar `.env`.
 8. **IMPLEMENTAR** — antes disso, lance o **agente monitor** (seção abaixo). Para cada etapa do Mapa de Execução da spec:
+   - **Sonde antes de cada etapa** (`--probe`) e passe como `--start-at` o primeiro índice saudável (diretriz abaixo).
    - Preencha `references/impl-prompt.md` (placeholders `{{…}}`) e rode `scripts/run-agent.sh --chain IMPL --agent <agente> --dir <worktree> --prompt-file <prompt>` — **cada `opencode run` como tarefa em background própria** (ver monitor). Uma sessão OpenCode **por etapa**.
    - **Valide**: `npx jest <relacionado>` + `pnpm lint` na worktree. Falha → devolva o erro ao mesmo agente/sessão (use `--session <id>`; até 2×) → depois troque de modelo na mesma sessão (`--start-at`) → depois pare sem commitar.
    - Compare `git diff --name-only` com os arquivos previstos da etapa; extras aparecem no resumo e são revertidos só com confirmação.
@@ -52,18 +54,32 @@ Siga o mapeamento de propriedades do card e do corpo da página em `references/n
 .claude/skills/fg-pipeline/scripts/run-agent.sh \
   --chain <IMPL|REVIEW> --agent <nome> --dir <worktree> --prompt-file <arquivo> \
   [--session <ses_id>] [--start-at <índice-do-modelo>] [--title <texto>] [--timeout <s>]
+
+# pré-voo: testa a cadeia (sem agente nem prompt) e lista os índices saudáveis
+.claude/skills/fg-pipeline/scripts/run-agent.sh --chain <IMPL|REVIEW> --dir <worktree> --probe [--start-at <n>]
 ```
 
 - Cadeias em `scripts/chains.conf`: **IMPL** = modelos free (ordem da spec §2.2); **REVIEW** = Gemini (`gemini-3.8-flash → 3.7-flash → 3.5-flash-lite → 3.1-flash-lite`).
 - O script faz fallback automático entre modelos, reutiliza a sessão com `-s <id>` capturado do JSON (**nunca use `-c`**: em chamadas paralelas pega a sessão errada), espera 5 s entre tentativas e detecta falha por exit ≠ 0, `Error:`/`Request too large`/rate limit ou texto vazio.
 - stdout = uma linha JSON (`ok`, `sessionID`, `model`/`lastModel`, `attempts`, `text`/`error`); exit `0` ok · `1` cadeia falhou · `2` args inválidos. Guarde `sessionID`/`model` no `.fg-pipeline.json`.
+- `--probe`: stdout `{"chain":…,"healthy":[idx…],"models":[{index,model,ok,reason}]}`; exit `0` se há ao menos um saudável, `1` se nenhum. Roda em lotes de `FG_PROBE_JOBS` (padrão 3) — muitos `opencode` ao mesmo tempo causam falso timeout.
+- Variáveis: `FG_HANG_TIMEOUT` (60 s sem progresso → mata o modelo), `FG_PROBE_TIMEOUT` (45 s por sonda), `FG_PROBE` (0 desliga a sonda por tentativa), `FG_POLL_INTERVAL` (2 s). `--timeout` padrão **300 s** (teto duro).
+
+## Diretriz: sempre testar os modelos, antes e durante
+
+O `opencode run` **não sai** quando o provedor recusa (ex.: *Free usage limit reached*) e não escreve nada — parece "agente lendo pasta errada", mas é modelo morto. Por isso:
+
+1. **Antes**: `--probe` no pré-voo e antes de cada etapa; use o primeiro índice saudável como `--start-at`. Cadeia inteira morta → pare e avise (não adianta esperar timeout).
+2. **Durante**: o script sonda o modelo antes de **cada** tentativa e vigia o processo (log do provedor com `stream error` → mata na hora; saída e `git status` da worktree parados por `FG_HANG_TIMEOUT` = 60 s → mata e cai para o próximo modelo). Nada de esperar 900 s.
+3. **Ao identificar travamento** (maestro): não espere mais de **1 min** sem progresso — rode `--probe` de novo, reordene com `--start-at` para um modelo saudável e relance a etapa na mesma sessão (`--session`).
+4. Modelo sempre falhando (exit 1 na sonda, "model not found") → está obsoleto: confira com `opencode models <provedor>` e remova de `scripts/chains.conf` (atualizando os testes em `scripts/__tests__/run-agent.test.sh`).
 
 ## Agente monitor (paralelo, spec §3.4b)
 
 Ao iniciar o passo 8, lance **um agente Claude somente leitura em background** (`run_in_background: true`, modelo barato como `haiku`):
-- A cada ~30 s observe `git status --short`, `git diff --stat`, arquivos novos, `out/*.json|.err` e o `.fg-pipeline.json`; grave o painel em `.fg-pipeline.progress.md` (em `.git/info/exclude`, nunca commitado).
+- A cada ~15 s observe `git status --short`, `git diff --stat`, arquivos novos, `out/*.json|.err` e o `.fg-pipeline.json`; grave o painel em `.fg-pipeline.progress.md` (em `.git/info/exclude`, nunca commitado).
 - **Nunca** edita o repositório, commita, inicia `opencode` ou lê `.env`.
-- Encerra após 2 min sem saída dos agentes ou 25 min; relatório final ≤ 5 linhas.
+- Sem progresso (mesma saída e mesmo `git status`) por **60 s**, registre "TRAVADO" no painel e encerre o relatório: o maestro sonda os modelos e relança (diretriz acima). Encerra também ao fim das etapas ou após 25 min; relatório final ≤ 5 linhas.
 - **Regra de lançamento**: cada `opencode run` (via `run-agent.sh`) roda como **tarefa em background própria** do maestro; `cmd &` solto morre com o shell e deixa saída vazia.
 - Ao reportar andamento, leia `.fg-pipeline.progress.md`.
 

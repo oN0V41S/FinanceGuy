@@ -6,6 +6,13 @@
 #                            comportamento se repete se houver mais chamadas do que modos.
 #                            Padrão: "success"
 #                            Valores: success | exit1 | error | toolarge | empty | ratelimit
+#                                     | quota (loga `stream error` do provedor e trava, como o
+#                                       opencode real com "Free usage limit reached")
+#                                     | hang (não escreve nada e trava)
+#                                     | titleerror (sucesso, mas com o erro benigno do agente title)
+#   OPENCODE_STUB_MODEL_MODES - comportamento por MODELO ("modelo=modo,modelo=modo"); tem
+#                            precedência sobre OPENCODE_STUB_MODES. Útil para sondas, cujas
+#                            chamadas também passam pelo contador.
 #   OPENCODE_STUB_LOG      - arquivo onde cada invocação é registrada (append, 1 linha/chamada)
 #   OPENCODE_STUB_COUNTER  - arquivo de estado do contador de chamadas
 #   OPENCODE_STUB_SESSION  - sessionID usado quando -s não é informado (padrão: ses_stub_<n>)
@@ -67,6 +74,16 @@ if [ "$idx" -gt "$max" ]; then idx="$max"; fi
 if [ "$idx" -lt 0 ]; then idx=0; fi
 mode="${MODE_LIST[$idx]}"
 
+# precedência: modo por modelo
+if [ -n "${OPENCODE_STUB_MODEL_MODES:-}" ]; then
+  IFS=',' read -r -a MM_LIST <<< "$OPENCODE_STUB_MODEL_MODES"
+  for pair in "${MM_LIST[@]}"; do
+    if [ "${pair%%=*}" = "$model" ]; then
+      mode="${pair#*=}"
+    fi
+  done
+fi
+
 case "$mode" in
   success)
     emit_session
@@ -98,6 +115,21 @@ case "$mode" in
   ratelimit)
     emit_session
     emit_text "rate limit exceeded, try again later"
+    exit 0
+    ;;
+  quota)
+    # opencode real: loga o erro do provedor (--print-logs) e NÃO sai.
+    printf 'timestamp=2026-01-01T00:00:00.000Z level=INFO run=stub message="creating instance"\n' >&2
+    printf 'timestamp=2026-01-01T00:00:01.000Z level=ERROR run=stub message="stream error" providerID=opencode modelID=%s session.id=%s small=false agent=%s mode=all error.error="AI_APICallError: Free usage limit reached. Free models work in OpenCode"\n' "${model:--}" "$sid" "${agent:--}" >&2
+    exec sleep 300
+    ;;
+  hang)
+    exec sleep 300
+    ;;
+  titleerror)
+    printf 'timestamp=2026-01-01T00:00:00.000Z level=ERROR run=stub message="stream error" providerID=opencode modelID=gpt-5.4-nano session.id=%s small=true agent=title mode=primary error.error="AI_APICallError: Upstream request failed: Model access is disabled"\n' "$sid" >&2
+    emit_session
+    emit_text "${OPENCODE_STUB_TEXT:-Implementacao da etapa 1 concluida com sucesso.}"
     exit 0
     ;;
   *)
