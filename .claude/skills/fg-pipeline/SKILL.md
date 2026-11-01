@@ -72,7 +72,8 @@ O `opencode run` **não sai** quando o provedor recusa (ex.: *Free usage limit r
 1. **Antes**: `--probe` no pré-voo e antes de cada etapa; use o primeiro índice saudável como `--start-at`. Cadeia inteira morta → pare e avise (não adianta esperar timeout).
 2. **Durante**: o script sonda o modelo antes de **cada** tentativa e vigia o processo (log do provedor com `stream error` → mata na hora; saída e `git status` da worktree parados por `FG_HANG_TIMEOUT` = 60 s → mata e cai para o próximo modelo). Nada de esperar 900 s.
 3. **Ao identificar travamento** (maestro): não espere mais de **1 min** sem progresso — rode `--probe` de novo, reordene com `--start-at` para um modelo saudável e relance a etapa na mesma sessão (`--session`).
-4. Modelo sempre falhando (exit 1 na sonda, "model not found") → está obsoleto: confira com `opencode models <provedor>` e remova de `scripts/chains.conf` (atualizando os testes em `scripts/__tests__/run-agent.test.sh`).
+4. **Cada sonda gasta 1 requisição free** (OpenRouter sem créditos = ~50/dia, erro `free-models-per-day`). Sonde a cadeia inteira uma vez por etapa no máximo; entre etapas confie na sonda por tentativa. Erro de limite diário em todos os provedores → pare e peça ao usuário: esperar o reset, adicionar créditos ou trocar o executor.
+5. Modelo sempre falhando (exit 1 na sonda, "model not found") → está obsoleto: confira com `opencode models <provedor>` e remova de `scripts/chains.conf` (atualizando os testes em `scripts/__tests__/run-agent.test.sh`).
 
 ## Agente monitor (paralelo, spec §3.4b)
 
