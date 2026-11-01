@@ -1,0 +1,24 @@
+{
+  "name": "@financeguy/fg-tui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/main.tsx",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ink": "6.8.0",
+    "react": "19.0.3",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.3",
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3",
+    "tsx": "^4.19.2",
+    "vitest": "^2.1.8",
+    "ink-testing-library": "4.0.0"
+  }
+}

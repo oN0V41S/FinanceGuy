@@ -31,5 +31,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
 , "jest.config.js", "next.config.mjs"  ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "tools"]
 }
