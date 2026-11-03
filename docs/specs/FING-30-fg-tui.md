@@ -279,3 +279,59 @@ pnpm fg tui --demo --once   # render único, sem raw mode
 pnpm fg tui --dump          # JSON do board da pipeline real (ou erro claro se não houver)
 pnpm --filter @financeguy/fg-tui test
 ```
+
+---
+
+## V2 — Detalhe por card, multi-worktree e visual (2026-11-03)
+
+Plano completo e estimativa (poker) no card do Notion (bloco "Versão V2"). Corte V2 = itens 1, 2, 3, 4, 7, 9 (29 pts). A TUI continua **somente leitura**.
+
+### V2.1 Contrato `events.jsonl` (item 1)
+
+- Arquivo fixo `<worktree>/.fg-pipeline.events.jsonl` (entra em `.git/info/exclude`), **append-only**, uma linha JSON por evento, escrito só pelo maestro da pipeline (documentado em `references/state-schema.md`); a TUI apenas lê.
+- Evento: `{ ts: string (ISO), step: number | null, type: 'step_started' | 'step_done' | 'step_failed' | 'command' | 'file_changed' | 'finding' | 'note', agent?: string, message: string, data?: Record<string, unknown> }`; campos extras ignorados.
+- `model/events.ts` (puro, porta `FsLike`): `parseEvents(text) → { events, skipped }` (linha inválida é contada e ignorada, nunca lança); `readEvents(dir, fs) → { events, skipped }` (arquivo ausente → vazio); `eventsForStep(events, index)` (ordem cronológica); `tailEvents(events, n)`.
+- Mensagens são tratadas como texto (passam por `sanitizeText`); nunca lê `.env`.
+
+### V2.2 Detalhe do card (item 2)
+
+`DetailPanel` mostra, por etapa: agente, modelo, sessão curta, commit curto, duração (primeiro `step_started` → `step_done|step_failed`), lista de eventos da etapa (últimos 12), arquivos alterados (`file_changed`) e achados (`finding`) ligados à etapa. Sem eventos → "Sem eventos registrados para esta etapa."
+
+### V2.3 Visual (item 3)
+
+Layout responsivo (< 80 colunas empilha), nada de palavra cortada no meio (`wrap="wrap"` onde há descrição; truncamento só com `…` em campos curtos), paleta consistente (pendente gray, rodando yellow, concluída green, falhou red, destaques cyan), cabeçalho com `code · slug · state`, **rodapé fixo com atalhos** (`←/→ coluna · ↑/↓ card · Enter detalhe · Esc voltar · r recarregar · q sair`).
+
+### V2.4 Multi-worktree (item 4)
+
+`pnpm fg tui --dir A --dir B` (repetível) e `--root <pasta>` (varre subpastas diretas com `.fg-pipeline.json`, sem recursão profunda) abrem um **board agregado**: abas (`Tab`/`Shift+Tab`) uma por worktree + aba "Todas" com uma linha-resumo por pipeline (`FING-N · state · etapa atual · progresso k/n`). Cada aba assiste seu estado (`useWatchState` por worktree, limpando watchers no unmount). `FING-N` e descoberta automática continuam valendo quando não há `--dir`/`--root`.
+
+### V2.5 Contrato de loop (item 7)
+
+Seção "Contrato de loop" em `.claude/skills/fg-pipeline/SKILL.md`: cada laço (validação/correção do passo 8, revisão do passo 9, TESTAR do passo 10) declara **critério de saída**, **orçamento** (máx. tentativas/tempo) e **detecção de estagnação** (mesma falha em N rodadas → parar e escalar). Evento `note` registra cada rodada.
+
+### V2.6 Dívidas da V1 (item 9)
+
+- `--bogus`/valor ausente: mensagem de uso clara em pt-BR (parser global `core/args.ts` `takeValue`).
+- Aviso `DEP0190` (spawn com `shell` + args): remover.
+- `--dir`: rejeitar symlink e caminhos inexistentes com mensagem acionável.
+- Converter os 5 `it.todo` em testes reais ou removê-los com justificativa.
+- Pipeline passa a gravar achados da revisão em `review.findings` do estado (docs do `state-schema.md`).
+
+### V2.7 Critérios de aceitação
+
+14. `events`: linha inválida ignorada e contada; arquivo ausente → vazio; `eventsForStep` ordena por `ts`.
+15. Detalhe do card exibe duração, eventos, arquivos e achados; vazio tem mensagem.
+16. Rodapé de atalhos presente; nenhuma palavra cortada em 60 e 120 colunas.
+17. `--dir` repetido e `--root` abrem N abas; `Tab` alterna; watchers limpos no unmount; `--dump` com várias worktrees retorna array.
+18. `SKILL.md` documenta o contrato de loop; `fg sync --check` verde.
+19. Dívidas da seção V2.6 fechadas, sem `it.todo` pendente.
+
+### V2.8 Mapa de execução
+
+| Fase | Itens | Sub-agente | Arquivos (disjuntos) |
+| --- | --- | --- | --- |
+| A | 1 events | `backend-engineer` | `tools/fg-tui/src/model/events*.ts`, `references/state-schema.md` |
+| A | 3 visual | `frontend` | `tools/fg-tui/src/components/{App,Board,Column,Card,PhaseBar,GateBanner,ActivityFeed,FindingsList,ErrorView,format}*` + novo `Footer.tsx` |
+| A | 9 dívidas | `quality-assurance-analyst` | `src/scripts/cli/core/args.ts`, `commands/tui.ts`, `model/{readState,resolveTarget}*`, `main.tsx` (só validação de `--dir`) |
+| B | 2 detalhe, 4 multi | `frontend` + `backend-engineer` | `DetailPanel`, `main.tsx`, `App`, novo `model/aggregate*` |
+| C | 7 loop | `docs-architect` | `.claude/skills/fg-pipeline/SKILL.md` |
