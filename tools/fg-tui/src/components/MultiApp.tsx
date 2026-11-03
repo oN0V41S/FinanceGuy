@@ -6,7 +6,9 @@ import { formatSummary, summarizeResult } from '../model/aggregate.js';
 import { describeReadFailure } from '../model/safeBoard.js';
 import { sanitizeText } from '../model/sanitizeText.js';
 import type { FsLike, WorktreeRef } from '../model/types.js';
+import { ProgressBar, ThemeProvider } from '@inkjs/ui';
 import { LiveApp } from './LiveApp.js';
+import { PALETTE, tuiTheme } from './theme.js';
 
 export interface MultiAppProps {
   refs: WorktreeRef[];
@@ -36,11 +38,26 @@ function SummaryRow({
 }): ReactElement {
   const { result } = useWatchState(worktree.path, fs, watchOptions);
   const summary = summarizeResult(result);
-  const text = summary !== null ? sanitizeText(formatSummary(summary)) : `${tabLabel(worktree)} · ${result.ok ? '' : describeReadFailure(result)}`;
+  if (summary === null) {
+    const failure = `${tabLabel(worktree)} · ${result.ok ? '' : describeReadFailure(result)}`;
+    return (
+      <Text color={PALETTE.danger} bold={selected} wrap="wrap">
+        {`${selected ? '> ' : '  '}${failure}`}
+      </Text>
+    );
+  }
+  const percent = summary.total === 0 ? 0 : Math.round((summary.done / summary.total) * 100);
   return (
-    <Text color={summary === null ? 'red' : undefined} bold={selected} wrap="wrap">
-      {`${selected ? '> ' : '  '}${text}`}
-    </Text>
+    <Box columnGap={1}>
+      <Text bold={selected} color={selected ? PALETTE.accent : PALETTE[summary.tone]} wrap="truncate-end">
+        {`${selected ? '> ' : '  '}${sanitizeText(formatSummary(summary))}`}
+      </Text>
+      <Box width={12}>
+        <ProgressBar value={percent} />
+      </Box>
+      <Text dimColor>{`${percent}%`}</Text>
+      {summary.stale ? <Text color={PALETTE.warn}>{'⚠ sem atualização'}</Text> : null}
+    </Box>
   );
 }
 
@@ -92,6 +109,7 @@ export function MultiApp({ refs, fs, interactive = true, watchOptions }: MultiAp
   const active = tab > 0 ? refs[tab - 1] : undefined;
 
   return (
+    <ThemeProvider theme={tuiTheme}>
     <Box flexDirection="column">
       <Box flexWrap="wrap" columnGap={2}>
         {labels.map((label, i) => (
@@ -111,5 +129,6 @@ export function MultiApp({ refs, fs, interactive = true, watchOptions }: MultiAp
         {tab === 0 ? 'Tab/Shift+Tab alterna aba · ↑/↓ escolhe · Enter abre · Esc/q sai' : 'Tab/Shift+Tab alterna aba · Esc volta a Todas · q sai'}
       </Text>
     </Box>
+    </ThemeProvider>
   );
 }

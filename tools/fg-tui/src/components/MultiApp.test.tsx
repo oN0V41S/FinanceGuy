@@ -138,3 +138,24 @@ describe('MultiApp', () => {
     unmount();
   });
 });
+
+describe('Aba Todas (F4)', () => {
+  it('mostra barra de progresso, percentual e selo de estagnação', async () => {
+    const { watch } = makeWatch();
+    const velho = { ...demoState(), code: 'FING-1', slug: 'alfa', updatedAt: '2020-01-01T00:00:00.000Z' };
+    const files: Record<string, string> = {
+      [`${A}/.fg-pipeline.json`]: JSON.stringify(velho),
+      [`${B}/.fg-pipeline.json`]: JSON.stringify({ ...demoState(), code: 'FING-2', slug: 'beta', updatedAt: new Date().toISOString() }),
+    };
+    const fs: FsLike = { exists: (p) => norm(p) in files, readFile: (p) => files[norm(p)] ?? '' };
+    const { lastFrame, unmount } = render(<MultiApp refs={refs} fs={fs} watchOptions={{ watch, intervalMs: 5000 }} />);
+    await aguardar();
+    const frame = lastFrame() ?? '';
+    expect(frame).toMatch(/\d+%/);
+    expect(frame).toMatch(/[█▒░■]/);
+    const linhas = frame.split('\n').filter((l) => l.includes('%'));
+    expect(linhas.find((l) => l.includes('FING-1'))).toContain('sem atualização');
+    expect(linhas.find((l) => l.includes('FING-2'))).not.toContain('sem atualização');
+    unmount();
+  });
+});

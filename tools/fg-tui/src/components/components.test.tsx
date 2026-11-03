@@ -445,3 +445,86 @@ describe('V3 - dependências e métricas', () => {
     expect(frame).toContain('formam um ciclo');
   });
 });
+
+describe('Final-A (F1/F2/F4)', () => {
+  it('largura >= 110: detalhe abre ao lado e o quadro continua visível', async () => {
+    const { stdin, lastFrame } = render(<App board={criarBoard()} activity={[]} width={140} />);
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Sessão: ses_01');
+    expect(frame).toContain('Pendente (1)');
+    const linha = frame.split('\n').find((l) => l.includes('Etapa 2 · frontend')) ?? '';
+    expect(linha.indexOf('Etapa 2')).toBeGreaterThan(linha.indexOf('Pendente'));
+  });
+
+  it('largura < 110: detalhe abre empilhado abaixo do quadro', async () => {
+    const { stdin, lastFrame } = render(<App board={criarBoard()} activity={[]} width={100} />);
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    const frame = lastFrame() ?? '';
+    expect(frame.indexOf('Etapa 2 · frontend')).toBeGreaterThan(frame.indexOf('Pendente (1)'));
+  });
+
+  it('agente longo quebra linha em vez de truncar', () => {
+    const agent = 'quality-assurance-analyst-com-nome-bem-longo';
+    const board = criarBoard();
+    board.columns = [{ id: 'pending', title: 'Pendente', cards: [cartao(4, agent, 'pending')] }];
+    const { lastFrame } = render(<App board={board} activity={[]} width={60} interactive={false} />);
+    const compacto = (lastFrame() ?? '').replace(/[\s│╭╮╰╯─┃]/g, '');
+    expect(compacto).toContain(agent);
+  });
+
+  it('atividade longa é limitada às últimas linhas com contador', () => {
+    const lines = Array.from({ length: 10 }, (_, i) => `- passo ${i}`);
+    const { lastFrame } = render(<App board={criarBoard()} activity={lines} width={120} interactive={false} />);
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('passo 9');
+    expect(frame).not.toContain('passo 0');
+    expect(frame).toContain('+4 linhas anteriores');
+  });
+
+  it('? abre a ajuda e Esc fecha sem sair', async () => {
+    const onQuit = vi.fn();
+    const { stdin, lastFrame } = render(<App board={criarBoard()} activity={[]} width={120} onQuit={onQuit} />);
+    await aguardar();
+    stdin.write('?');
+    await aguardar();
+    expect(lastFrame() ?? '').toContain('Ajuda · atalhos');
+    stdin.write(ESC);
+    await aguardar(80);
+    expect(lastFrame() ?? '').not.toContain('Ajuda · atalhos');
+    expect(onQuit).not.toHaveBeenCalled();
+  });
+
+  it(': abre a paleta, ↓ + Enter executa "Recarregar"', async () => {
+    const onReload = vi.fn();
+    const { stdin, lastFrame } = render(<App board={criarBoard()} activity={[]} width={120} onReload={onReload} />);
+    await aguardar();
+    stdin.write(':');
+    await aguardar();
+    expect(lastFrame() ?? '').toContain('Paleta de comandos');
+    stdin.write(DOWN);
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    expect(onReload).toHaveBeenCalledTimes(1);
+    expect(lastFrame() ?? '').not.toContain('Paleta de comandos');
+  });
+
+  it('com a ajuda aberta, setas não movem a seleção', async () => {
+    const { stdin, lastFrame } = render(<App board={criarBoard()} activity={[]} width={120} />);
+    await aguardar();
+    stdin.write('?');
+    await aguardar();
+    stdin.write(DOWN);
+    await aguardar();
+    stdin.write('?');
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    expect(lastFrame() ?? '').toContain('Etapa 2 · frontend');
+  });
+});

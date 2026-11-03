@@ -7,6 +7,8 @@ export const SHORTCUTS: readonly string[] = [
   'Enter detalhe',
   'Esc voltar/sair',
   'r recarregar',
+  '? ajuda',
+  ': paleta',
   'q sair',
 ];
 

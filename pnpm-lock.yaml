@@ -163,6 +163,9 @@ importers:
 
   tools/fg-tui:
     dependencies:
+      '@inkjs/ui':
+        specifier: 2.0.0
+        version: 2.0.0(ink@6.8.0(@types/react@19.0.3)(react@19.0.3))
       ink:
         specifier: 6.8.0
         version: 6.8.0(@types/react@19.0.3)(react@19.0.3)
@@ -1044,6 +1047,12 @@ packages:
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [x64]
     os: [win32]
+
+  '@inkjs/ui@2.0.0':
+    resolution: {integrity: sha512-5+8fJmwtF9UvikzLfph9sA+LS+l37Ij/szQltkuXLOAXwNkBX9innfzh4pLGXIB59vKEQUtc6D4qGvhD7h3pAg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      ink: '>=5'
 
   '@inquirer/ansi@1.0.2':
     resolution: {integrity: sha512-S8qNSZiYzFd0wAcyG5AXCvUHC5Sr7xpZ9wZ2py9XR88jUz8wooStVx5M6dRzczbBWjic9NP7+rY0Xi7qqK/aMQ==}
@@ -2445,6 +2454,10 @@ packages:
   cli-spinners@2.9.2:
     resolution: {integrity: sha512-ywqV+5MmyL4E7ybXgKys4DugZbX0FC6LnwrhjuykIjnK9k8OQacQ7axGKnjDXWNhns0xot3bZI5h55H8yo9cJg==}
     engines: {node: '>=6'}
+
+  cli-spinners@3.4.0:
+    resolution: {integrity: sha512-bXfOC4QcT1tKXGorxL3wbJm6XJPDqEnij2gQ2m7ESQuE+/z9YFIWnl/5RpTiKWbMq3EVKR4fRLJGn6DVfu0mpw==}
+    engines: {node: '>=18.20'}
 
   cli-truncate@5.2.0:
     resolution: {integrity: sha512-xRwvIOMGrfOAnM1JYtqQImuaNtDEv9v6oIYAs4LIHwTiKee8uwvIi363igssOC0O5U04i4AlENs79LQLu9tEMw==}
@@ -6591,6 +6604,14 @@ snapshots:
   '@img/sharp-win32-x64@0.34.5':
     optional: true
 
+  '@inkjs/ui@2.0.0(ink@6.8.0(@types/react@19.0.3)(react@19.0.3))':
+    dependencies:
+      chalk: 5.6.2
+      cli-spinners: 3.4.0
+      deepmerge: 4.3.1
+      figures: 6.1.0
+      ink: 6.8.0(@types/react@19.0.3)(react@19.0.3)
+
   '@inquirer/ansi@1.0.2': {}
 
   '@inquirer/confirm@5.1.21(@types/node@24.10.1)':
@@ -8381,6 +8402,8 @@ snapshots:
       restore-cursor: 5.1.0
 
   cli-spinners@2.9.2: {}
+
+  cli-spinners@3.4.0: {}
 
   cli-truncate@5.2.0:
     dependencies:

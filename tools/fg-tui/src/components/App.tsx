@@ -10,6 +10,7 @@ import { FindingsList } from './FindingsList.js';
 import { GateBanner } from './GateBanner.js';
 import { MetricsBar } from './MetricsBar.js';
 import { PhaseBar } from './PhaseBar.js';
+import { CommandPalette, HelpPanel, PALETTE_COMMANDS } from './Overlay.js';
 import { formatAge, minutesSince } from './format.js';
 
 export interface AppProps {
@@ -31,6 +32,14 @@ export interface AppProps {
   /** Chamado ao pressionar `r` (a TUI é somente leitura: apenas pede nova leitura). */
   onReload?: () => void;
 }
+
+/** A partir desta largura o detalhe abre ao lado do quadro; abaixo, empilhado. */
+export const SIDE_PANEL_MIN_WIDTH = 110;
+const SIDE_PANEL_WIDTH = 42;
+const ACTIVITY_MAX = 6;
+const FINDINGS_MAX = 3;
+
+type OverlayKind = 'none' | 'help' | 'palette';
 
 interface Selection {
   column: number;
@@ -66,16 +75,49 @@ export function App({
   const terminalWidth = useTerminalWidth(width);
   const [rawSelection, setRawSelection] = useState<Selection>(() => initialSelection(board));
   const [detailOpen, setDetailOpen] = useState(false);
+  const [overlay, setOverlay] = useState<OverlayKind>('none');
+  const [paletteRow, setPaletteRow] = useState(0);
 
   const selection = clampSelection(board, rawSelection);
   const selectedCard: BoardCard | undefined = board.columns[selection.column]?.cards[selection.row];
   const clock = now ?? new Date();
 
+  const quit = (): void => {
+    onQuit?.();
+    exit();
+  };
+  const openDetail = (): void => {
+    if (selectedCard !== undefined) setDetailOpen(true);
+  };
+
   useInput(
     (input, key) => {
+      if (overlay === 'palette') {
+        if (key.escape) setOverlay('none');
+        else if (key.upArrow || input === 'k') setPaletteRow((r) => Math.max(0, r - 1));
+        else if (key.downArrow || input === 'j') setPaletteRow((r) => Math.min(PALETTE_COMMANDS.length - 1, r + 1));
+        else if (key.return) {
+          const command = PALETTE_COMMANDS[paletteRow]?.id;
+          setOverlay('none');
+          if (command === 'detail') openDetail();
+          else if (command === 'reload') onReload?.();
+          else if (command === 'help') setOverlay('help');
+          else if (command === 'quit') quit();
+        }
+        return;
+      }
+      if (overlay === 'help') {
+        if (key.escape || input === '?') setOverlay('none');
+        else if (input === 'q') quit();
+        return;
+      }
       if (input === 'q') {
-        onQuit?.();
-        exit();
+        quit();
+      } else if (input === '?') {
+        setOverlay('help');
+      } else if (input === ':' || (key.ctrl && input === 'k')) {
+        setPaletteRow(0);
+        setOverlay('palette');
       } else if (input === 'r') {
         onReload?.();
       } else if (key.leftArrow || input === 'h') {
@@ -87,15 +129,14 @@ export function App({
       } else if (key.downArrow || input === 'j') {
         setRawSelection({ column: selection.column, row: selection.row + 1 });
       } else if (key.return) {
-        if (selectedCard !== undefined) setDetailOpen(true);
+        openDetail();
       } else if (key.escape) {
         if (detailOpen) {
           setDetailOpen(false);
         } else if (onBack !== undefined) {
           onBack();
         } else {
-          onQuit?.();
-          exit();
+          quit();
         }
       }
     },
@@ -104,6 +145,12 @@ export function App({
 
   const staleCard = board.columns.some((column) => column.cards.some((card) => card.stale));
   const staleMinutes = minutesSince(board.updatedAt, clock);
+  const sideDetail = detailOpen && selectedCard !== undefined && terminalWidth >= SIDE_PANEL_MIN_WIDTH;
+  const boardWidth = sideDetail ? terminalWidth - SIDE_PANEL_WIDTH - 1 : terminalWidth;
+  const shownActivity = activity.slice(-ACTIVITY_MAX);
+  const hiddenActivity = activity.length - shownActivity.length;
+  const shownFindings = board.findings.slice(0, FINDINGS_MAX);
+  const hiddenFindings = board.findings.length - shownFindings.length;
 
   return (
     <Box flexDirection="column" width={terminalWidth}>
@@ -119,17 +166,28 @@ export function App({
       {board.dagCycle ? <Text color="yellow">dependências (dependsOn) formam um ciclo: ordem ambígua</Text> : null}
       {unstable ? <Text color="yellow">leitura instável, mantendo último estado</Text> : null}
       <Box marginTop={1} flexDirection="column">
-        <ActivityFeed lines={activity} />
+        <ActivityFeed lines={shownActivity} />
+        {hiddenActivity > 0 ? <Text dimColor>{`… +${hiddenActivity} linhas anteriores`}</Text> : null}
       </Box>
       {board.findings.length > 0 ? (
         <Box marginTop={1} flexDirection="column">
-          <FindingsList findings={board.findings} />
+          <FindingsList findings={shownFindings} />
+          {hiddenFindings > 0 ? <Text dimColor>{`… +${hiddenFindings} achados`}</Text> : null}
         </Box>
       ) : null}
-      <Box marginTop={1} flexDirection="column">
-        <Board board={board} selected={selection} width={terminalWidth} />
+      <Box marginTop={1}>
+        <Box flexDirection="column" width={boardWidth}>
+          <Board board={board} selected={selection} width={boardWidth} />
+        </Box>
+        {sideDetail && selectedCard !== undefined ? (
+          <Box flexDirection="column" width={SIDE_PANEL_WIDTH} marginLeft={1}>
+            <DetailPanel card={selectedCard} events={events} />
+          </Box>
+        ) : null}
       </Box>
-      {detailOpen && selectedCard !== undefined ? <DetailPanel card={selectedCard} events={events} /> : null}
+      {detailOpen && selectedCard !== undefined && !sideDetail ? <DetailPanel card={selectedCard} events={events} /> : null}
+      {overlay === 'help' ? <HelpPanel /> : null}
+      {overlay === 'palette' ? <CommandPalette selected={paletteRow} /> : null}
       {board.gate !== null ? (
         <Box marginTop={1}>
           <GateBanner gate={board.gate} />

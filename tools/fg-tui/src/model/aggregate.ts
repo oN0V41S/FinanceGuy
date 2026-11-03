@@ -126,6 +126,10 @@ export interface PipelineSummary {
   currentStep: string | null;
   done: number;
   total: number;
+  /** Há etapa rodando e o estado está sem atualização há mais de 5 min. */
+  stale: boolean;
+  /** Cor semântica do estado da pipeline. */
+  tone: 'ok' | 'danger' | 'warn' | 'muted';
 }
 
 function currentStepLabel(state: PipelineState): string | null {
@@ -133,8 +137,21 @@ function currentStepLabel(state: PipelineState): string | null {
   return step ? `etapa ${step.index} (${step.agent})` : null;
 }
 
-export function summarizeState(state: PipelineState): PipelineSummary {
+const STALE_MS = 5 * 60_000;
+
+function toneOf(state: PipelineState): PipelineSummary['tone'] {
+  if (state.steps.some((s) => s.status === 'failed') || state.state.startsWith('failed')) return 'danger';
+  if (state.steps.some((s) => s.status === 'running')) return 'warn';
+  if (state.steps.length > 0 && state.steps.every((s) => s.status === 'done')) return 'ok';
+  return 'muted';
+}
+
+export function summarizeState(state: PipelineState, now: Date = new Date()): PipelineSummary {
+  const updated = Date.parse(state.updatedAt);
+  const running = state.steps.some((s) => s.status === 'running');
   return {
+    stale: running && !Number.isNaN(updated) && now.getTime() - updated > STALE_MS,
+    tone: toneOf(state),
     code: state.code,
     state: state.state,
     currentStep: currentStepLabel(state),
@@ -144,8 +161,8 @@ export function summarizeState(state: PipelineState): PipelineSummary {
 }
 
 /** Resumo de uma leitura; `null` quando o estado não pôde ser lido. */
-export function summarizeResult(result: ReadResult): PipelineSummary | null {
-  return result.ok ? summarizeState(result.state) : null;
+export function summarizeResult(result: ReadResult, now: Date = new Date()): PipelineSummary | null {
+  return result.ok ? summarizeState(result.state, now) : null;
 }
 
 /** `FING-N · state · etapa atual · k/n`. */

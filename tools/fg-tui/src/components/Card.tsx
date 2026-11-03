@@ -17,7 +17,7 @@ export function Card({ card, selected = false }: CardProps): ReactElement {
       borderColor={selected ? 'cyan' : color}
       paddingX={1}
     >
-      <Text bold color={selected ? 'cyan' : undefined} wrap="truncate-end">
+      <Text bold color={selected ? 'cyan' : undefined} wrap="wrap">
         {`${selected ? '› ' : ''}${card.index}. ${card.agent}`}
       </Text>
       <Text dimColor wrap="truncate-end">

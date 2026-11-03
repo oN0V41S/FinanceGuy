@@ -14,7 +14,7 @@ export interface ColumnProps {
 
 export function Column({ column, selectedRow = null, stacked = false }: ColumnProps): ReactElement {
   return (
-    <Box flexDirection="column" width={stacked ? undefined : '25%'} paddingRight={stacked ? 0 : 1}>
+    <Box flexDirection="column" flexGrow={stacked ? 0 : 1} flexBasis={stacked ? undefined : 0} paddingRight={stacked ? 0 : 1}>
       <Text bold color={STATUS_COLOR[column.id]}>
         {`${column.title} (${column.cards.length})`}
       </Text>
