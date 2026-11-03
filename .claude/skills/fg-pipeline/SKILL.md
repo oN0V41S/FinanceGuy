@@ -27,7 +27,7 @@ Você (Claude) é o **maestro**: orquestra, valida e commita. O **OpenCode headl
 5. Verifique retomada: entrada `FING-N` com worktree + `.fg-pipeline.json` → mostrar "última etapa concluída: X; retomar de Y?" e seguir só com confirmação (ver `references/state-schema.md`). Worktree órfã sem estado → abortar; **nunca sobrescrever**.
 6. **Teste os modelos** (diretriz abaixo): `scripts/run-agent.sh --chain IMPL --dir <repo> --probe` (e `--chain REVIEW` se for revisar). Nenhum saudável → pare e avise qual provedor falhou (quota, chave, rede) antes de criar qualquer coisa.
 
-## Fluxo (passos 1–11)
+## Fluxo (passos 1–12)
 
 Siga o mapeamento de propriedades do card e do corpo da página em `references/notion-card.md` — não duplique aqui.
 
@@ -45,8 +45,10 @@ Siga o mapeamento de propriedades do card e do corpo da página em `references/n
    - Compare `git diff --name-only` com os arquivos previstos da etapa; extras aparecem no resumo e são revertidos só com confirmação.
    - **Commit por etapa**: Conventional Commits com o código e `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`, ex.: `feat(transactions): ... (FING-12)`. O Claude commita, nunca o agente.
 9. **REVISAR** — `run-agent.sh --chain REVIEW --agent project-review` e idem `security-secret-auditor`, com `references/review-prompt.md` (Gemini, **somente leitura**, sem `--auto`). Parse o formato `ACHADO | severidade: …`. **Críticos/altos** → voltam à implementação (passo 8, mesmo agente/sessão), **máx. 2 ciclos**; persistindo → pare antes do commit final e deixe o usuário decidir. Médios/baixos só no resumo.
-10. **RESUMO** — branch, commits, achados, comandos de push; acrescente o bloco "Execução" ao card (Notion). Estado `committed`.
-11. **PUSH (Portão 2, opcional)** — pergunte "dar push em FING-N?". Somente com "sim": `git push -u origin FING-N` (o preview vem da integração Vercel↔GitHub). **A pipeline nunca abre PR** (`pnpm fg pr` fica para o usuário). Cancelar nos portões → estado permanece, nada é publicado.
+10. **TESTAR (rodadas até zerar)** — **regra de segurança máxima**: antes de pedir o push, teste **tudo o que for possível** e repita em rodadas até **não sobrar nenhuma validação pendente**. Cada rodada: `npx jest`/`vitest` completos dos pacotes tocados, `pnpm lint`, typecheck, build quando aplicável, execução real do artefato entregue (ex.: `--dump`, `--demo`, saídas e exit codes de erro), conferência do estado `.fg-pipeline.json` contra os commits e checagem dos critérios de aceite da spec (incluindo os manuais). **Traga os erros em rodadas** (lista numerada por severidade ao fim de cada uma), corrija e rode a próxima. **Não pare** por conta própria nem entre rodadas — só pare se o usuário pedir uma correção específica ou se a mesma falha persistir após 3 rodadas (aí relate e deixe o usuário decidir). Só quando uma rodada completa vier limpa (ou com pendências explicitamente aceitas pelo usuário) siga ao resumo.
+11. **CORRIGIR** — falhas da rodada de teste voltam à implementação (passo 8, mesmo agente/sessão) com commit `fix(...)` por correção, e retornam ao passo 10.
+12. **RESUMO** — branch, commits, achados, comandos de push; acrescente o bloco "Execução" ao card (Notion). Estado `committed`.
+13. **PUSH (Portão 2, opcional)** — pergunte "dar push em FING-N?". Somente com "sim": `git push -u origin FING-N` (o preview vem da integração Vercel↔GitHub). **A pipeline nunca abre PR** (`pnpm fg pr` fica para o usuário). Cancelar nos portões → estado permanece, nada é publicado.
 
 ## `run-agent.sh` (uso)
 
@@ -93,6 +95,7 @@ Ao iniciar o passo 8, lance **um agente Claude somente leitura em background** (
 
 - **Nunca** ler, copiar ou editar `.env` (nem prompts nem logs registram segredos).
 - **Nunca** `--auto` por padrão (nem revisores); se uma etapa travar em permissão, mostre o comando bloqueado e pergunte antes de reexecutar com `--auto` (só dentro da worktree, `--dir` explícito).
+- **Nunca** pedir push com validação pendente: o passo 10 (TESTAR) precisa terminar limpo antes do Portão 2.
 - **Nunca** `prisma db push`; **nunca** abrir PR; push só no Portão 2 com "sim".
 - Escrita no Notion só após "ok"; `Concluído` nunca é definido pela pipeline.
 - Falha de validação ou cadeia esgotada → estado `failed` com `failedAt` + `reason`, mensagem acionável em pt-BR e retomada possível; nada de uma etapa falha é commitado.
