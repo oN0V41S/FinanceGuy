@@ -38,7 +38,9 @@ export function FindingsList({ findings }: FindingsListProps): ReactElement | nu
             <Text color={COLOR[finding.severity]} bold>{`● ${LABEL[finding.severity].toUpperCase()}`}</Text>
             <Text dimColor>{location(finding) === '' ? '' : `  ${location(finding).trimEnd()}`}</Text>
           </Text>
-          <Text wrap="wrap">{`  ${finding.description}`}</Text>
+          <Box paddingLeft={2}>
+            <Text wrap="wrap">{finding.description}</Text>
+          </Box>
         </Box>
       ))}
     </Box>

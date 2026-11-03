@@ -33,15 +33,20 @@ export function ActivityFeed({ lines }: ActivityFeedProps): ReactElement {
         lines.map((line, index) => {
           const { kind, text } = formatActivityLine(line);
           if (text.length === 0) return null;
+          if (kind === 'heading') {
+            return (
+              <Text key={`${index}:${line}`} wrap="wrap" bold color="cyan">
+                {text}
+              </Text>
+            );
+          }
           return (
-            <Text
-              key={`${index}:${line}`}
-              wrap="wrap"
-              bold={kind === 'heading'}
-              color={kind === 'heading' ? 'cyan' : undefined}
-            >
-              {kind === 'bullet' ? `• ${text}` : kind === 'text' ? `  ${text}` : text}
-            </Text>
+            <Box key={`${index}:${line}`} paddingLeft={2}>
+              {kind === 'bullet' ? <Text>{'• '}</Text> : null}
+              <Box flexShrink={1}>
+                <Text wrap="wrap">{text}</Text>
+              </Box>
+            </Box>
           );
         })
       )}
