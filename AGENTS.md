@@ -80,6 +80,7 @@ Use `pnpm fg <grupo>` em vez de comandos ad-hoc para tarefas recorrentes. Detalh
 | `find` / `grep` | busca por nome / regex (`--area frontend`, `backend`, `tests`, `db`) |
 | `mv` / `replace` | mover com reescrita de imports / substituição em lote (≤50 arquivos) |
 | `sync` | gera `.claude/` e `.opencode/` (agentes e skills) a partir de `.ai/skills-agents/` (`--write`, `--check`) |
+| `tui` | `pnpm fg tui [--demo\|--once\|--dump] [--dir <worktree>] [FING-N]` — Kanban da `fg-pipeline` (somente leitura) |
 | `test` · `dev` · `db` · `pr` · `audit` | jest filtrado · lint/build · prisma (`push --yes`) · pipeline pré-PR · context-audit |
 
 Segurança: **dry-run por padrão** (`--write` grava, `--force` sobrescreve); escrita só em `src/`, `docs/`, `.claude/skills/`; `--json` para saída estruturada.

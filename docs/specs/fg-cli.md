@@ -162,3 +162,17 @@ Não aplicável (CLI local). Nenhuma rota HTTP nova.
 | 6 | `project-review` | Revisão final de arquitetura e aceite dos critérios §6 | 4, 5 |
 
 Validação final: `npx jest src/scripts/cli` + `npm run lint`. Registro: item na **Notion FinanceGuy — Gestão do Projeto** (FING-XX) após aprovação da spec.
+
+---
+
+## 8. Adendo — `fg tui` (FING-30)
+
+O subcomando `pnpm fg tui` (Kanban somente leitura da `fg-pipeline`, em React-Ink) está especificado em `docs/specs/FING-30-fg-tui.md`. O comando apenas faz `spawn` do pacote isolado `tools/fg-tui/`.
+
+### Como testar
+
+1. `pnpm install`
+2. `pnpm fg tui --demo` — abre a TUI com dados de fixture (teclas: setas/hjkl, Enter, Esc, r, q).
+3. `pnpm fg tui --demo --once` — renderiza uma vez e sai.
+4. `pnpm fg tui --dump` — imprime o board em JSON (também é o fallback sem TTY).
+5. `pnpm --filter @financeguy/fg-tui test` — testes Vitest do pacote.
