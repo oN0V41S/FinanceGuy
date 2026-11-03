@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { run, type RunIo } from './main.js';
+import { parseArgs, run, type RunIo } from './main.js';
 import { demoState } from './model/demo.js';
 
 const CWD = '/repo/FinanceGuy-FING-30';
@@ -100,5 +100,57 @@ describe('main (critério 9)', () => {
     const h = harness({ files: { [STATE_PATH]: JSON.stringify(state) } });
     expect(await run(['--dump', '--dir', CWD], h.io)).toBe(0);
     expect(h.out.join('')).not.toContain('\u001b');
+  });
+});
+
+describe('main multi-worktree (V2.7 item 17)', () => {
+  const A = '/repo/A';
+  const B = '/repo/B';
+  const multiFiles = (): Record<string, string> => ({
+    [`${A}/.fg-pipeline.json`]: JSON.stringify({ ...demoState(), code: 'FING-1' }),
+    [`${B}/.fg-pipeline.json`]: JSON.stringify({ ...demoState(), code: 'FING-2' }),
+  });
+
+  it('parseArgs aceita --dir repetido e --root', () => {
+    const parsed = parseArgs(['--dir', 'a', '--dir=b', '--root', 'r']);
+    expect(parsed.ok && parsed.args.dirs).toEqual(['a', 'b']);
+    expect(parsed.ok && parsed.args.root).toBe('r');
+    expect(parseArgs(['--root']).ok).toBe(false);
+  });
+
+  it('--dump com várias worktrees devolve array JSON na ordem', async () => {
+    const h = harness({ files: multiFiles() });
+    expect(await run(['--dump', '--dir', A, '--dir', B], h.io)).toBe(0);
+    const boards = JSON.parse(h.out.join('')) as Array<{ code: string }>;
+    expect(Array.isArray(boards)).toBe(true);
+    expect(boards.map((b) => b.code)).toEqual(['FING-1', 'FING-2']);
+  });
+
+  it('--dump com uma única worktree mantém objeto (compatível com V1)', async () => {
+    const h = harness({ files: multiFiles() });
+    expect(await run(['--dump', '--dir', A], h.io)).toBe(0);
+    expect(Array.isArray(JSON.parse(h.out.join('')))).toBe(false);
+  });
+
+  it('--once com várias worktrees imprime uma linha-resumo por pipeline', async () => {
+    const h = harness({ files: multiFiles(), tty: true });
+    expect(await run(['--once', '--dir', A, '--dir', B], h.io)).toBe(0);
+    const lines = h.out.join('').trim().split('\n');
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toContain('FING-1 · ');
+  });
+
+  it('--dir inválido entre vários devolve exit 1 sem stack', async () => {
+    const h = harness({ files: multiFiles() });
+    h.io.fs.isDirectory = (p) => !p.includes('inexistente');
+    expect(await run(['--dump', '--dir', A, '--dir', '/inexistente'], h.io)).toBe(1);
+    expect(h.err.join('')).not.toMatch(/\n\s+at /);
+  });
+
+  it('--root sem pipelines devolve mensagem de nenhuma pipeline', async () => {
+    const h = harness({ files: multiFiles() });
+    h.io.fs.isDirectory = () => true;
+    expect(await run(['--dump', '--root', '/vazio'], h.io)).toBe(1);
+    expect(h.err.join('')).toContain('Nenhuma pipeline ativa');
   });
 });

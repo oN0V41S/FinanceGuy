@@ -1,21 +1,23 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, lstatSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { useEffect, useMemo, useState, type ReactElement } from 'react';
-import { render, renderToString, Text, useApp, useInput } from 'ink';
+import { useState, type ReactElement } from 'react';
+import { render, renderToString } from 'ink';
 import { App } from './components/App.js';
-import { ErrorView } from './components/ErrorView.js';
+import { LiveApp } from './components/LiveApp.js';
+import { MultiApp } from './components/MultiApp.js';
 import { WorktreePicker, describeWorktree } from './components/WorktreePicker.js';
-import { readSnapshot, useWatchState } from './hooks/useWatchState.js';
+import { readSnapshot } from './hooks/useWatchState.js';
+import { formatSummary, resolveTargets, summarizeResult, type FsDirs } from './model/aggregate.js';
 import { demoState } from './model/demo.js';
-import { mapToBoard } from './model/mapToBoard.js';
 import type { FsProbe } from './model/readState.js';
 import { resolveTarget } from './model/resolveTarget.js';
+import { describeReadFailure, safeBoard } from './model/safeBoard.js';
 import { sanitizeText, stripControl } from './model/sanitizeText.js';
-import type { Board, FsLike, GitLike, PipelineState, ReadResult, WorktreeRef } from './model/types.js';
+import type { FsLike, GitLike, PipelineState, WorktreeRef } from './model/types.js';
 
-export const USAGE = 'Uso: fg tui [FING-N] [--dir <caminho>] [--demo] [--once] [--dump]';
+export const USAGE = 'Uso: fg tui [FING-N] [--dir <caminho>]... [--root <pasta>] [--demo] [--once] [--dump]';
 
 export const NO_PIPELINE_MESSAGE =
   'Nenhuma pipeline ativa encontrada. Inicie com `/fg-pipeline <tarefa>` ou veja um exemplo com `pnpm fg tui --demo`.';
@@ -34,7 +36,9 @@ export interface CliArgs {
   demo: boolean;
   once: boolean;
   dump: boolean;
-  dir?: string;
+  /** `--dir` é repetível. */
+  dirs: string[];
+  root?: string;
   code?: string;
   repo?: string;
 }
@@ -42,7 +46,7 @@ export interface CliArgs {
 export type ParseResult = { ok: true; args: CliArgs } | { ok: false; message: string };
 
 export function parseArgs(argv: string[]): ParseResult {
-  const args: CliArgs = { demo: false, once: false, dump: false };
+  const args: CliArgs = { demo: false, once: false, dump: false, dirs: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i] ?? '';
     const eq = token.startsWith('--') ? token.indexOf('=') : -1;
@@ -52,13 +56,14 @@ export function parseArgs(argv: string[]): ParseResult {
     if (flag === '--demo') args.demo = true;
     else if (flag === '--once') args.once = true;
     else if (flag === '--dump') args.dump = true;
-    else if (flag === '--dir' || flag === '--repo') {
+    else if (flag === '--dir' || flag === '--repo' || flag === '--root') {
       const value = inlineValue ?? argv[i + 1];
       if (inlineValue === undefined) i += 1;
       if (value === undefined || value.trim() === '' || value.startsWith('--')) {
         return { ok: false, message: `O argumento ${flag} precisa de um caminho. ${USAGE}` };
       }
-      if (flag === '--dir') args.dir = value;
+      if (flag === '--dir') args.dirs.push(value);
+      else if (flag === '--root') args.root = value;
       else args.repo = value;
     } else if (/^FING-\d+$/i.test(token)) {
       args.code = token.toUpperCase();
@@ -73,7 +78,7 @@ export function parseArgs(argv: string[]): ParseResult {
 // Portas reais (única parte do pacote que usa child_process)
 // ---------------------------------------------------------------------------
 
-export const realFs: FsLike & FsProbe = {
+export const realFs: FsLike & FsProbe & FsDirs = {
   exists: (p) => existsSync(p),
   readFile: (p) => readFileSync(p, 'utf8'),
   isSymlink: (p) => {
@@ -83,6 +88,7 @@ export const realFs: FsLike & FsProbe = {
       return false;
     }
   },
+  listDir: (p) => readdirSync(p),
   isDirectory: (p) => {
     try {
       return statSync(p).isDirectory();
@@ -108,7 +114,7 @@ export const realGit: GitLike = {
 };
 
 export interface RunIo {
-  fs: FsLike & FsProbe;
+  fs: FsLike & FsProbe & FsDirs;
   git: GitLike;
   stdout: { write(text: string): unknown; columns?: number; isTTY?: boolean };
   stderr: { write(text: string): unknown };
@@ -135,27 +141,7 @@ export function realIo(): RunIo {
 // Mensagens de erro (pt-BR, acionáveis)
 // ---------------------------------------------------------------------------
 
-export function describeReadFailure(result: Extract<ReadResult, { ok: false }>): string {
-  switch (result.kind) {
-    case 'missing':
-      return 'Esta worktree não tem estado de pipeline (`.fg-pipeline.json`).';
-    case 'invalid-json':
-      return 'Estado ainda sendo gravado, tentando de novo…';
-    case 'invalid-schema':
-      return `O estado da pipeline está em formato inesperado: ${sanitizeText(result.message)}`;
-    case 'unreadable':
-      return `Não foi possível ler o estado da pipeline: ${sanitizeText(result.message)}`;
-  }
-}
-
-function safeBoard(result: ReadResult, now: Date): { board: Board } | { error: string } {
-  if (!result.ok) return { error: describeReadFailure(result) };
-  try {
-    return { board: mapToBoard(result.state, now) };
-  } catch (error) {
-    return { error: `Falha ao montar o quadro da pipeline: ${sanitizeText(error instanceof Error ? error.message : String(error))}` };
-  }
-}
+export { describeReadFailure };
 
 function manyMessage(refs: WorktreeRef[]): string {
   const lines = refs.map((ref) => `  ${sanitizeText(describeWorktree(ref))}  (${sanitizeText(ref.path)})`);
@@ -167,42 +153,8 @@ function manyMessage(refs: WorktreeRef[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Componentes de topo (ligam hook + modelo aos componentes visuais)
+// Componentes de topo
 // ---------------------------------------------------------------------------
-
-function ErrorScreen({ message }: { message: string }): ReactElement {
-  const { exit } = useApp();
-  useInput((input) => {
-    if (input === 'q') exit();
-  });
-  return (
-    <>
-      <ErrorView message={message} />
-      <Text dimColor>q sai</Text>
-    </>
-  );
-}
-
-const CLOCK_TICK_MS = 5000;
-
-function LiveApp({ dir, fs }: { dir: string; fs: FsLike }): ReactElement {
-  const { result, activity, unstable, reload } = useWatchState(dir, fs);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => setTick((n) => n + 1), CLOCK_TICK_MS);
-    return () => clearInterval(timer);
-  }, []);
-
-  const view = useMemo(() => {
-    const now = new Date();
-    void tick;
-    return { now, built: safeBoard(result, now) };
-  }, [result, tick]);
-
-  if ('error' in view.built) return <ErrorScreen message={view.built.error} />;
-  return <App board={view.built.board} activity={activity} unstable={unstable} now={view.now} onReload={reload} />;
-}
 
 function PickerRoot({ refs, fs }: { refs: WorktreeRef[]; fs: FsLike }): ReactElement {
   const [chosen, setChosen] = useState<WorktreeRef | null>(refs.length === 1 ? (refs[0] ?? null) : null);
@@ -213,6 +165,54 @@ function PickerRoot({ refs, fs }: { refs: WorktreeRef[]; fs: FsLike }): ReactEle
 // ---------------------------------------------------------------------------
 // Execução
 // ---------------------------------------------------------------------------
+
+async function runMulti(
+  args: CliArgs,
+  repoRoot: string,
+  io: RunIo,
+  mode: { dump: boolean; interactive: boolean; columns: number },
+): Promise<number> {
+  const resolved = resolveTargets({
+    dirs: args.dirs.map((d) => resolve(io.cwd, d)),
+    ...(args.root !== undefined ? { root: resolve(io.cwd, args.root) } : {}),
+    repoRoot,
+    git: io.git,
+    fs: io.fs,
+  });
+  if (resolved.kind === 'none') {
+    io.stderr.write(`${NO_PIPELINE_MESSAGE}\n`);
+    return 1;
+  }
+  if (resolved.kind === 'not-found') {
+    io.stderr.write(`${sanitizeText(resolved.message)}\n`);
+    return 1;
+  }
+
+  if (mode.interactive) {
+    await render(<MultiApp refs={resolved.refs} fs={io.fs} />).waitUntilExit();
+    return 0;
+  }
+
+  // --dump / --once: leitura única de cada worktree.
+  const now = io.now();
+  const boards = resolved.refs.map((ref) => ({ ref, built: safeBoard(readSnapshot(ref.path, io.fs).result, now) }));
+  const failed = boards.find((b) => 'error' in b.built);
+  if (failed !== undefined && 'error' in failed.built) {
+    io.stderr.write(`${sanitizeText(failed.ref.path)}: ${failed.built.error}\n`);
+    return 1;
+  }
+  if (mode.dump) {
+    const out = boards.map((b) => ('board' in b.built ? b.built.board : null));
+    io.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+    return 0;
+  }
+  const lines = boards.map((b) => {
+    const summary = summarizeResult(readSnapshot(b.ref.path, io.fs).result);
+    return summary === null ? sanitizeText(b.ref.path) : sanitizeText(formatSummary(summary));
+  });
+  io.stdout.write(`${lines.join('\n')}\n`);
+  return 0;
+}
 
 function demoClock(updatedAt: string): Date {
   const t = Date.parse(updatedAt);
@@ -265,7 +265,13 @@ export async function run(argv: string[], io: RunIo = realIo()): Promise<number>
   }
 
   const repoRoot = resolve(io.cwd, args.repo ?? '.');
-  const dir = args.dir !== undefined ? resolve(io.cwd, args.dir) : undefined;
+
+  // Vários alvos: --dir repetido e/ou --root (board agregado).
+  if (args.dirs.length > 1 || args.root !== undefined) {
+    return runMulti(args, repoRoot, io, { dump, interactive, columns });
+  }
+
+  const dir = args.dirs[0] !== undefined ? resolve(io.cwd, args.dirs[0]) : undefined;
   const target = resolveTarget({
     ...(dir !== undefined ? { dir } : {}),
     ...(args.code !== undefined ? { code: args.code } : {}),

@@ -81,3 +81,38 @@ describe('fg tui saída limpa', () => {
     expect(output).toBe('');
   });
 });
+
+describe('fg tui multi-worktree', () => {
+  it('repassa --dir repetido na ordem, resolvendo cada caminho', async () => {
+    const { ctx, exec } = makeCtx(PKG);
+    const { exitCode } = await runCli(['tui', '--dir', 'a/', '--dir', 'b', '--dir=c'], ctx);
+    expect(exitCode).toBe(0);
+    expect(exec.calls[0].args).toEqual([
+      ...BASE,
+      '--dir', resolve('a'),
+      '--dir', resolve('b'),
+      '--dir', resolve('c'),
+    ]);
+  });
+
+  it('repassa --root resolvido', async () => {
+    const { ctx, exec } = makeCtx(PKG);
+    await runCli(['tui', '--root', '..'], ctx);
+    expect(exec.calls[0].args).toEqual([...BASE, '--root', resolve('..')]);
+  });
+
+  it('--root sem valor resulta em exit 2', async () => {
+    const { ctx, exec } = makeCtx(PKG);
+    const { exitCode, output } = await runCli(['tui', '--root'], ctx);
+    expect(exitCode).toBe(2);
+    expect(output).toContain('precisa de um valor');
+    expect(exec.calls).toHaveLength(0);
+  });
+
+  it('helpText do tui documenta --dir repetível e --root', async () => {
+    const { ctx } = makeCtx(PKG);
+    const { output } = await runCli(['tui', '--help'], ctx);
+    expect(output).toContain('--dir ../A --dir ../B');
+    expect(output).toContain('--root');
+  });
+});
