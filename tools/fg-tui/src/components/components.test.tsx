@@ -1,9 +1,56 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'ink-testing-library';
 import { Card } from './Card.js';
 import { GateBanner } from './GateBanner.js';
 import { ErrorView } from './ErrorView.js';
-import type { BoardCard, Gate } from '../model/types.js';
+import { Board } from './Board.js';
+import { WorktreePicker } from './WorktreePicker.js';
+import { App } from './App.js';
+import type { Board as BoardModel, BoardCard, Gate, WorktreeRef } from '../model/types.js';
+
+const ESC = '\u001B';
+const UP = `${ESC}[A`;
+const DOWN = `${ESC}[B`;
+const RIGHT = `${ESC}[C`;
+const LEFT = `${ESC}[D`;
+
+/** Dá tempo para o Ink registrar o stdin e processar as teclas. */
+function aguardar(ms = 30): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function cartao(index: number, agent: string, status: BoardCard['status'], extra: Partial<BoardCard> = {}): BoardCard {
+  return { index, agent, status, model: null, sessionShort: null, commitShort: null, stale: false, ...extra };
+}
+
+function criarBoard(): BoardModel {
+  return {
+    code: 'FING-30',
+    slug: 'fg-tui',
+    state: 'step_2_running',
+    updatedAt: '2026-11-01T10:00:00.000Z',
+    phases: [
+      { id: 'notion', label: 'Card Notion', status: 'done' },
+      { id: 'impl', label: 'Implementação', status: 'current' },
+      { id: 'push', label: 'Push', status: 'pending' },
+    ],
+    columns: [
+      { id: 'pending', title: 'Pendente', cards: [cartao(4, 'docs-architect', 'pending')] },
+      {
+        id: 'running',
+        title: 'Rodando',
+        cards: [
+          cartao(2, 'frontend', 'running', { model: 'modelo-a', sessionShort: 'ses_01' }),
+          cartao(3, 'quality-assurance-analyst', 'running'),
+        ],
+      },
+      { id: 'done', title: 'Concluída', cards: [cartao(1, 'backend-engineer', 'done', { commitShort: 'abc1234' })] },
+      { id: 'failed', title: 'Falhou', cards: [] },
+    ],
+    findings: [{ severity: 'alto', file: 'src/a.ts', line: 10, description: 'Falta validação' }],
+    gate: null,
+  };
+}
 
 describe('Card', () => {
   const card: BoardCard = {
@@ -68,17 +115,173 @@ describe('ErrorView', () => {
 });
 
 describe('Board', () => {
-  it.todo('renderiza as 4 colunas com os cards corretos (etapa 3b)');
-  it.todo('empilha as colunas quando o terminal tem menos de 80 colunas (etapa 3b)');
-  it.todo('mostra "—" nas colunas vazias (etapa 3b)');
+  it('renderiza as 4 colunas com os cards corretos', () => {
+    const { lastFrame } = render(<Board board={criarBoard()} width={120} />);
+    const frame = lastFrame() ?? '';
+    for (const titulo of ['Pendente (1)', 'Rodando (2)', 'Concluída (1)', 'Falhou (0)']) {
+      expect(frame).toContain(titulo);
+    }
+    for (const agente of ['docs-architect', 'frontend', 'backend-engineer']) {
+      expect(frame).toContain(agente);
+    }
+    expect(frame).toContain('abc1234');
+  });
+
+  it('mostra "—" nas colunas vazias', () => {
+    const { lastFrame } = render(<Board board={criarBoard()} width={120} />);
+    expect(lastFrame() ?? '').toContain('—');
+  });
+
+  it('empilha as colunas quando o terminal tem menos de 80 colunas', () => {
+    const { lastFrame } = render(<Board board={criarBoard()} width={60} />);
+    const linhas = (lastFrame() ?? '').split('\n');
+    const linhaTitulo = (titulo: string): number => linhas.findIndex((l) => l.includes(titulo));
+    expect(linhaTitulo('Pendente')).toBeGreaterThanOrEqual(0);
+    expect(linhaTitulo('Rodando')).toBeGreaterThan(linhaTitulo('Pendente'));
+    expect(linhaTitulo('Concluída')).toBeGreaterThan(linhaTitulo('Rodando'));
+  });
+
+  it('lado a lado em terminal largo: títulos na mesma linha', () => {
+    const { lastFrame } = render(<Board board={criarBoard()} width={120} />);
+    const linhas = (lastFrame() ?? '').split('\n');
+    expect(linhas.some((l) => l.includes('Pendente') && l.includes('Rodando') && l.includes('Falhou'))).toBe(true);
+  });
 });
 
 describe('WorktreePicker', () => {
-  it.todo('lista FING-N · slug · estado por worktree e chama onSelect com Enter (etapa 3b)');
+  const refs: WorktreeRef[] = [
+    { path: '/repos/FinanceGuy-FING-30', branch: 'FING-30', code: 'FING-30', state: 'step_2_running' },
+    { path: '/repos/FinanceGuy-FING-31', branch: 'FING-31', code: 'FING-31', state: 'committed' },
+  ];
+
+  it('lista FING-N · pasta · estado por worktree, com o caminho', () => {
+    const { lastFrame } = render(<WorktreePicker refs={refs} onSelect={() => undefined} />);
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('FING-30 · FinanceGuy-FING-30 · step_2_running');
+    expect(frame).toContain('FING-31 · FinanceGuy-FING-31 · committed');
+    expect(frame).toContain('/repos/FinanceGuy-FING-31');
+  });
+
+  it('Enter seleciona a primeira; ↓ + Enter seleciona a segunda', async () => {
+    const onSelect = vi.fn();
+    const { stdin } = render(<WorktreePicker refs={refs} onSelect={onSelect} />);
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    expect(onSelect).toHaveBeenLastCalledWith(refs[0]);
+    stdin.write(DOWN);
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    expect(onSelect).toHaveBeenLastCalledWith(refs[1]);
+  });
+});
+
+describe('App', () => {
+  it('mostra cabeçalho, fases, atividade e achados; sem portão não mostra banner', () => {
+    const { lastFrame } = render(
+      <App board={criarBoard()} activity={['linha de atividade']} now={new Date('2026-11-01T10:00:05.000Z')} width={120} />,
+    );
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('FING-30');
+    expect(frame).toContain('atualizado há 5 s');
+    expect(frame).toContain('Implementação');
+    expect(frame).toContain('linha de atividade');
+    expect(frame).toContain('Falta validação');
+    expect(frame).not.toContain('Portão');
+  });
+
+  it('sem atividade mostra o aviso e com portão mostra o banner', () => {
+    const board: BoardModel = {
+      ...criarBoard(),
+      findings: [],
+      gate: { kind: 'push', title: 'Portão 2: dar push em FING-30?', message: 'm', command: 'git push -u origin FING-30' },
+    };
+    const { lastFrame } = render(<App board={board} activity={[]} width={120} />);
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Sem atividade registrada ainda.');
+    expect(frame).toContain('git push -u origin FING-30');
+  });
+
+  it('com unstable mostra o aviso de leitura instável', () => {
+    const { lastFrame } = render(<App board={criarBoard()} activity={[]} unstable width={120} />);
+    expect(lastFrame() ?? '').toContain('leitura instável, mantendo último estado');
+  });
 });
 
 describe('Teclado (App)', () => {
-  it.todo('setas ←/→ movem a coluna e ↑/↓ movem o card (etapa 3b)');
-  it.todo('Enter abre o DetailPanel e Esc fecha (etapa 3b)');
-  it.todo('q encerra a aplicação (etapa 3b)');
+  function montar(): ReturnType<typeof render> {
+    return render(<App board={criarBoard()} activity={[]} width={120} />);
+  }
+
+  it('Enter abre o DetailPanel do card selecionado e Esc fecha', async () => {
+    const { stdin, lastFrame } = montar();
+    await aguardar();
+    expect(lastFrame() ?? '').not.toContain('Sessão:');
+    stdin.write('\r');
+    await aguardar();
+    // A seleção inicial é o 1º card da coluna "Rodando" (frontend).
+    expect(lastFrame() ?? '').toContain('Sessão: ses_01');
+    stdin.write(ESC);
+    await aguardar(80);
+    expect(lastFrame() ?? '').not.toContain('Sessão:');
+  });
+
+  it('↓ move para o próximo card e ↑ volta', async () => {
+    const { stdin, lastFrame } = montar();
+    await aguardar();
+    stdin.write(DOWN);
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    expect(lastFrame() ?? '').toContain('Etapa 3 · quality-assurance-analyst');
+    stdin.write(UP);
+    await aguardar();
+    expect(lastFrame() ?? '').toContain('Etapa 2 · frontend');
+  });
+
+  it('← e → movem a coluna (card da coluna vizinha)', async () => {
+    const { stdin, lastFrame } = montar();
+    await aguardar();
+    stdin.write(RIGHT);
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    expect(lastFrame() ?? '').toContain('Etapa 1 · backend-engineer');
+    stdin.write(LEFT);
+    await aguardar();
+    stdin.write(LEFT);
+    await aguardar();
+    expect(lastFrame() ?? '').toContain('Etapa 4 · docs-architect');
+  });
+
+  it('Enter em coluna vazia não abre detalhe', async () => {
+    const { stdin, lastFrame } = montar();
+    await aguardar();
+    stdin.write(RIGHT);
+    await aguardar();
+    stdin.write(RIGHT);
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    expect(lastFrame() ?? '').not.toContain('Sessão:');
+  });
+
+  it('q chama onQuit e encerra a aplicação', async () => {
+    const onQuit = vi.fn();
+    const { stdin } = render(<App board={criarBoard()} activity={[]} width={120} onQuit={onQuit} />);
+    await aguardar();
+    stdin.write('q');
+    await aguardar();
+    expect(onQuit).toHaveBeenCalledTimes(1);
+  });
+
+  it('r pede nova leitura (onReload)', async () => {
+    const onReload = vi.fn();
+    const { stdin } = render(<App board={criarBoard()} activity={[]} width={120} onReload={onReload} />);
+    await aguardar();
+    stdin.write('r');
+    await aguardar();
+    expect(onReload).toHaveBeenCalledTimes(1);
+  });
 });

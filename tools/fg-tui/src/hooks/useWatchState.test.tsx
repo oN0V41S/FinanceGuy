@@ -129,18 +129,65 @@ describe('useWatchState', () => {
     unmount();
   });
 
-  it('dado unmount, então o hook não deixa timer pendente além do baseline do Ink', () => {
-    // Baseline: timers que o próprio Ink deixa após montar/desmontar um componente sem o hook.
+  it('dado unmount, então o hook não deixa timer pendente além do que o Ink já deixa', () => {
+    // Cada par render/unmount do Ink deixa 1 timer de throttle pendente (relógio falso não avança).
+    // Medimos o acréscimo de um componente sem o hook e exigimos o mesmo acréscimo com o hook.
+    const antesBase = vi.getTimerCount();
     const base = render(<Text>baseline</Text>);
     base.unmount();
-    const timersBaseline = vi.getTimerCount();
+    const acrescimoInk = vi.getTimerCount() - antesBase;
 
     const arquivos = new Map([[ESTADO, estadoJson('x')]]);
+    const antesHook = vi.getTimerCount();
     const { lastFrame, unmount } = render(<Sonda fs={criarFs(arquivos)} onRender={() => undefined} />);
     expect(lastFrame()).toContain('slug=x');
     unmount();
-    expect(vi.getTimerCount()).toBe(timersBaseline);
+    expect(vi.getTimerCount() - antesHook).toBe(acrescimoInk);
   });
 
-  it.todo('fecha o fs.watch no unmount (requer injetar o watcher; coberto na etapa 3b)');
+  it('fecha o watcher no unmount e ignora arquivos que não são da pipeline', async () => {
+    const arquivos = new Map([[ESTADO, estadoJson('antes')]]);
+    const fechar = vi.fn();
+    let emitir: (arquivo: string | null) => void = () => undefined;
+    const watch = vi.fn((_dir: string, onEvent: (arquivo: string | null) => void) => {
+      emitir = onEvent;
+      return { close: fechar };
+    });
+    const fsMem = criarFs(arquivos);
+    function SondaComWatch(): ReactElement {
+      const { result } = useWatchState(DIR, fsMem, { intervalMs: 60_000, debounceMs: 100, watch });
+      return <Text>{result.ok ? `slug=${result.state.slug}` : 'erro'}</Text>;
+    }
+    const { lastFrame, unmount } = render(<SondaComWatch />);
+    expect(watch).toHaveBeenCalledTimes(1);
+
+    arquivos.set(ESTADO, estadoJson('depois'));
+    emitir('outro-arquivo.txt');
+    await vi.advanceTimersByTimeAsync(200);
+    expect(lastFrame()).toContain('slug=antes');
+
+    emitir('.fg-pipeline.json');
+    await vi.advanceTimersByTimeAsync(200);
+    expect(lastFrame()).toContain('slug=depois');
+
+    unmount();
+    expect(fechar).toHaveBeenCalledTimes(1);
+  });
+
+  it('dado fs.watch indisponível (lança), então segue só com o polling sem quebrar', async () => {
+    const arquivos = new Map([[ESTADO, estadoJson('antes')]]);
+    const watch = (): { close(): void } => {
+      throw new Error('ENOENT');
+    };
+    const fsMem = criarFs(arquivos);
+    function SondaSemWatch(): ReactElement {
+      const { result } = useWatchState(DIR, fsMem, { intervalMs: 1000, debounceMs: 100, watch });
+      return <Text>{result.ok ? `slug=${result.state.slug}` : 'erro'}</Text>;
+    }
+    const { lastFrame, unmount } = render(<SondaSemWatch />);
+    arquivos.set(ESTADO, estadoJson('depois'));
+    await vi.advanceTimersByTimeAsync(1100);
+    expect(lastFrame()).toContain('slug=depois');
+    unmount();
+  });
 });
