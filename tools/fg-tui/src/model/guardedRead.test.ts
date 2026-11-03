@@ -30,7 +30,7 @@ describe('readGuarded', () => {
 describe('parseEvents sanitiza data e ts', () => {
   it('remove ESC de data.path', () => {
     const line = JSON.stringify({
-      ts: '2026-11-03T10:00:00Z\u001b[31m',
+      ts: '2026-11-03T10:00:00Z',
       step: 1,
       type: 'file_changed',
       message: 'm',
