@@ -4,7 +4,7 @@ import { runCli } from '../run';
 import { makeCtx } from '../core/testing';
 
 const PKG = { 'tools/fg-tui/package.json': '{}', 'tools/fg-tui/node_modules/ink/package.json': '{}' };
-const BASE = ['--filter', '@financeguy/fg-tui', 'exec', 'tsx', 'src/main.tsx'];
+const BASE = ['--reporter=silent', '--filter', '@financeguy/fg-tui', 'exec', 'tsx', 'src/main.tsx'];
 
 describe('fg tui', () => {
   it('repassa flags e args ao pacote fg-tui', async () => {
@@ -29,6 +29,18 @@ describe('fg tui', () => {
     const b = makeCtx(PKG);
     expect((await runCli(['tui', 'FING-1', 'FING-2'], b.ctx)).exitCode).toBe(2);
     expect(b.exec.calls).toHaveLength(0);
+  });
+
+  it('tarefa fora do formato FING-N resulta em exit 2 sem executar o filho', async () => {
+    for (const task of ['FING-xx', 'abc', 'FING-', '30']) {
+      const { ctx, exec } = makeCtx(PKG);
+      const { exitCode, output } = await runCli(['tui', task], ctx);
+      expect(exitCode).toBe(2);
+      expect(output).toContain('FING-N');
+      expect(exec.calls).toHaveLength(0);
+    }
+    const ok = makeCtx(PKG);
+    expect((await runCli(['tui', 'fing-7'], ok.ctx)).exitCode).toBe(0);
   });
 
   it('flag --dir sem valor resulta em exit 2 com mensagem de uso', async () => {

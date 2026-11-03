@@ -22,6 +22,10 @@ export const tuiCommand: Command = {
     if (args.positionals.length > 1) {
       throw new CliError('invalid-args', `Informe no máximo uma tarefa (FING-N). ${USAGE}`);
     }
+    const [task] = args.positionals;
+    if (task !== undefined && !/^FING-\d+$/i.test(task)) {
+      throw new CliError('invalid-args', `Tarefa inválida: "${task}". Use o formato FING-N. ${USAGE}`);
+    }
     if (!ctx.fs.exists(`${PKG_DIR}/package.json`) || !ctx.fs.exists(`${PKG_DIR}/node_modules`)) {
       throw new CliError('blocked', 'Pacote @financeguy/fg-tui ou dependências ausentes. Rode: pnpm install');
     }
@@ -39,7 +43,7 @@ export const tuiCommand: Command = {
       {
         name: 'fg-tui',
         command: 'pnpm',
-        args: ['--filter', '@financeguy/fg-tui', 'exec', 'tsx', 'src/main.tsx', ...forwarded],
+        args: ['--reporter=silent', '--filter', '@financeguy/fg-tui', 'exec', 'tsx', 'src/main.tsx', ...forwarded],
       },
     ], ctx);
     return { ...result, quiet: true };
