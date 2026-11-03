@@ -50,6 +50,22 @@ Siga o mapeamento de propriedades do card e do corpo da página em `references/n
 12. **RESUMO** — branch, commits, achados, comandos de push; acrescente o bloco "Execução" ao card (Notion). Estado `committed`.
 13. **PUSH (Portão 2, opcional)** — pergunte "dar push em FING-N?". Somente com "sim": `git push -u origin FING-N` (o preview vem da integração Vercel↔GitHub). **A pipeline nunca abre PR** (`pnpm fg pr` fica para o usuário). Cancelar nos portões → estado permanece, nada é publicado.
 
+## Contrato de loop (passos 8, 9 e 10)
+
+Todo laço de validar → corrigir declara, **antes de começar**, três coisas — sem elas o laço não roda:
+
+| Item | Regra |
+|---|---|
+| **Critério de saída** | condição verificável que encerra o laço (ex.: testes + lint + typecheck verdes; zero achados críticos/altos; rodada de TESTAR limpa) |
+| **Orçamento** | máximo de tentativas/tempo: passo 8 = 2 devoluções ao mesmo agente + 1 troca de modelo; passo 9 = 2 ciclos; passo 10 = 3 rodadas com a mesma falha |
+| **Estagnação** | a mesma falha (mesmo teste/arquivo/mensagem) em 2 tentativas seguidas ⇒ **não repetir a mesma abordagem**: trocar de modelo/agente ou parar e escalar ao usuário |
+
+Cada rodada grava um evento `note` no `.fg-pipeline.events.jsonl` (rodada, resultado, falhas). O **verificador** (testes, lint, revisores) é sempre distinto do **executor** que escreveu o código.
+
+## Visibilidade para a TUI (`pnpm fg tui`)
+
+A TUI só lê arquivos, então o maestro precisa mantê-los atuais: **antes de lançar** um agente/etapa, grave a etapa em `.fg-pipeline.json` (`status: running`, `state: step_<i>_running`) e um evento `step_started` em `.fg-pipeline.events.jsonl`; ao terminar, `step_done`/`step_failed` com o SHA do commit. Etapa fora do estado não aparece no Kanban. Formato dos eventos: `references/state-schema.md`.
+
 ## `run-agent.sh` (uso)
 
 ```bash
