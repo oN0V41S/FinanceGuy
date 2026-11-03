@@ -43,6 +43,22 @@ docs/
 └── specs/               # Implementation specs e contratos
 ```
 
+## Versionamento no mesmo card do Notion
+Nova versão de uma tarefa (V2, V3…) **incrementa o card existente** no banco "Gestão do Projeto"; não cria card novo. Mapeamento de propriedades: `.claude/skills/fg-pipeline/references/notion-card.md`.
+
+- **Append-only**: acrescente ao **final** da página um bloco `# Versão VN — <título curto> (<AAAA-MM-DD>)`. Nunca reescreva nem apague o conteúdo de versões anteriores (spec, "Execução").
+- **Estrutura do bloco** (nesta ordem):
+  1. **Motivação**: o que a versão anterior deixou em aberto (achados, feedback do usuário).
+  2. **Referências**: comparação com soluções da comunidade e conceitos usados (se houver).
+  3. **Escopo e corte**: itens dentro da VN e itens adiados para VN+1.
+  4. **Estimativa**: tabela poker (Fibonacci) com item, pontos e dependências; total da VN.
+  5. **Mapa de execução**: fases sequenciais/paralelas e sub-agente por item.
+  6. **Status da versão**: `planejada` → `em implementação` → `implementada (commits)`; atualize só esta linha, não o histórico.
+  7. **Links**: spec, branch, commits.
+- **Propriedades**: `Versão` → `VN` (opções `V1`/`V2`/`V3`) ao publicar o bloco. `Status` fica/volta para `Em andamento` só quando a implementação da VN começar; `Concluído` nunca é definido por agente.
+- **Spec no repo**: a mesma versão vira seção `## VN` na spec do card (ou `docs/specs/FING-N-<slug>-vN.md` se for extensa), mantendo Notion e repo coerentes.
+- Escrita no Notion só após "ok" do usuário (escrita visível a outras pessoas).
+
 ## Comandos de Validação
 ```bash
 npm run lint:docs        # Verificar documentação (se existir)
