@@ -1,10 +1,12 @@
 import { detectGate } from './detectGate.js';
 import { normalizeFinding } from './normalizeFinding.js';
 import { parseState } from './parseState.js';
+import { sanitizeText } from './sanitizeText.js';
 import type {
   Board,
   BoardCard,
   BoardColumn,
+  Gate,
   PhaseItem,
   PhaseStatus,
   PipelineState,
@@ -64,13 +66,23 @@ function buildPhases(state: PipelineState): PhaseItem[] {
 
 function shorten(value: string | null, size: number): string | null {
   if (value === null || value.length === 0) return null;
-  return value.slice(0, size);
+  return sanitizeText(value).slice(0, size);
 }
 
 function isStale(updatedAt: string, now: Date): boolean {
   const updated = Date.parse(updatedAt);
   if (Number.isNaN(updated)) return false;
   return now.getTime() - updated > STALE_MS;
+}
+
+function sanitizeGate(gate: Gate | null): Gate | null {
+  if (gate === null) return null;
+  return {
+    kind: gate.kind,
+    title: sanitizeText(gate.title),
+    message: sanitizeText(gate.message),
+    ...(gate.command !== undefined ? { command: sanitizeText(gate.command) } : {}),
+  };
 }
 
 const COLUMNS: ReadonlyArray<{ id: BoardColumn['id']; title: string }> = [
@@ -93,9 +105,9 @@ export function mapToBoard(state: PipelineState, now: Date): Board {
       .map(
         (step): BoardCard => ({
           index: step.index,
-          agent: step.agent,
+          agent: sanitizeText(step.agent),
           status: step.status,
-          model: step.model,
+          model: step.model === null ? null : sanitizeText(step.model),
           sessionShort: shorten(step.sessionID, 8),
           commitShort: shorten(step.commit, 7),
           stale: step.status === 'running' && stale,
@@ -104,13 +116,13 @@ export function mapToBoard(state: PipelineState, now: Date): Board {
   }));
 
   return {
-    code: state.code,
-    slug: state.slug,
-    state: state.state,
-    updatedAt: state.updatedAt,
+    code: sanitizeText(state.code),
+    slug: sanitizeText(state.slug),
+    state: sanitizeText(state.state),
+    updatedAt: sanitizeText(state.updatedAt),
     phases: buildPhases(state),
     columns,
     findings: state.review.findings.map(normalizeFinding),
-    gate: detectGate(state),
+    gate: sanitizeGate(detectGate(state)),
   };
 }

@@ -62,3 +62,11 @@ describe('normalizeFinding', () => {
     expect(() => normalizeFinding({})).not.toThrow();
   });
 });
+
+describe('normalizeFinding sanitização', () => {
+  it('remove controles e quebras de linha de arquivo e descrição', () => {
+    const f = normalizeFinding({ file: 'a\u001b[2J.ts', description: 'x\ny\u0007' });
+    expect(f.file).toBe('a[2J.ts');
+    expect(f.description).toBe('x y');
+  });
+});

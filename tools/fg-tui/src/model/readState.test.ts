@@ -96,3 +96,12 @@ describe('readState', () => {
     for (const p of lidos) expect(p).toBe(ARQUIVO);
   });
 });
+
+describe('readState limite de tamanho', () => {
+  it('recusa arquivo acima de 1MB como unreadable', () => {
+    const fs = { exists: () => true, readFile: () => ' '.repeat(1_000_001) };
+    const r = readState('/x', fs);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.kind).toBe('unreadable');
+  });
+});

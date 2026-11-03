@@ -11,6 +11,7 @@ import { readSnapshot, useWatchState } from './hooks/useWatchState.js';
 import { demoState } from './model/demo.js';
 import { mapToBoard } from './model/mapToBoard.js';
 import { resolveTarget } from './model/resolveTarget.js';
+import { sanitizeText, stripControl } from './model/sanitizeText.js';
 import type { Board, FsLike, GitLike, PipelineState, ReadResult, WorktreeRef } from './model/types.js';
 
 export const USAGE = 'Uso: fg tui [FING-N] [--dir <caminho>] [--demo] [--once] [--dump]';
@@ -126,9 +127,9 @@ export function describeReadFailure(result: Extract<ReadResult, { ok: false }>):
     case 'invalid-json':
       return 'Estado ainda sendo gravado, tentando de novo…';
     case 'invalid-schema':
-      return `O estado da pipeline está em formato inesperado: ${result.message}`;
+      return `O estado da pipeline está em formato inesperado: ${sanitizeText(result.message)}`;
     case 'unreadable':
-      return `Não foi possível ler o estado da pipeline: ${result.message}`;
+      return `Não foi possível ler o estado da pipeline: ${sanitizeText(result.message)}`;
   }
 }
 
@@ -137,12 +138,12 @@ function safeBoard(result: ReadResult, now: Date): { board: Board } | { error: s
   try {
     return { board: mapToBoard(result.state, now) };
   } catch (error) {
-    return { error: `Falha ao montar o quadro da pipeline: ${error instanceof Error ? error.message : String(error)}` };
+    return { error: `Falha ao montar o quadro da pipeline: ${sanitizeText(error instanceof Error ? error.message : String(error))}` };
   }
 }
 
 function manyMessage(refs: WorktreeRef[]): string {
-  const lines = refs.map((ref) => `  ${describeWorktree(ref)}  (${ref.path})`);
+  const lines = refs.map((ref) => `  ${sanitizeText(describeWorktree(ref))}  (${sanitizeText(ref.path)})`);
   return [
     'Várias pipelines encontradas:',
     ...lines,
@@ -208,7 +209,7 @@ function demoClock(updatedAt: string): Date {
 export async function run(argv: string[], io: RunIo = realIo()): Promise<number> {
   const parsed = parseArgs(argv);
   if (!parsed.ok) {
-    io.stderr.write(`${parsed.message}\n`);
+    io.stderr.write(`${sanitizeText(parsed.message)}\n`);
     return 2;
   }
   const { args } = parsed;
@@ -224,7 +225,7 @@ export async function run(argv: string[], io: RunIo = realIo()): Promise<number>
     try {
       state = demoState();
     } catch (error) {
-      io.stderr.write(`Não foi possível carregar a demonstração: ${error instanceof Error ? error.message : String(error)}\n`);
+      io.stderr.write(`Não foi possível carregar a demonstração: ${sanitizeText(error instanceof Error ? error.message : String(error))}\n`);
       return 1;
     }
     const now = demoClock(state.updatedAt);
@@ -263,11 +264,11 @@ export async function run(argv: string[], io: RunIo = realIo()): Promise<number>
     return 1;
   }
   if (target.kind === 'not-found') {
-    io.stderr.write(`${target.message}\n`);
+    io.stderr.write(`${sanitizeText(target.message)}\n`);
     return 1;
   }
   if (target.kind === 'many' && !interactive) {
-    io.stderr.write(`${manyMessage(target.refs)}\n`);
+    io.stderr.write(`${stripControl(manyMessage(target.refs))}\n`);
     return 1;
   }
 

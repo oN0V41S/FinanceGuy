@@ -47,3 +47,20 @@ describe('isolamento somente leitura (critério 12)', () => {
     expect(infratores.map(rel)).toEqual([]);
   });
 });
+
+describe('isolamento ampliado', () => {
+  it('nenhum módulo (exceto main.tsx) usa APIs de escrita no sistema de arquivos', () => {
+    const proibido =
+      /\b(write\w*|mkdir\w*|rm\w*|unlink\w*|rename\w*|copyFile\w*|createWriteStream)\s*\(/;
+    const infratores = fontes.filter((f) => {
+      const codigo = readFileSync(f, 'utf8');
+      return /node:fs|from 'fs'/.test(codigo) && proibido.test(codigo);
+    });
+    expect(infratores.map(rel)).toEqual([]);
+  });
+
+  it('child_process só aparece em main.tsx', () => {
+    const todas = listarFontes(SRC).filter((f) => /child_process/.test(readFileSync(f, 'utf8')));
+    expect(todas.map(rel)).toEqual(['main.tsx']);
+  });
+});

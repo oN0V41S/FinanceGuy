@@ -3,6 +3,9 @@ import type { FsLike, ReadResult } from './types.js';
 
 export const STATE_FILE = '.fg-pipeline.json';
 
+/** Estados legítimos são pequenos; acima disso o arquivo é recusado. */
+export const MAX_STATE_BYTES = 1_000_000;
+
 /** Junta o diretório ao nome fixo do arquivo de estado (nunca outro caminho). */
 export function stateFilePath(dir: string): string {
   return `${dir.replace(/[\\/]+$/, '')}/${STATE_FILE}`;
@@ -27,6 +30,14 @@ export function readState(dir: string, fs: FsLike): ReadResult {
       ok: false,
       kind: 'unreadable',
       message: `Não foi possível ler ${STATE_FILE}.`,
+    };
+  }
+
+  if (raw.length > MAX_STATE_BYTES) {
+    return {
+      ok: false,
+      kind: 'unreadable',
+      message: `${STATE_FILE} é grande demais para ser exibido.`,
     };
   }
 

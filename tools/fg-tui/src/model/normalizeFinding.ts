@@ -1,3 +1,4 @@
+import { sanitizeText } from './sanitizeText.js';
 import type { Finding } from './types.js';
 
 type Severity = Finding['severity'];
@@ -46,9 +47,11 @@ export function normalizeFinding(raw: Record<string, unknown>): Finding {
 
   return {
     severity: normalizeSeverity(pick(raw, ['severity', 'severidade', 'level', 'nivel', 'nível'])),
-    file: typeof file === 'string' && file.length > 0 ? file : null,
+    file: typeof file === 'string' && sanitizeText(file).length > 0 ? sanitizeText(file) : null,
     line: normalizeLine(pick(raw, ['line', 'linha'])),
     description:
-      typeof description === 'string' && description.length > 0 ? description : '(sem descrição)',
+      typeof description === 'string' && sanitizeText(description).trim().length > 0
+        ? sanitizeText(description)
+        : '(sem descrição)',
   };
 }

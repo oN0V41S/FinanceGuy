@@ -1,4 +1,5 @@
 /** @jest-environment node */
+import { resolve } from 'node:path';
 import { runCli } from '../run';
 import { makeCtx } from '../core/testing';
 
@@ -12,7 +13,22 @@ describe('fg tui', () => {
     expect(exitCode).toBe(0);
     expect(exec.calls).toHaveLength(1);
     expect(exec.calls[0].command).toBe('pnpm');
-    expect(exec.calls[0].args).toEqual([...BASE, '--demo', '--once', '--dir', 'docs/x', 'FING-30']);
+    expect(exec.calls[0].args).toEqual([...BASE, '--demo', '--once', '--dir', resolve('docs/x'), 'FING-30']);
+  });
+
+  it('normaliza --dir com barra final', async () => {
+    const { ctx, exec } = makeCtx(PKG);
+    await runCli(['tui', '--dir', 'docs/x/'], ctx);
+    expect(exec.calls[0].args).toEqual([...BASE, '--dir', resolve('docs/x')]);
+  });
+
+  it('flag desconhecida ou mais de um posicional resulta em exit 2', async () => {
+    const a = makeCtx(PKG);
+    expect((await runCli(['tui', '--nada'], a.ctx)).exitCode).toBe(2);
+    expect(a.exec.calls).toHaveLength(0);
+    const b = makeCtx(PKG);
+    expect((await runCli(['tui', 'FING-1', 'FING-2'], b.ctx)).exitCode).toBe(2);
+    expect(b.exec.calls).toHaveLength(0);
   });
 
   it('sem args chama só o entrypoint', async () => {
@@ -31,12 +47,13 @@ describe('fg tui', () => {
   it('orienta rodar pnpm install quando o pacote ou dependências faltam', async () => {
     const { ctx, exec } = makeCtx({});
     const { exitCode, output } = await runCli(['tui'], ctx);
-    expect(exitCode).not.toBe(0);
+    expect(exitCode).toBe(3);
     expect(output).toContain('pnpm install');
     expect(exec.calls).toHaveLength(0);
 
     const half = makeCtx({ 'tools/fg-tui/package.json': '{}' });
     const r = await runCli(['tui'], half.ctx);
+    expect(r.exitCode).toBe(3);
     expect(r.output).toContain('pnpm install');
     expect(half.exec.calls).toHaveLength(0);
   });

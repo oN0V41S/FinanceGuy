@@ -47,3 +47,9 @@ describe('tailProgress', () => {
     expect(tailProgress('a\r\nb\r\n')).toEqual(['a', 'b']);
   });
 });
+
+describe('tailProgress sanitização', () => {
+  it('remove caracteres de controle das linhas', () => {
+    expect(tailProgress('ok\u001b[2J\u001b]0;x\u0007')).toEqual(['ok[2J]0;x']);
+  });
+});
