@@ -212,10 +212,39 @@ describe('App', () => {
   });
 });
 
+describe('Ordem da tela (App)', () => {
+  it('Atividade e Achados ficam acima do kanban', () => {
+    const board = criarBoard();
+    const { lastFrame } = render(<App board={board} activity={['- feito algo']} width={120} interactive={false} />);
+    const f = lastFrame() ?? '';
+    const col = f.indexOf(board.columns[0]?.title ?? '@@');
+    expect(f.indexOf('Atividade')).toBeGreaterThan(-1);
+    expect(f.indexOf('Atividade')).toBeLessThan(f.indexOf('Achados'));
+    expect(f.indexOf('Achados')).toBeLessThan(col);
+  });
+});
+
 describe('Teclado (App)', () => {
   function montar(): ReturnType<typeof render> {
     return render(<App board={criarBoard()} activity={[]} width={120} />);
   }
+
+  it('Esc sem detalhe chama onBack; sem onBack encerra a TUI', async () => {
+    const onBack = vi.fn();
+    const a = render(<App board={criarBoard()} activity={[]} width={120} onBack={onBack} />);
+    await aguardar();
+    a.stdin.write(ESC);
+    await aguardar(80);
+    expect(onBack).toHaveBeenCalledTimes(1);
+    a.unmount();
+    const onQuit = vi.fn();
+    const b = render(<App board={criarBoard()} activity={[]} width={120} onQuit={onQuit} />);
+    await aguardar();
+    b.stdin.write(ESC);
+    await aguardar(80);
+    expect(onQuit).toHaveBeenCalledTimes(1);
+    b.unmount();
+  });
 
   it('Enter abre o DetailPanel do card selecionado e Esc fecha', async () => {
     const { stdin, lastFrame } = montar();
@@ -309,7 +338,7 @@ describe('Visual (V2.3)', () => {
   it('Footer lista os atalhos fixos', () => {
     const { lastFrame } = render(<Footer />);
     const frame = lastFrame() ?? '';
-    for (const atalho of ['←/→ coluna', '↑/↓ card', 'Enter detalhe', 'Esc voltar', 'r recarregar', 'q sair']) {
+    for (const atalho of ['←/→ coluna', '↑/↓ card', 'Enter detalhe', 'Esc voltar/sair', 'r recarregar', 'q sair']) {
       expect(frame).toContain(atalho);
     }
   });

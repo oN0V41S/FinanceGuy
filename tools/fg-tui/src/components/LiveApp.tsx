@@ -7,15 +7,19 @@ import type { FsLike } from '../model/types.js';
 import { App } from './App.js';
 import { ErrorView } from './ErrorView.js';
 
-export function ErrorScreen({ message }: { message: string }): ReactElement {
+export function ErrorScreen({ message, onBack }: { message: string; onBack?: () => void }): ReactElement {
   const { exit } = useApp();
-  useInput((input) => {
+  useInput((input, key) => {
     if (input === 'q') exit();
+    else if (key.escape) {
+      if (onBack !== undefined) onBack();
+      else exit();
+    }
   });
   return (
     <>
       <ErrorView message={message} />
-      <Text dimColor>q sai</Text>
+      <Text dimColor>{onBack !== undefined ? 'Esc volta · q sai' : 'Esc/q sai'}</Text>
     </>
   );
 }
@@ -27,10 +31,12 @@ export function LiveApp({
   dir,
   fs,
   watchOptions,
+  onBack,
 }: {
   dir: string;
   fs: FsLike;
   watchOptions?: UseWatchStateOptions;
+  onBack?: () => void;
 }): ReactElement {
   const { result, activity, unstable, reload } = useWatchState(dir, fs, watchOptions);
   const { events } = useWatchEvents(dir, fs, watchOptions);
@@ -47,6 +53,6 @@ export function LiveApp({
     return { now, built: safeBoard(result, now) };
   }, [result, tick]);
 
-  if ('error' in view.built) return <ErrorScreen message={view.built.error} />;
-  return <App board={view.built.board} activity={activity} unstable={unstable} now={view.now} onReload={reload} events={events} />;
+  if ('error' in view.built) return <ErrorScreen message={view.built.error} onBack={onBack} />;
+  return <App board={view.built.board} activity={activity} unstable={unstable} now={view.now} onReload={reload} onBack={onBack} events={events} />;
 }

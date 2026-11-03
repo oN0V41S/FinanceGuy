@@ -25,6 +25,8 @@ export interface AppProps {
   interactive?: boolean;
   /** Chamado ao pressionar `q`, antes de encerrar o Ink. */
   onQuit?: () => void;
+  /** Esc sem detalhe aberto: volta (ex.: à aba "Todas"). Sem isso, Esc encerra a TUI. */
+  onBack?: () => void;
   /** Chamado ao pressionar `r` (a TUI é somente leitura: apenas pede nova leitura). */
   onReload?: () => void;
 }
@@ -56,6 +58,7 @@ export function App({
   width,
   interactive = true,
   onQuit,
+  onBack,
   onReload,
 }: AppProps): ReactElement {
   const { exit } = useApp();
@@ -85,7 +88,14 @@ export function App({
       } else if (key.return) {
         if (selectedCard !== undefined) setDetailOpen(true);
       } else if (key.escape) {
-        setDetailOpen(false);
+        if (detailOpen) {
+          setDetailOpen(false);
+        } else if (onBack !== undefined) {
+          onBack();
+        } else {
+          onQuit?.();
+          exit();
+        }
       }
     },
     { isActive: interactive },
@@ -106,10 +116,6 @@ export function App({
       <PhaseBar phases={board.phases} />
       {unstable ? <Text color="yellow">leitura instável, mantendo último estado</Text> : null}
       <Box marginTop={1} flexDirection="column">
-        <Board board={board} selected={selection} width={terminalWidth} />
-      </Box>
-      {detailOpen && selectedCard !== undefined ? <DetailPanel card={selectedCard} events={events} /> : null}
-      <Box marginTop={1} flexDirection="column">
         <ActivityFeed lines={activity} />
       </Box>
       {board.findings.length > 0 ? (
@@ -117,6 +123,10 @@ export function App({
           <FindingsList findings={board.findings} />
         </Box>
       ) : null}
+      <Box marginTop={1} flexDirection="column">
+        <Board board={board} selected={selection} width={terminalWidth} />
+      </Box>
+      {detailOpen && selectedCard !== undefined ? <DetailPanel card={selectedCard} events={events} /> : null}
       {board.gate !== null ? (
         <Box marginTop={1}>
           <GateBanner gate={board.gate} />

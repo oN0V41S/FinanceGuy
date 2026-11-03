@@ -5,7 +5,7 @@ export const SHORTCUTS: readonly string[] = [
   '←/→ coluna',
   '↑/↓ card',
   'Enter detalhe',
-  'Esc voltar',
+  'Esc voltar/sair',
   'r recarregar',
   'q sair',
 ];

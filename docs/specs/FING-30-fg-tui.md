@@ -299,7 +299,7 @@ Plano completo e estimativa (poker) no card do Notion (bloco "Versão V2"). Cort
 
 ### V2.3 Visual (item 3)
 
-Layout responsivo (< 80 colunas empilha), nada de palavra cortada no meio (`wrap="wrap"` onde há descrição; truncamento só com `…` em campos curtos), paleta consistente (pendente gray, rodando yellow, concluída green, falhou red, destaques cyan), cabeçalho com `code · slug · state`, **rodapé fixo com atalhos** (`←/→ coluna · ↑/↓ card · Enter detalhe · Esc voltar · r recarregar · q sair`).
+Layout responsivo (< 80 colunas empilha), nada de palavra cortada no meio (`wrap="wrap"` onde há descrição; truncamento só com `…` em campos curtos), paleta consistente (pendente gray, rodando yellow, concluída green, falhou red, destaques cyan), cabeçalho com `code · slug · state`, **rodapé fixo com atalhos** (`←/→ coluna · ↑/↓ card · Enter detalhe · Esc voltar/sair · r recarregar · q sair`).
 
 ### V2.4 Multi-worktree (item 4)
 

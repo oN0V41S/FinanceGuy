@@ -96,6 +96,21 @@ describe('MultiApp', () => {
     unmount();
   });
 
+  it('Esc em uma aba de worktree volta à aba Todas', async () => {
+    const { watch } = makeWatch();
+    const { lastFrame, stdin, unmount } = render(
+      <MultiApp refs={refs} fs={makeFs()} watchOptions={{ watch, intervalMs: 5000 }} />,
+    );
+    await aguardar();
+    stdin.write(TAB);
+    await aguardar();
+    expect(lastFrame()).not.toContain('Enter abre');
+    stdin.write('');
+    await aguardar(100);
+    expect(lastFrame()).toContain('Enter abre');
+    unmount();
+  });
+
   it('fecha todos os watchers no unmount', async () => {
     const { stats, watch } = makeWatch();
     const { stdin, unmount } = render(<MultiApp refs={refs} fs={makeFs()} watchOptions={{ watch, intervalMs: 5000 }} />);

@@ -81,7 +81,7 @@ export function MultiApp({ refs, fs, interactive = true, watchOptions }: MultiAp
         return;
       }
       if (tab !== 0) return; // nas abas de worktree o <App> trata as demais teclas
-      if (input === 'q') exit();
+      if (input === 'q' || key.escape) exit();
       else if (key.upArrow || input === 'k') setRow((r) => Math.max(0, r - 1));
       else if (key.downArrow || input === 'j') setRow((r) => Math.min(refs.length - 1, r + 1));
       else if (key.return) setTab(Math.min(refs.length, row) + 1);
@@ -104,11 +104,11 @@ export function MultiApp({ refs, fs, interactive = true, watchOptions }: MultiAp
         {active === undefined ? (
           <AllTab refs={refs} fs={fs} selected={row} watchOptions={watchOptions} />
         ) : (
-          <LiveApp key={active.path} dir={active.path} fs={fs} watchOptions={watchOptions} />
+          <LiveApp key={active.path} dir={active.path} fs={fs} watchOptions={watchOptions} onBack={() => setTab(0)} />
         )}
       </Box>
       <Text dimColor>
-        {tab === 0 ? 'Tab/Shift+Tab alterna aba · ↑/↓ escolhe · Enter abre · q sai' : 'Tab/Shift+Tab alterna aba'}
+        {tab === 0 ? 'Tab/Shift+Tab alterna aba · ↑/↓ escolhe · Enter abre · Esc/q sai' : 'Tab/Shift+Tab alterna aba · Esc volta a Todas · q sai'}
       </Text>
     </Box>
   );
