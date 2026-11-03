@@ -45,6 +45,7 @@ Arquivo de estado da pipeline, gravado na **raiz da worktree** e mantido **fora 
 | `steps[].sessionID` | `string \| null` | Sessão OpenCode da etapa (`ses_…`); `null` se ainda não rodou |
 | `steps[].model` | `string \| null` | Modelo que concluiu a etapa |
 | `steps[].commit` | `string \| null` | SHA do commit da etapa; `null` se não commitada |
+| `steps[].dependsOn` | `number[]?` | Índices (1-based) das etapas que precisam estar `done` antes desta; ausente = sem dependências. Referência própria/inexistente é ignorada; ciclo é sinalizado pela TUI e nada fica "pronto" |
 | `steps[].status` | `string` (enum) | `pending` \| `running` \| `done` \| `failed` |
 | `review.cycles` | `number` | Ciclos de revisão executados (máx. 2) |
 | `review.findings` | `array` | Achados formatados da revisão (`severidade`, `arquivo`, `linha`, `descrição`, `correção sugerida`) |
@@ -104,3 +105,11 @@ Arquivo **append-only** na raiz da worktree, ao lado de `.fg-pipeline.json`. Uma
 | `data` | objeto? | detalhes opcionais (ex.: `model`, `commit`, `path`) |
 
 Campos extras são ignorados. Linha inválida é ignorada e contada pela TUI (nunca interrompe a leitura). Arquivo ausente equivale a "sem eventos". Nunca registrar segredos nem conteúdo de `.env`.
+
+## DAG e paralelismo (`dependsOn`)
+
+As etapas formam um **grafo acíclico**: uma etapa está **pronta** quando está `pending` e todas as suas `dependsOn` estão `done`. Etapas prontas ao mesmo tempo podem rodar **em paralelo** (cada uma como tarefa em background própria, com arquivos disjuntos). A TUI mostra `⛓ aguarda N, M` nos cards bloqueados, "Prontas para rodar em paralelo" e um aviso se houver ciclo.
+
+## Métricas de eficácia (derivadas de `events.jsonl`)
+
+A TUI calcula, sem gravar nada: etapas concluídas/falhas/rodando, ciclos de revisão, **% verde de primeira** (`step_done` sem `step_failed` anterior na mesma etapa), duração média por etapa (`step_started` → `step_done`), tempo total (primeiro → último evento) e **pico de paralelismo**. Sem eventos, as métricas dependentes aparecem como "—". Por isso o maestro deve emitir `step_started`/`step_done`/`step_failed` para **toda** etapa.

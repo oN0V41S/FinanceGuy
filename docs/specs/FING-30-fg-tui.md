@@ -335,3 +335,36 @@ Seção "Contrato de loop" em `.claude/skills/fg-pipeline/SKILL.md`: cada laço 
 | A | 9 dívidas | `quality-assurance-analyst` | `src/scripts/cli/core/args.ts`, `commands/tui.ts`, `model/{readState,resolveTarget}*`, `main.tsx` (só validação de `--dir`) |
 | B | 2 detalhe, 4 multi | `frontend` + `backend-engineer` | `DetailPanel`, `main.tsx`, `App`, novo `model/aggregate*` |
 | C | 7 loop | `docs-architect` | `.claude/skills/fg-pipeline/SKILL.md` |
+
+## V3 — DAG, paralelismo e métricas de eficácia (2026-11-03)
+
+Itens 5, 6 e 8 do card do Notion. A TUI continua **somente leitura**.
+
+### V3.1 DAG `dependsOn` (item 5)
+
+- `steps[].dependsOn?: number[]` (índices 1-based, inteiros positivos) no `StepSchema`.
+- `model/dag.ts` (puro): `analyzeDag(steps) → { blockedBy, ready, cycle }`. Ignora autorreferência e índices inexistentes; detecta ciclo por DFS (com ciclo, `ready` fica vazio).
+- `Card` mostra `⛓ aguarda N, M`; `Board` expõe `ready` e `dagCycle`; `App` avisa em amarelo quando há ciclo.
+
+### V3.2 Paralelismo real (item 6)
+
+Contrato no `SKILL.md` ("Paralelismo por DAG"): o maestro lança juntas todas as etapas prontas, cada uma em background próprio e arquivos disjuntos. A TUI exibe "Prontas para rodar em paralelo: etapa(s) …" e o pico de paralelismo.
+
+### V3.3 Métricas de eficácia (item 8)
+
+`model/metrics.ts` (puro): `computeMetrics(state, events)` → total/done/failed/running, ciclos de revisão, % verde de primeira, duração média por etapa, tempo total e pico de paralelismo; campos sem dado são `null` e aparecem como "—". Exibidas em `MetricsBar`; `--dump` inclui `metrics`.
+
+### V3.4 Critérios de aceitação
+
+20. `analyzeDag`: dependência satisfeita libera a etapa; ciclo, autorreferência e índice inexistente tratados sem lançar.
+21. Card bloqueado exibe `aguarda`; `MetricsBar` aparece com ou sem eventos.
+22. `computeMetrics` é puro e tolera eventos vazios; `--dump` inclui `metrics` e `dagCycle`.
+23. `state-schema.md` e `SKILL.md` documentam `dependsOn`, paralelismo e métricas.
+
+### V3.5 Mapa de execução
+
+| Fase | Itens | Sub-agente | Arquivos |
+| --- | --- | --- | --- |
+| A | 5 DAG, 8 métricas | `backend-engineer` | `model/{schema,dag,metrics,mapToBoard,types,safeBoard}*` |
+| B | 5/8 UI | `frontend` | `components/{Card,MetricsBar,App,LiveApp}*`, `main.tsx` |
+| C | 6 contrato | `docs-architect` | `SKILL.md`, `state-schema.md` |

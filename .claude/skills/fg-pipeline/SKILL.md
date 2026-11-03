@@ -62,6 +62,10 @@ Todo laço de validar → corrigir declara, **antes de começar**, três coisas 
 
 Cada rodada grava um evento `note` no `.fg-pipeline.events.jsonl` (rodada, resultado, falhas). O **verificador** (testes, lint, revisores) é sempre distinto do **executor** que escreveu o código.
 
+## Paralelismo por DAG (passo 8)
+
+Se o Mapa de Execução da spec declara dependências, grave-as em `steps[].dependsOn` no `.fg-pipeline.json`. A cada rodada, lance **ao mesmo tempo** todas as etapas `pending` cujas dependências estão todas `done` (cada uma como tarefa em background própria, `--session` separada, arquivos disjuntos) e aguarde todas antes de recalcular as prontas. Etapas que tocam os mesmos arquivos **não** são paralelizadas: declare dependência entre elas. Ciclo de dependência ⇒ pare e corrija o mapa. Cada etapa emite `step_started`/`step_done`/`step_failed` (alimentam as métricas de eficácia da TUI).
+
 ## Visibilidade para a TUI (`pnpm fg tui`)
 
 A TUI só lê arquivos, então o maestro precisa mantê-los atuais: **antes de lançar** um agente/etapa, grave a etapa em `.fg-pipeline.json` (`status: running`, `state: step_<i>_running`) e um evento `step_started` em `.fg-pipeline.events.jsonl`; ao terminar, `step_done`/`step_failed` com o SHA do commit. Etapa fora do estado não aparece no Kanban. Formato dos eventos: `references/state-schema.md`.
