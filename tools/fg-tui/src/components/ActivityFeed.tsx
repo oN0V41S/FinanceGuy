@@ -36,7 +36,7 @@ export function ActivityFeed({ lines }: ActivityFeedProps): ReactElement {
           return (
             <Text
               key={`${index}:${line}`}
-              wrap="truncate-end"
+              wrap="wrap"
               bold={kind === 'heading'}
               color={kind === 'heading' ? 'cyan' : undefined}
             >

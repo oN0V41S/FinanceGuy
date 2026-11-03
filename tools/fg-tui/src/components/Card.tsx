@@ -17,13 +17,13 @@ export function Card({ card, selected = false }: CardProps): ReactElement {
       borderColor={selected ? 'cyan' : color}
       paddingX={1}
     >
-      <Text bold color={selected ? 'cyan' : undefined}>
+      <Text bold color={selected ? 'cyan' : undefined} wrap="truncate-end">
         {`${selected ? '› ' : ''}${card.index}. ${card.agent}`}
       </Text>
       <Text dimColor wrap="truncate-end">
         {card.model ?? 'modelo —'}
       </Text>
-      {card.commitShort !== null ? <Text>{`commit ${card.commitShort}`}</Text> : null}
+      {card.commitShort !== null ? <Text color="green" wrap="truncate-end">{`commit ${card.commitShort}`}</Text> : null}
       {card.stale ? <Text color="yellow">{'⚠ sem atualização'}</Text> : null}
     </Box>
   );

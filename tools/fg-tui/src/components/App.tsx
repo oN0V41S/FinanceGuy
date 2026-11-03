@@ -4,6 +4,7 @@ import type { Board as BoardModel, BoardCard } from '../model/types.js';
 import { ActivityFeed } from './ActivityFeed.js';
 import { Board, useTerminalWidth } from './Board.js';
 import { DetailPanel } from './DetailPanel.js';
+import { Footer } from './Footer.js';
 import { FindingsList } from './FindingsList.js';
 import { GateBanner } from './GateBanner.js';
 import { PhaseBar } from './PhaseBar.js';
@@ -92,9 +93,7 @@ export function App({
   return (
     <Box flexDirection="column" width={terminalWidth}>
       <Box flexWrap="wrap" columnGap={2}>
-        <Text bold>{board.code}</Text>
-        <Text>{board.slug}</Text>
-        <Text color="cyan">{board.state}</Text>
+        <Text bold color="cyan" wrap="truncate-end">{`${board.code} · ${board.slug} · ${board.state}`}</Text>
         <Text dimColor>{`atualizado ${formatAge(board.updatedAt, clock)}`}</Text>
         {staleCard && staleMinutes !== null ? (
           <Text color="yellow">{`sem atualização há ${staleMinutes} min`}</Text>
@@ -119,11 +118,9 @@ export function App({
           <GateBanner gate={board.gate} />
         </Box>
       ) : null}
-      {interactive ? (
-        <Box marginTop={1}>
-          <Text dimColor>←/→ coluna · ↑/↓ card · Enter detalhes · Esc fecha · r recarrega · q sai</Text>
-        </Box>
-      ) : null}
+      <Box marginTop={1}>
+        <Footer />
+      </Box>
     </Box>
   );
 }

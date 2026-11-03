@@ -13,11 +13,11 @@ export function GateBanner({ gate }: GateBannerProps): ReactElement {
       <Text bold color={color}>
         {gate.title}
       </Text>
-      <Text>{gate.message}</Text>
+      <Text wrap="wrap">{gate.message}</Text>
       {gate.command !== undefined ? (
         <>
-          <Text bold>{`$ ${gate.command}`}</Text>
-          <Text dimColor>A TUI é somente leitura: execute o comando você mesmo, se aprovar.</Text>
+          <Text bold color="cyan" wrap="wrap">{`$ ${gate.command}`}</Text>
+          <Text dimColor wrap="wrap">A TUI é somente leitura: execute o comando você mesmo, se aprovar.</Text>
         </>
       ) : null}
     </Box>

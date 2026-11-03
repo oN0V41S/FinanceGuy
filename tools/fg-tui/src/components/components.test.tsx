@@ -6,6 +6,7 @@ import { ErrorView } from './ErrorView.js';
 import { Board } from './Board.js';
 import { WorktreePicker } from './WorktreePicker.js';
 import { App } from './App.js';
+import { Footer, SHORTCUTS } from './Footer.js';
 import type { Board as BoardModel, BoardCard, Gate, WorktreeRef } from '../model/types.js';
 
 const ESC = '\u001B';
@@ -283,5 +284,36 @@ describe('Teclado (App)', () => {
     stdin.write('r');
     await aguardar();
     expect(onReload).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Visual (V2.3)', () => {
+  const longa = 'Descrição extremamente longa de atividade que precisa quebrar entre palavras sem cortar nenhuma palavra no meio';
+  const palavras = longa.split(' ');
+
+  for (const largura of [60, 120]) {
+    it(`em ${largura} colunas: rodapé completo, cabeçalho code · slug · state e sem palavra cortada`, () => {
+      const board: BoardModel = { ...criarBoard(), findings: [{ severity: 'alto', file: null, line: null, description: longa }] };
+      const { lastFrame } = render(<App board={board} activity={[`- ${longa}`]} width={largura} />);
+      const frame = lastFrame() ?? '';
+      expect(frame).toContain('FING-30 · fg-tui · step_2_running');
+      for (const atalho of SHORTCUTS) expect(frame).toContain(atalho);
+      for (const linha of frame.split('\n')) expect(linha.length).toBeLessThanOrEqual(largura);
+      const tokens = new Set(frame.split(/\s+/));
+      for (const palavra of palavras) expect(tokens.has(palavra)).toBe(true);
+    });
+  }
+
+  it('Footer lista os atalhos fixos', () => {
+    const { lastFrame } = render(<Footer />);
+    const frame = lastFrame() ?? '';
+    for (const atalho of ['←/→ coluna', '↑/↓ card', 'Enter detalhe', 'Esc voltar', 'r recarregar', 'q sair']) {
+      expect(frame).toContain(atalho);
+    }
+  });
+
+  it('rodapé aparece mesmo sem modo interativo', () => {
+    const { lastFrame } = render(<App board={criarBoard()} activity={[]} width={120} interactive={false} />);
+    expect(lastFrame() ?? '').toContain('q sair');
   });
 });

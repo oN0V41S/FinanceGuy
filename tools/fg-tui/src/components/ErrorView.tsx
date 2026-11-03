@@ -11,7 +11,7 @@ export function ErrorView({ message }: ErrorViewProps): ReactElement {
       <Text color="red" bold>
         Não foi possível exibir a pipeline
       </Text>
-      <Text>{message}</Text>
+      <Text wrap="wrap">{message}</Text>
     </Box>
   );
 }
