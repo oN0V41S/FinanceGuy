@@ -42,7 +42,7 @@ interface Held {
   view: WatchView;
 }
 
-const defaultWatch: WatchFn = (dir, onEvent) => {
+export const defaultWatch: WatchFn = (dir, onEvent) => {
   const watcher = fsWatch(dir, { persistent: false }, (_event, filename) => {
     onEvent(filename === null || filename === undefined ? null : String(filename));
   });

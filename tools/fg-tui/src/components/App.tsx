@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
+import type { PipelineEvent } from '../model/events.js';
 import type { Board as BoardModel, BoardCard } from '../model/types.js';
 import { ActivityFeed } from './ActivityFeed.js';
 import { Board, useTerminalWidth } from './Board.js';
@@ -14,6 +15,8 @@ export interface AppProps {
   board: BoardModel;
   activity: string[];
   unstable?: boolean;
+  /** Eventos da pipeline (events.jsonl) para o detalhe do card. */
+  events?: PipelineEvent[];
   /** Relógio usado em "atualizado há X"; padrão: agora. */
   now?: Date;
   /** Largura do terminal; padrão: a do stdout (ou 80). */
@@ -48,6 +51,7 @@ export function App({
   board,
   activity,
   unstable = false,
+  events,
   now,
   width,
   interactive = true,
@@ -104,7 +108,7 @@ export function App({
       <Box marginTop={1} flexDirection="column">
         <Board board={board} selected={selection} width={terminalWidth} />
       </Box>
-      {detailOpen && selectedCard !== undefined ? <DetailPanel card={selectedCard} /> : null}
+      {detailOpen && selectedCard !== undefined ? <DetailPanel card={selectedCard} events={events} /> : null}
       <Box marginTop={1} flexDirection="column">
         <ActivityFeed lines={activity} />
       </Box>

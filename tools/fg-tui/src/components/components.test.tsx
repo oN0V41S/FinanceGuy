@@ -7,6 +7,8 @@ import { Board } from './Board.js';
 import { WorktreePicker } from './WorktreePicker.js';
 import { App } from './App.js';
 import { Footer, SHORTCUTS } from './Footer.js';
+import { DetailPanel } from './DetailPanel.js';
+import type { PipelineEvent } from '../model/events.js';
 import type { Board as BoardModel, BoardCard, Gate, WorktreeRef } from '../model/types.js';
 
 const ESC = '\u001B';
@@ -315,5 +317,64 @@ describe('Visual (V2.3)', () => {
   it('rodapé aparece mesmo sem modo interativo', () => {
     const { lastFrame } = render(<App board={criarBoard()} activity={[]} width={120} interactive={false} />);
     expect(lastFrame() ?? '').toContain('q sair');
+  });
+});
+
+describe('DetailPanel com eventos (V2.2)', () => {
+  const ev = (
+    ts: string,
+    step: number | null,
+    type: PipelineEvent['type'],
+    message: string,
+    data?: Record<string, unknown>,
+  ): PipelineEvent => ({
+    ts: `2026-11-03T10:${ts}.000Z`,
+    step,
+    type,
+    message,
+    ...(data !== undefined ? { data } : {}),
+  });
+
+  it('sem eventos mostra a mensagem de vazio', () => {
+    const { lastFrame } = render(<DetailPanel card={cartao(2, 'frontend', 'running')} events={[]} />);
+    expect(lastFrame() ?? '').toContain('Sem eventos registrados para esta etapa.');
+  });
+
+  it('mostra duração, eventos, arquivos e achados só da etapa', () => {
+    const events = [
+      ev('00:00', 2, 'step_started', 'inicio'),
+      ev('01:30', 2, 'file_changed', 'alterou', { path: 'src/a.ts' }),
+      ev('01:40', 2, 'finding', 'falta teste'),
+      ev('02:05', 2, 'step_done', 'fim'),
+      ev('03:00', 3, 'note', 'outra etapa'),
+    ];
+    const { lastFrame } = render(<DetailPanel card={cartao(2, 'frontend', 'done')} events={events} />);
+    const f = lastFrame() ?? '';
+    expect(f).toContain('Duração: 2 min 5 s');
+    expect(f).toContain('src/a.ts');
+    expect(f).toContain('Achados (1)');
+    expect(f).toContain('falta teste');
+    expect(f).not.toContain('outra etapa');
+  });
+
+  it('limita a 12 eventos mais recentes', () => {
+    const events = Array.from({ length: 15 }, (_, i) =>
+      ev(`00:${String(i).padStart(2, '0')}`, 2, 'note', `msg-${i}.`),
+    );
+    const { lastFrame } = render(<DetailPanel card={cartao(2, 'frontend', 'running')} events={events} />);
+    const f = lastFrame() ?? '';
+    expect(f).toContain('msg-14.');
+    expect(f).toContain('msg-3.');
+    expect(f).not.toContain('msg-2.');
+  });
+
+  it('App repassa events ao DetailPanel', async () => {
+    const { stdin, lastFrame } = render(
+      <App board={criarBoard()} activity={[]} width={120} events={[ev('00:00', 2, 'note', 'olá-evento')]} />,
+    );
+    await aguardar();
+    stdin.write('\r');
+    await aguardar();
+    expect(lastFrame() ?? '').toContain('olá-evento');
   });
 });
