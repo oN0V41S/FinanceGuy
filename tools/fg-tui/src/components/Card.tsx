@@ -24,6 +24,9 @@ export function Card({ card, selected = false }: CardProps): ReactElement {
         {card.model ?? 'modelo —'}
       </Text>
       {card.commitShort !== null ? <Text color="green" wrap="truncate-end">{`commit ${card.commitShort}`}</Text> : null}
+      {card.blockedBy.length > 0 ? (
+        <Text color="magenta" wrap="truncate-end">{`⛓ aguarda ${card.blockedBy.join(', ')}`}</Text>
+      ) : null}
       {card.stale ? <Text color="yellow">{'⚠ sem atualização'}</Text> : null}
     </Box>
   );

@@ -1,5 +1,6 @@
 import { mapToBoard } from './mapToBoard.js';
 import { sanitizeText } from './sanitizeText.js';
+import type { PipelineEvent } from './events.js';
 import type { Board, ReadResult } from './types.js';
 
 export function describeReadFailure(result: Extract<ReadResult, { ok: false }>): string {
@@ -15,10 +16,10 @@ export function describeReadFailure(result: Extract<ReadResult, { ok: false }>):
   }
 }
 
-export function safeBoard(result: ReadResult, now: Date): { board: Board } | { error: string } {
+export function safeBoard(result: ReadResult, now: Date, events: readonly PipelineEvent[] = []): { board: Board } | { error: string } {
   if (!result.ok) return { error: describeReadFailure(result) };
   try {
-    return { board: mapToBoard(result.state, now) };
+    return { board: mapToBoard(result.state, now, events) };
   } catch (error) {
     return {
       error: `Falha ao montar o quadro da pipeline: ${sanitizeText(error instanceof Error ? error.message : String(error))}`,

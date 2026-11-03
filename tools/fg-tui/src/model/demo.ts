@@ -38,6 +38,7 @@ export function demoState(): PipelineState {
         model: 'claude-sonnet-4',
         commit: null,
         status: 'running',
+        dependsOn: [1],
       },
       {
         index: 4,
@@ -46,6 +47,7 @@ export function demoState(): PipelineState {
         model: 'deepseek-v3',
         commit: null,
         status: 'failed',
+        dependsOn: [1],
       },
       {
         index: 5,
@@ -54,6 +56,7 @@ export function demoState(): PipelineState {
         model: null,
         commit: null,
         status: 'pending',
+        dependsOn: [3, 4],
       },
       {
         index: 6,
@@ -62,6 +65,7 @@ export function demoState(): PipelineState {
         model: null,
         commit: null,
         status: 'pending',
+        dependsOn: [5],
       },
     ],
     review: {

@@ -202,3 +202,32 @@ describe('mapToBoard - achados e portão', () => {
     expect(mapToBoard(estado(), AGORA).gate).toBeNull();
   });
 });
+
+describe('mapToBoard - V3 (DAG e métricas)', () => {
+  it('etapa pendente com dependência aberta expõe blockedBy; sem dependsOn fica vazio', () => {
+    const steps: PipelineState['steps'] = [
+      { index: 1, agent: 'a', sessionID: null, model: null, commit: null, status: 'running' },
+      { index: 2, agent: 'b', sessionID: null, model: null, commit: null, status: 'pending', dependsOn: [1] },
+      { index: 3, agent: 'c', sessionID: null, model: null, commit: null, status: 'pending' },
+    ];
+    const board = mapToBoard(estado({ steps }), AGORA);
+    const cards = board.columns.flatMap((c) => c.cards);
+    expect(cards.find((c) => c.index === 2)).toMatchObject({ dependsOn: [1], blockedBy: [1] });
+    expect(cards.find((c) => c.index === 3)).toMatchObject({ dependsOn: [], blockedBy: [] });
+    expect(board.ready).toEqual([3]);
+    expect(board.dagCycle).toBe(false);
+  });
+
+  it('ciclo em dependsOn marca dagCycle', () => {
+    const steps: PipelineState['steps'] = [
+      { index: 1, agent: 'a', sessionID: null, model: null, commit: null, status: 'pending', dependsOn: [2] },
+      { index: 2, agent: 'b', sessionID: null, model: null, commit: null, status: 'pending', dependsOn: [1] },
+    ];
+    expect(mapToBoard(estado({ steps }), AGORA).dagCycle).toBe(true);
+  });
+
+  it('inclui métricas derivadas do estado (e dos eventos, quando informados)', () => {
+    const board = mapToBoard(estado(), AGORA);
+    expect(board.metrics).toMatchObject({ total: 3, done: 1, running: 1 });
+  });
+});

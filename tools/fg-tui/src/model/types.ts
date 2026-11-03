@@ -1,3 +1,4 @@
+import type { Metrics } from './metrics.js';
 import type { PipelineState } from './schema.js';
 
 export type { PipelineState } from './schema.js';
@@ -44,6 +45,9 @@ export interface BoardCard {
   sessionShort: string | null;
   commitShort: string | null;
   stale: boolean;
+  dependsOn: number[];
+  /** Dependências ainda não concluídas (só para etapas pendentes). */
+  blockedBy: number[];
 }
 
 export interface BoardColumn {
@@ -77,4 +81,9 @@ export interface Board {
   columns: BoardColumn[];
   findings: Finding[];
   gate: Gate | null;
+  /** Etapas pendentes prontas para rodar em paralelo. */
+  ready: number[];
+  metrics: Metrics;
+  /** `dependsOn` forma um ciclo: a ordem de execução é ambígua. */
+  dagCycle: boolean;
 }

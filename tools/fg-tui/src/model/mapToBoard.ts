@@ -1,4 +1,7 @@
 import { detectGate } from './detectGate.js';
+import { analyzeDag } from './dag.js';
+import { computeMetrics } from './metrics.js';
+import type { PipelineEvent } from './events.js';
 import { normalizeFinding } from './normalizeFinding.js';
 import { parseState } from './parseState.js';
 import { sanitizeText } from './sanitizeText.js';
@@ -93,9 +96,10 @@ const COLUMNS: ReadonlyArray<{ id: BoardColumn['id']; title: string }> = [
 ];
 
 /** Converte o estado do pipeline no modelo de apresentação do Kanban (puro). */
-export function mapToBoard(state: PipelineState, now: Date): Board {
+export function mapToBoard(state: PipelineState, now: Date, events: readonly PipelineEvent[] = []): Board {
   const stale = isStale(state.updatedAt, now);
   const steps = [...state.steps].sort((a, b) => a.index - b.index);
+  const dag = analyzeDag(steps);
 
   const columns: BoardColumn[] = COLUMNS.map((col) => ({
     id: col.id,
@@ -111,6 +115,8 @@ export function mapToBoard(state: PipelineState, now: Date): Board {
           sessionShort: shorten(step.sessionID, 8),
           commitShort: shorten(step.commit, 7),
           stale: step.status === 'running' && stale,
+          dependsOn: [...new Set(step.dependsOn ?? [])].sort((a, b) => a - b),
+          blockedBy: dag.blockedBy.get(step.index) ?? [],
         }),
       ),
   }));
@@ -124,5 +130,8 @@ export function mapToBoard(state: PipelineState, now: Date): Board {
     columns,
     findings: state.review.findings.map(normalizeFinding),
     gate: sanitizeGate(detectGate(state)),
+    ready: dag.ready,
+    metrics: computeMetrics(state, events),
+    dagCycle: dag.cycle,
   };
 }

@@ -8,6 +8,7 @@ import { DetailPanel } from './DetailPanel.js';
 import { Footer } from './Footer.js';
 import { FindingsList } from './FindingsList.js';
 import { GateBanner } from './GateBanner.js';
+import { MetricsBar } from './MetricsBar.js';
 import { PhaseBar } from './PhaseBar.js';
 import { formatAge, minutesSince } from './format.js';
 
@@ -114,6 +115,8 @@ export function App({
         ) : null}
       </Box>
       <PhaseBar phases={board.phases} />
+      <MetricsBar metrics={board.metrics} ready={board.ready} />
+      {board.dagCycle ? <Text color="yellow">dependências (dependsOn) formam um ciclo: ordem ambígua</Text> : null}
       {unstable ? <Text color="yellow">leitura instável, mantendo último estado</Text> : null}
       <Box marginTop={1} flexDirection="column">
         <ActivityFeed lines={activity} />

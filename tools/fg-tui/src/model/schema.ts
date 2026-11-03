@@ -7,6 +7,8 @@ export const StepSchema = z.object({
   model: z.string().nullable(),
   commit: z.string().nullable(),
   status: z.enum(['pending', 'running', 'done', 'failed']),
+  /** V3 (DAG): índices das etapas que precisam concluir antes desta. Ausente = sem dependências. */
+  dependsOn: z.array(z.number().int().positive()).optional(),
 });
 
 export const PipelineStateSchema = z.object({

@@ -10,6 +10,7 @@ import { MultiApp } from './components/MultiApp.js';
 import { WorktreePicker, describeWorktree } from './components/WorktreePicker.js';
 import { readSnapshot } from './hooks/useWatchState.js';
 import { formatSummary, resolveTargets, summarizeResult, type FsDirs } from './model/aggregate.js';
+import { readEvents } from './model/events.js';
 import { demoState } from './model/demo.js';
 import type { FsProbe } from './model/readState.js';
 import { resolveTarget } from './model/resolveTarget.js';
@@ -189,6 +190,9 @@ async function runMulti(
     return 1;
   }
 
+  for (const message of resolved.skipped ?? []) io.stderr.write(`Ignorado: ${sanitizeText(message)}
+`);
+
   if (mode.interactive) {
     await render(<MultiApp refs={resolved.refs} fs={io.fs} />).waitUntilExit();
     return 0;
@@ -300,7 +304,7 @@ export async function run(argv: string[], io: RunIo = realIo()): Promise<number>
     if (ref === null) return 1;
     const snapshot = readSnapshot(ref.path, io.fs);
     const now = io.now();
-    const built = safeBoard(snapshot.result, now);
+    const built = safeBoard(snapshot.result, now, readEvents(ref.path, io.fs).events);
     if ('error' in built) {
       io.stderr.write(`${built.error}\n`);
       return 1;

@@ -50,8 +50,8 @@ export function LiveApp({
   const view = useMemo(() => {
     const now = new Date();
     void tick;
-    return { now, built: safeBoard(result, now) };
-  }, [result, tick]);
+    return { now, built: safeBoard(result, now, events) };
+  }, [result, tick, events]);
 
   if ('error' in view.built) return <ErrorScreen message={view.built.error} onBack={onBack} />;
   return <App board={view.built.board} activity={activity} unstable={unstable} now={view.now} onReload={reload} onBack={onBack} events={events} />;

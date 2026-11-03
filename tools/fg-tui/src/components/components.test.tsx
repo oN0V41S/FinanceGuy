@@ -6,6 +6,7 @@ import { ErrorView } from './ErrorView.js';
 import { Board } from './Board.js';
 import { WorktreePicker } from './WorktreePicker.js';
 import { App } from './App.js';
+import { MetricsBar } from './MetricsBar.js';
 import { Footer, SHORTCUTS } from './Footer.js';
 import { DetailPanel } from './DetailPanel.js';
 import type { PipelineEvent } from '../model/events.js';
@@ -23,7 +24,7 @@ function aguardar(ms = 30): Promise<void> {
 }
 
 function cartao(index: number, agent: string, status: BoardCard['status'], extra: Partial<BoardCard> = {}): BoardCard {
-  return { index, agent, status, model: null, sessionShort: null, commitShort: null, stale: false, ...extra };
+  return { index, agent, status, model: null, sessionShort: null, commitShort: null, stale: false, dependsOn: [], blockedBy: [], ...extra };
 }
 
 function criarBoard(): BoardModel {
@@ -52,6 +53,9 @@ function criarBoard(): BoardModel {
     ],
     findings: [{ severity: 'alto', file: 'src/a.ts', line: 10, description: 'Falta validação' }],
     gate: null,
+    ready: [],
+    dagCycle: false,
+    metrics: { total: 4, done: 1, failed: 0, running: 2, reviewCycles: 0, firstTryGreenPct: null, avgStepMs: null, wallMs: null, parallelPeak: 2 },
   };
 }
 
@@ -64,6 +68,8 @@ describe('Card', () => {
     sessionShort: 'ses_ab12',
     commitShort: 'abcdef1',
     stale: false,
+    dependsOn: [],
+    blockedBy: [],
   };
 
   it('mostra agente, modelo e commit curto', () => {
@@ -405,5 +411,37 @@ describe('DetailPanel com eventos (V2.2)', () => {
     stdin.write('\r');
     await aguardar();
     expect(lastFrame() ?? '').toContain('olá-evento');
+  });
+});
+
+describe('V3 - dependências e métricas', () => {
+  it('Card mostra "aguarda N" quando bloqueado', () => {
+    const { lastFrame } = render(<Card card={cartao(5, 'docs', 'pending', { dependsOn: [3, 4], blockedBy: [3, 4] })} />);
+    expect(lastFrame()).toContain('aguarda 3, 4');
+  });
+
+  it('Card sem bloqueio não mostra "aguarda"', () => {
+    const { lastFrame } = render(<Card card={cartao(5, 'docs', 'pending')} />);
+    expect(lastFrame()).not.toContain('aguarda');
+  });
+
+  it('MetricsBar lista métricas e etapas prontas', () => {
+    const metrics = { total: 4, done: 2, failed: 1, running: 1, reviewCycles: 1, firstTryGreenPct: 50, avgStepMs: 120_000, wallMs: 600_000, parallelPeak: 2 };
+    const { lastFrame } = render(<MetricsBar metrics={metrics} ready={[3, 4]} />);
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('2/4 etapas');
+    expect(frame).toContain('1 falha');
+    expect(frame).toContain('50% verde de 1ª');
+    expect(frame).toContain('média 2min/etapa');
+    expect(frame).toContain('paralelismo 2');
+    expect(frame).toContain('etapas 3, 4');
+  });
+
+  it('App exibe métricas e aviso de ciclo', () => {
+    const board = { ...criarBoard(), dagCycle: true, ready: [4] };
+    const { lastFrame } = render(<App board={board} activity={[]} interactive={false} />);
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('Métricas:');
+    expect(frame).toContain('formam um ciclo');
   });
 });
