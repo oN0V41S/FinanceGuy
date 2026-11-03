@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import type { WorktreeRef } from '../model/types.js';
+import { sanitizeText } from '../model/sanitizeText.js';
 
 export interface WorktreePickerProps {
   refs: WorktreeRef[];
@@ -15,7 +16,7 @@ function baseName(path: string): string {
 }
 
 export function describeWorktree(ref: WorktreeRef): string {
-  return `${ref.code ?? ref.branch ?? '—'} · ${baseName(ref.path)} · ${ref.state ?? 'estado desconhecido'}`;
+  return sanitizeText(`${ref.code ?? ref.branch ?? '—'} · ${baseName(ref.path)} · ${ref.state ?? 'estado desconhecido'}`);
 }
 
 export function WorktreePicker({ refs, onSelect, interactive = true }: WorktreePickerProps): ReactElement {

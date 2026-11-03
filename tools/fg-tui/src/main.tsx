@@ -88,6 +88,7 @@ export const realFs: FsLike & FsProbe & FsDirs = {
       return false;
     }
   },
+  size: (p) => statSync(p).size,
   listDir: (p) => readdirSync(p),
   isDirectory: (p) => {
     try {

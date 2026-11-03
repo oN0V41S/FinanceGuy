@@ -128,3 +128,15 @@ describe('fg tui multi-worktree', () => {
     expect(output).toContain('--root');
   });
 });
+
+describe('fg tui valores vazios', () => {
+  it('--dir= e --root= vazios resultam em exit 2', async () => {
+    for (const flag of ['--dir=', '--root=']) {
+      const { ctx, exec } = makeCtx(PKG);
+      const { exitCode, output } = await runCli(['tui', flag], ctx);
+      expect(exitCode).toBe(2);
+      expect(output).toContain('precisa de um valor');
+      expect(exec.calls).toHaveLength(0);
+    }
+  });
+});

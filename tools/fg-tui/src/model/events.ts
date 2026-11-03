@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { sanitizeText } from './sanitizeText.js';
+import { readGuarded, type FsGuard } from './guardedRead.js';
 import type { FsLike } from './types.js';
 
 export const EVENTS_FILE = '.fg-pipeline.events.jsonl';
@@ -41,6 +42,14 @@ function byTs(a: PipelineEvent, b: PipelineEvent): number {
   return Date.parse(a.ts) - Date.parse(b.ts);
 }
 
+function sanitizeData(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    out[sanitizeText(key)] = typeof value === 'string' ? sanitizeText(value) : value;
+  }
+  return out;
+}
+
 /** Interpreta o JSONL. Linha inválida é contada e ignorada; nunca lança. */
 export function parseEvents(text: string): EventsResult {
   const events: PipelineEvent[] = [];
@@ -64,7 +73,9 @@ export function parseEvents(text: string): EventsResult {
     const e = parsed.data;
     events.push({
       ...e,
+      ts: sanitizeText(e.ts),
       message: sanitizeText(e.message),
+      ...(e.data !== undefined ? { data: sanitizeData(e.data) } : {}),
       ...(e.agent !== undefined ? { agent: sanitizeText(e.agent) } : {}),
     });
   }
@@ -74,13 +85,11 @@ export function parseEvents(text: string): EventsResult {
 }
 
 /** Lê `<dir>/.fg-pipeline.events.jsonl`. Ausente ou ilegível devolve vazio. */
-export function readEvents(dir: string, fs: FsLike): EventsResult {
+export function readEvents(dir: string, fs: FsLike & FsGuard): EventsResult {
   const file = `${dir.replace(/[\\/]+$/, '')}/${EVENTS_FILE}`;
   try {
-    if (!fs.exists(file)) return vazio();
-    const raw = fs.readFile(file);
-    if (raw.length > MAX_EVENTS_BYTES) return vazio();
-    return parseEvents(raw);
+    const raw = readGuarded(fs, file, MAX_EVENTS_BYTES);
+    return raw === null ? vazio() : parseEvents(raw);
   } catch {
     return vazio();
   }

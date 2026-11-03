@@ -22,6 +22,11 @@ export const tuiCommand: Command = {
     if (args.positionals.length > 1) {
       throw new CliError('invalid-args', `Informe no máximo uma tarefa (FING-N). ${USAGE}`);
     }
+    for (const flag of ['dir', 'root']) {
+      if ((args.repeated?.[flag] ?? []).some((value) => value.trim() === '')) {
+        throw new CliError('invalid-args', `A flag --${flag} precisa de um valor. ${USAGE}`);
+      }
+    }
     const [task] = args.positionals;
     if (task !== undefined && !/^FING-\d+$/i.test(task)) {
       throw new CliError('invalid-args', `Tarefa inválida: "${task}". Use o formato FING-N. ${USAGE}`);

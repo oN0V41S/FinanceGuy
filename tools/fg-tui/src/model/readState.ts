@@ -15,6 +15,7 @@ export function stateFilePath(dir: string): string {
 export interface FsProbe {
   isSymlink?(p: string): boolean;
   isDirectory?(p: string): boolean;
+  size?(p: string): number;
 }
 
 /** Lê e valida `<dir>/.fg-pipeline.json`. Nunca lança: devolve o motivo tipado. */

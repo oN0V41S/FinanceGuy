@@ -1,6 +1,7 @@
 import { watch as fsWatch } from 'node:fs';
 import { join } from 'node:path';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { readGuarded, type FsGuard } from '../model/guardedRead.js';
 import { readState } from '../model/readState.js';
 import { tailProgress } from '../model/tailProgress.js';
 import type { FsLike, ReadResult } from '../model/types.js';
@@ -51,9 +52,11 @@ export const defaultWatch: WatchFn = (dir, onEvent) => {
   return { close: () => watcher.close() };
 };
 
-function readRaw(fs: FsLike, path: string): string | null {
+const MAX_PROGRESS_BYTES = 1_000_000;
+
+function readRaw(fs: FsLike & FsGuard, path: string, maxBytes: number): string | null {
   try {
-    return fs.exists(path) ? fs.readFile(path) : null;
+    return readGuarded(fs, path, maxBytes);
   } catch (error) {
     return `\u0000erro:${error instanceof Error ? error.message : String(error)}`;
   }
@@ -85,8 +88,8 @@ function safeTail(text: string | null): string[] {
  * para o React não re-renderizar.
  */
 function load(dir: string, fs: FsLike, prev: Held | null): Held {
-  const stateRaw = readRaw(fs, join(dir, STATE_FILE));
-  const progressRaw = readRaw(fs, join(dir, PROGRESS_FILE));
+  const stateRaw = readRaw(fs, join(dir, STATE_FILE), MAX_PROGRESS_BYTES);
+  const progressRaw = readRaw(fs, join(dir, PROGRESS_FILE), MAX_PROGRESS_BYTES);
   const signature = JSON.stringify([stateRaw, progressRaw]);
   const previous = prev !== null && prev.dir === dir ? prev : null;
   if (previous !== null && previous.signature === signature) return previous;

@@ -3,7 +3,7 @@ import { CliError } from './errors';
 import type { ExecPort } from './types';
 
 const SAFE_ARG = /^[\w@./:=,+-]+$/;
-const FORBIDDEN_CHARS = /["%`\r\n]/;
+const FORBIDDEN_CHARS = /["%`&|<>^\r\n]/;
 
 /** Escapa um argumento para o shell (necessário no Windows para resolver pnpm.cmd/npx.cmd). */
 function quote(arg: string): string {

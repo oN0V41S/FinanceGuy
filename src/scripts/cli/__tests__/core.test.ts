@@ -135,5 +135,8 @@ describe('buildSpawnPlan (sem DEP0190)', () => {
 
   it('rejeita argumento com caracteres perigosos', () => {
     expect(() => buildSpawnPlan('pnpm', ['a"b'], 'win32')).toThrow(CliError);
+    for (const c of ['&', '|', '<', '>', '^', '%']) {
+      expect(() => buildSpawnPlan('pnpm', [`a${c}b`], 'win32')).toThrow(CliError);
+    }
   });
 });
