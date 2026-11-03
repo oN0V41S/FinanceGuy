@@ -27,7 +27,7 @@ Você (Claude) é o **maestro**: orquestra, valida e commita. O **OpenCode headl
 5. Verifique retomada: entrada `FING-N` com worktree + `.fg-pipeline.json` → mostrar "última etapa concluída: X; retomar de Y?" e seguir só com confirmação (ver `references/state-schema.md`). Worktree órfã sem estado → abortar; **nunca sobrescrever**.
 6. **Teste os modelos** (diretriz abaixo): `scripts/run-agent.sh --chain IMPL --dir <repo> --probe` (e `--chain REVIEW` se for revisar). Nenhum saudável → pare e avise qual provedor falhou (quota, chave, rede) antes de criar qualquer coisa.
 
-## Fluxo (passos 1–12)
+## Fluxo (passos 1–13)
 
 Siga o mapeamento de propriedades do card e do corpo da página em `references/notion-card.md` — não duplique aqui.
 
