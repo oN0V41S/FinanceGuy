@@ -9,7 +9,7 @@ export interface FsDirs {
 }
 
 export type AggregateResult =
-  | { kind: 'ok'; refs: WorktreeRef[] }
+  | { kind: 'ok'; refs: WorktreeRef[]; skipped?: string[] }
   | { kind: 'none' }
   | { kind: 'not-found'; message: string };
 
@@ -81,6 +81,7 @@ export function resolveTargets(input: {
   const { dirs, root, repoRoot, git, fs } = input;
   const refs: WorktreeRef[] = [];
   const seen = new Set<string>();
+  const skipped: string[] = [];
   const add = (ref: WorktreeRef): void => {
     const key = normalizePath(ref.path);
     if (seen.has(key)) return;
@@ -90,7 +91,14 @@ export function resolveTargets(input: {
 
   for (const dir of dirs) {
     const resolved = resolveTarget({ dir, repoRoot, git, fs });
-    if (resolved.kind === 'not-found') return { kind: 'not-found', message: resolved.message };
+    if (resolved.kind === 'not-found') {
+      // Com vários --dir, uma pasta sem pipeline (ex.: o checkout principal) não derruba as demais.
+      if (resolved.reason === 'no-state' && dirs.length > 1) {
+        skipped.push(resolved.message);
+        continue;
+      }
+      return { kind: 'not-found', message: resolved.message };
+    }
     if (resolved.kind === 'one') add(resolved.ref);
   }
 
@@ -100,7 +108,11 @@ export function resolveTargets(input: {
     scanned.refs.forEach(add);
   }
 
-  return refs.length === 0 ? { kind: 'none' } : { kind: 'ok', refs };
+  if (refs.length === 0) {
+    const [first] = skipped;
+    return first !== undefined ? { kind: 'not-found', message: first } : { kind: 'none' };
+  }
+  return { kind: 'ok', refs, ...(skipped.length > 0 ? { skipped } : {}) };
 }
 
 // ---------------------------------------------------------------------------

@@ -6,7 +6,7 @@ export type ResolveResult =
   | { kind: 'one'; ref: WorktreeRef }
   | { kind: 'many'; refs: WorktreeRef[] }
   | { kind: 'none' }
-  | { kind: 'not-found'; message: string };
+  | { kind: 'not-found'; message: string; reason?: 'no-state' };
 
 function normalizePath(p: string): string {
   return p.replace(/\\/g, '/').replace(/\/+$/, '');
@@ -44,6 +44,7 @@ function resolveDir(dir: string, repoRoot: string, git: GitLike, fs: FsLike & Fs
     return {
       kind: 'not-found',
       message: `Nenhum ${STATE_FILE} encontrado em "${dir}". Informe uma worktree com pipeline ativa ou use "pnpm fg tui --demo".`,
+      reason: 'no-state',
     };
   }
 

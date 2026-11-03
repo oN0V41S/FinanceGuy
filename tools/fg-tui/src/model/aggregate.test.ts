@@ -55,6 +55,18 @@ describe('resolveTargets', () => {
     expect(r.refs.map((x) => x.code)).toEqual(['FING-1', 'FING-2']);
   });
 
+  it('com vários --dir, pasta sem pipeline é ignorada (e avisada) se houver outra válida', () => {
+    const fs = makeFs({ files: { '/w/a/.fg-pipeline.json': stateJson('FING-1') }, dirs: ['/w/a', '/w/b'] });
+    const r = resolveTargets({ dirs: ['/w/a', '/w/b'], repoRoot: '/w', git, fs });
+    expect(r).toMatchObject({ kind: 'ok' });
+    if (r.kind === 'ok') {
+      expect(r.refs).toHaveLength(1);
+      expect(r.skipped).toHaveLength(1);
+    }
+    const none = resolveTargets({ dirs: ['/w/b', '/w/b2'], repoRoot: '/w', git, fs: makeFs({ files: {}, dirs: ['/w/b', '/w/b2'] }) });
+    expect(none).toMatchObject({ kind: 'not-found' });
+  });
+
   it('--dir inexistente ou symlink devolve not-found acionável', () => {
     const fs = makeFs({ dirs: ['/w/a'], links: ['/w/a'] });
     const link = resolveTargets({ dirs: ['/w/a'], repoRoot: '/w', git, fs });
