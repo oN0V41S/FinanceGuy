@@ -38,6 +38,22 @@ function estadoValido(): Record<string, unknown> {
 
 const ARQUIVO = `${DIR}/.fg-pipeline.json`;
 
+describe('readState - symlink', () => {
+  it('recusa .fg-pipeline.json que é link simbólico', () => {
+    const fsLink = {
+      exists: () => true,
+      readFile: () => '{}',
+      isSymlink: () => true,
+    };
+    const r = readState('/w', fsLink);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.kind).toBe('unreadable');
+      expect(r.message).toMatch(/link simbólico/);
+    }
+  });
+});
+
 describe('readState', () => {
   it('dado um JSON válido, quando lido, então retorna ok com o estado', () => {
     const resultado = readState(DIR, fakeFs({ [ARQUIVO]: JSON.stringify(estadoValido()) }));

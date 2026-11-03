@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import { parseArgs } from '../core/args';
+import { buildSpawnPlan } from '../core/exec-port';
 import { CliError } from '../core/errors';
 import { assertWritable, normalizeRepoPath } from '../core/guards';
 import { createMemoryFs } from '../core/fs-port';
@@ -24,6 +25,16 @@ describe('parseArgs', () => {
 
   it('falha quando flag de valor não recebe valor', () => {
     expect(() => parseArgs(['--area'])).toThrow(CliError);
+  });
+
+  it('mensagem de uso em pt-BR quando a flag não tem valor ou o próximo token é outra flag', () => {
+    expect(() => parseArgs(["--area"])).toThrow(/precisa de um valor.*--area <valor>/);
+    expect(() => parseArgs(['--area', '--write'])).toThrow(/A flag --area precisa de um valor/);
+    expect(() => parseArgs(['-t'])).toThrow(/A flag -t precisa de um valor/);
+  });
+
+  it('valor começando com um hífen simples continua válido', () => {
+    expect(parseArgs(['--area', '-1']).flags.area).toBe('-1');
   });
 });
 
@@ -109,5 +120,20 @@ describe('runCli', () => {
     const { output, exitCode } = await runCli(['db', 'push', '--json'], ctx);
     expect(exitCode).toBe(3);
     expect(JSON.parse(output).status).toBe('blocked');
+  });
+});
+
+describe('buildSpawnPlan (sem DEP0190)', () => {
+  it('no Windows usa uma única string com shell e nenhum array de args', () => {
+    const plan = buildSpawnPlan('pnpm', ['--filter', 'a b', 'x'], 'win32');
+    expect(plan).toEqual({ file: 'pnpm --filter "a b" x', args: [], shell: true });
+  });
+
+  it('fora do Windows não usa shell e repassa args intactos', () => {
+    expect(buildSpawnPlan('pnpm', ['a b'], 'linux')).toEqual({ file: 'pnpm', args: ['a b'], shell: false });
+  });
+
+  it('rejeita argumento com caracteres perigosos', () => {
+    expect(() => buildSpawnPlan('pnpm', ['a"b'], 'win32')).toThrow(CliError);
   });
 });

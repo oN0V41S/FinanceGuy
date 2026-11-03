@@ -11,12 +11,25 @@ export function stateFilePath(dir: string): string {
   return `${dir.replace(/[\\/]+$/, '')}/${STATE_FILE}`;
 }
 
+/** Sondas opcionais do sistema de arquivos (ausentes em fakes simples: então não restringem). */
+export interface FsProbe {
+  isSymlink?(p: string): boolean;
+  isDirectory?(p: string): boolean;
+}
+
 /** Lê e valida `<dir>/.fg-pipeline.json`. Nunca lança: devolve o motivo tipado. */
-export function readState(dir: string, fs: FsLike): ReadResult {
+export function readState(dir: string, fs: FsLike & FsProbe): ReadResult {
   const file = stateFilePath(dir);
 
   let raw: string;
   try {
+    if (fs.exists(file) && fs.isSymlink?.(file) === true) {
+      return {
+        ok: false,
+        kind: 'unreadable',
+        message: `${STATE_FILE} é um link simbólico e foi recusado por segurança. Use o arquivo real.`,
+      };
+    }
     if (!fs.exists(file)) {
       return {
         ok: false,

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
@@ -10,6 +10,7 @@ import { WorktreePicker, describeWorktree } from './components/WorktreePicker.js
 import { readSnapshot, useWatchState } from './hooks/useWatchState.js';
 import { demoState } from './model/demo.js';
 import { mapToBoard } from './model/mapToBoard.js';
+import type { FsProbe } from './model/readState.js';
 import { resolveTarget } from './model/resolveTarget.js';
 import { sanitizeText, stripControl } from './model/sanitizeText.js';
 import type { Board, FsLike, GitLike, PipelineState, ReadResult, WorktreeRef } from './model/types.js';
@@ -72,9 +73,23 @@ export function parseArgs(argv: string[]): ParseResult {
 // Portas reais (única parte do pacote que usa child_process)
 // ---------------------------------------------------------------------------
 
-export const realFs: FsLike = {
+export const realFs: FsLike & FsProbe = {
   exists: (p) => existsSync(p),
   readFile: (p) => readFileSync(p, 'utf8'),
+  isSymlink: (p) => {
+    try {
+      return lstatSync(p).isSymbolicLink();
+    } catch {
+      return false;
+    }
+  },
+  isDirectory: (p) => {
+    try {
+      return statSync(p).isDirectory();
+    } catch {
+      return false;
+    }
+  },
 };
 
 export const realGit: GitLike = {
@@ -93,7 +108,7 @@ export const realGit: GitLike = {
 };
 
 export interface RunIo {
-  fs: FsLike;
+  fs: FsLike & FsProbe;
   git: GitLike;
   stdout: { write(text: string): unknown; columns?: number; isTTY?: boolean };
   stderr: { write(text: string): unknown };

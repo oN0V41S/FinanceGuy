@@ -68,8 +68,11 @@ export function parseArgs(argv: string[]): ParsedArgs {
 
 function takeValue(argv: string[], index: number, token: string): string {
   const value = argv[index + 1];
-  if (value === undefined) {
-    throw new CliError('invalid-args', `A flag ${token} precisa de um valor.`);
+  if (value === undefined || value.startsWith('--')) {
+    throw new CliError(
+      'invalid-args',
+      `A flag ${token} precisa de um valor (ex.: ${token} <valor> ou ${token}=<valor>). Use --help para ver as opções.`,
+    );
   }
   return value;
 }

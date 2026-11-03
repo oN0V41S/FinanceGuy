@@ -31,6 +31,14 @@ describe('fg tui', () => {
     expect(b.exec.calls).toHaveLength(0);
   });
 
+  it('flag --dir sem valor resulta em exit 2 com mensagem de uso', async () => {
+    const { ctx, exec } = makeCtx(PKG);
+    const { exitCode, output } = await runCli(['tui', '--dir'], ctx);
+    expect(exitCode).toBe(2);
+    expect(output).toContain('precisa de um valor');
+    expect(exec.calls).toHaveLength(0);
+  });
+
   it('sem args chama só o entrypoint', async () => {
     const { ctx, exec } = makeCtx(PKG);
     await runCli(['tui'], ctx);

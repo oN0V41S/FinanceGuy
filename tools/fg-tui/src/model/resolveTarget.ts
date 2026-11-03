@@ -1,5 +1,5 @@
 import { listWorktrees } from './listWorktrees.js';
-import { STATE_FILE, readState, stateFilePath } from './readState.js';
+import { STATE_FILE, readState, stateFilePath, type FsProbe } from './readState.js';
 import type { FsLike, GitLike, WorktreeRef } from './types.js';
 
 export type ResolveResult =
@@ -12,7 +12,28 @@ function normalizePath(p: string): string {
   return p.replace(/\\/g, '/').replace(/\/+$/, '');
 }
 
-function resolveDir(dir: string, repoRoot: string, git: GitLike, fs: FsLike): ResolveResult {
+function resolveDir(dir: string, repoRoot: string, git: GitLike, fs: FsLike & FsProbe): ResolveResult {
+  let isDir = true;
+  let isLink = false;
+  try {
+    if (fs.isDirectory) isDir = fs.isDirectory(dir);
+    isLink = fs.isSymlink?.(dir) === true;
+  } catch {
+    isDir = false;
+  }
+  if (isLink) {
+    return {
+      kind: 'not-found',
+      message: `"${dir}" é um link simbólico e foi recusado por segurança. Informe o caminho real da worktree com --dir.`,
+    };
+  }
+  if (!isDir) {
+    return {
+      kind: 'not-found',
+      message: `O diretório "${dir}" não existe ou não é um diretório. Confira o caminho de --dir (veja as worktrees com "git worktree list").`,
+    };
+  }
+
   let hasState = false;
   try {
     hasState = fs.exists(stateFilePath(dir));
@@ -63,7 +84,7 @@ export function resolveTarget(input: {
   code?: string;
   repoRoot: string;
   git: GitLike;
-  fs: FsLike;
+  fs: FsLike & FsProbe;
 }): ResolveResult {
   const { dir, code, repoRoot, git, fs } = input;
 

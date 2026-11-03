@@ -13,15 +13,29 @@ function quote(arg: string): string {
   return SAFE_ARG.test(arg) ? arg : `"${arg}"`;
 }
 
+export interface SpawnPlan {
+  file: string;
+  args: string[];
+  shell: boolean;
+}
+
+/**
+ * No Windows precisa de shell para resolver pnpm.cmd/npx.cmd; passar `args` junto com `shell: true`
+ * dispara o aviso DEP0190, então o comando vira uma única string já escapada.
+ */
+export function buildSpawnPlan(command: string, args: string[], platform: string = process.platform): SpawnPlan {
+  if (platform === 'win32') {
+    return { file: [command, ...args.map(quote)].join(' '), args: [], shell: true };
+  }
+  return { file: command, args, shell: false };
+}
+
 export function createRealExec(cwd: string): ExecPort {
   return {
     run(command, args) {
       return new Promise((resolvePromise) => {
-        const child = spawn(command, args.map(quote), {
-          cwd,
-          stdio: 'inherit',
-          shell: process.platform === 'win32',
-        });
+        const plan = buildSpawnPlan(command, args);
+        const child = spawn(plan.file, plan.args, { cwd, stdio: 'inherit', shell: plan.shell });
         child.on('error', () => resolvePromise(1));
         child.on('close', (code) => resolvePromise(code ?? 1));
       });

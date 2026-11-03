@@ -76,6 +76,36 @@ describe('resolveTarget - descoberta automática', () => {
   });
 });
 
+describe('resolveTarget - --dir inválido', () => {
+  const sondas = (symlinks: string[], dirs: string[]): FsLike & { isSymlink(p: string): boolean; isDirectory(p: string): boolean } => ({
+    ...fakeFs({ [`/w/${ARQ}`]: estadoJson('FING-1') }),
+    isSymlink: (p) => symlinks.includes(norm(p)),
+    isDirectory: (p) => dirs.includes(norm(p)),
+  });
+
+  it('dado --dir inexistente, então not-found dizendo que o diretório não existe', () => {
+    const r = resolveTarget({ dir: '/nao/existe', repoRoot: REPO, git: gitCom([]), fs: sondas([], ['/w']) });
+    expect(r.kind).toBe('not-found');
+    if (r.kind === 'not-found') expect(r.message).toMatch(/não existe/);
+  });
+
+  it('dado --dir que é symlink, então not-found pedindo o caminho real', () => {
+    const r = resolveTarget({ dir: '/w', repoRoot: REPO, git: gitCom([]), fs: sondas(['/w'], ['/w']) });
+    expect(r.kind).toBe('not-found');
+    if (r.kind === 'not-found') expect(r.message).toMatch(/link simbólico/);
+  });
+
+  it('dado --dir que é um arquivo, então not-found', () => {
+    const r = resolveTarget({ dir: '/w', repoRoot: REPO, git: gitCom([]), fs: sondas([], []) });
+    expect(r.kind).toBe('not-found');
+    if (r.kind === 'not-found') expect(r.message).toMatch(/não é um diretório/);
+  });
+
+  it('dado diretório válido não-symlink, então one', () => {
+    expect(resolveTarget({ dir: '/w', repoRoot: REPO, git: gitCom([]), fs: sondas([], ['/w']) }).kind).toBe('one');
+  });
+});
+
 describe('resolveTarget - --dir', () => {
   it('dado --dir com estado, então one e prevalece sobre as demais worktrees', () => {
     const git = gitCom([
