@@ -85,3 +85,22 @@ Ao receber `FING-N` e encontrar a worktree com `.fg-pipeline.json`:
 1. Ler o estado e mostrar: "última etapa concluída: **X**; retomar de **Y**?".
 2. Continuar **somente** com confirmação explícita do usuário.
 3. Sem `.fg-pipeline.json` (worktree órfã) → abortar e perguntar; **nunca sobrescrever**.
+
+## Log de eventos (`.fg-pipeline.events.jsonl`)
+
+Arquivo **append-only** na raiz da worktree, ao lado de `.fg-pipeline.json`. Uma linha JSON por evento, escrita **somente pelo maestro da pipeline**; a TUI (`pnpm fg tui`) apenas lê. Não é versionado: o SETUP o adiciona a `.git/info/exclude`.
+
+```json
+{"ts":"2026-11-03T10:00:00.000Z","step":1,"type":"step_started","agent":"backend-engineer","message":"Implementando events.ts","data":{"model":"sonnet"}}
+```
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `ts` | string | ISO 8601 |
+| `step` | number ou null | índice da etapa; `null` para eventos globais |
+| `type` | enum | `step_started`, `step_done`, `step_failed`, `command`, `file_changed`, `finding`, `note` |
+| `agent` | string? | sub-agente responsável |
+| `message` | string | texto livre; tratado como texto pela TUI (sem ANSI) |
+| `data` | objeto? | detalhes opcionais (ex.: `model`, `commit`, `path`) |
+
+Campos extras são ignorados. Linha inválida é ignorada e contada pela TUI (nunca interrompe a leitura). Arquivo ausente equivale a "sem eventos". Nunca registrar segredos nem conteúdo de `.env`.
