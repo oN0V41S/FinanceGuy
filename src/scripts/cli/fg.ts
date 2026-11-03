@@ -10,7 +10,7 @@ async function main(): Promise<void> {
     fs: createRealFs(cwd),
     exec: createRealExec(cwd),
   });
-  console.log(output);
+  if (output !== '') console.log(output);
   process.exit(exitCode);
 }
 

@@ -31,12 +31,13 @@ export const tuiCommand: Command = {
     if (dir) forwarded.push('--dir', resolve(dir));
     forwarded.push(...args.positionals);
 
-    return runSteps('tui', [
+    const result = await runSteps('tui', [
       {
         name: 'fg-tui',
         command: 'pnpm',
         args: ['--filter', '@financeguy/fg-tui', 'exec', 'tsx', 'src/main.tsx', ...forwarded],
       },
     ], ctx);
+    return { ...result, quiet: true };
   },
 };

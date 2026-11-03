@@ -64,3 +64,12 @@ describe('fg tui', () => {
     expect(output).toContain('tui');
   });
 });
+
+describe('fg tui saída limpa', () => {
+  it('com sucesso não imprime o envelope depois da saída do pacote (JSON do --dump continua puro)', async () => {
+    const { ctx } = makeCtx(PKG);
+    const { output, exitCode } = await runCli(['tui', '--dump'], ctx);
+    expect(exitCode).toBe(0);
+    expect(output).toBe('');
+  });
+});
