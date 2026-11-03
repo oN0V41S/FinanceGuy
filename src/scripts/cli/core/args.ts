@@ -10,6 +10,9 @@ const BOOLEAN_FLAGS = new Set([
   'coverage',
   'dry-run',
   'check',
+  'demo',
+  'once',
+  'dump',
 ]);
 
 const SHORT_ALIASES: Record<string, string> = { h: 'help', t: 't', C: 'C' };
