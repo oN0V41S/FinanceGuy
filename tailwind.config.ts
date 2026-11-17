@@ -42,6 +42,7 @@ const config: Config = {
       borderColor: {
         DEFAULT: 'var(--border)',
       },
+      // withAlpha devolve funções (opacityValue), que o Tailwind aceita em runtime mas o tipo estrito não modela.
       colors: withAlpha({
         background: 'var(--background)',
         foreground: 'var(--foreground)',
@@ -136,7 +137,7 @@ const config: Config = {
           DEFAULT: 'var(--destructive)',
           foreground: 'var(--destructive-foreground)',
         },
-      }),
+      }) as unknown as Record<string, string>,
       borderRadius: {
         DEFAULT: 'var(--radius)',
         'md': '0.375rem',

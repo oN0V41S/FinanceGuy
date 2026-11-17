@@ -160,12 +160,12 @@ describe('useCategories', () => {
     await waitFor(() => expect(result.current.isFallback).toBe(false));
 
     await act(async () => {
-      await result.current.create({ name: 'Cripto' });
+      await result.current.create({ name: 'Cripto', type: 'both' });
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/categories',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Cripto', scope: 'investment' }) })
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: 'Cripto', type: 'both', scope: 'investment' }) })
     );
   });
 

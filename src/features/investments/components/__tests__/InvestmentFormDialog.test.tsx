@@ -5,7 +5,7 @@ import type { Investment } from '@/features/investments/validations';
 
 jest.mock('@/components/ui/select', () => {
   const React = jest.requireActual('react');
-  const SelectContext = React.createContext<{ value: string; onValueChange: (value: string) => void } | null>(null);
+  const SelectContext = React.createContext(null as { value: string; onValueChange: (value: string) => void } | null);
 
   const Select = ({
     value,

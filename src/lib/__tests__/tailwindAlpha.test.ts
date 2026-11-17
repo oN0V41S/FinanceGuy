@@ -19,7 +19,7 @@ describe('tailwind: tokens var() aceitam modificador de opacidade', () => {
   });
 
   it('outline-variant (usado em bordas de cards) suporta /NN no tema real', () => {
-    const colors = config.theme?.extend?.colors as Record<string, Record<string, AlphaColor>>;
+    const colors = config.theme?.extend?.colors as unknown as Record<string, Record<string, AlphaColor>>;
 
     expect(colors.outline.variant({ opacityValue: '0.3' })).toContain('var(--outline-variant)');
   });
