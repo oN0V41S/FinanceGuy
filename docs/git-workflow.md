@@ -78,6 +78,25 @@ Feature branches abrem PR contra **`staging`** (não direto em `main`). Depois d
 feat/minha-feature ──► PR ──► staging ──► PR ──► main
 ```
 
+## Ambientes Vercel
+
+O deploy é feito pela integração Vercel↔GitHub (política versionada em `vercel.json`).
+
+| Origem | Ambiente |
+|---|---|
+| Push/merge em `main` | **Production** |
+| `staging`, `feat/fing-*`, `FING-N` e demais branches | Preview |
+| Qualquer PR (inclusive `staging` → `main`) | Preview |
+
+Production só é disparado pelo merge em `main`; PRs e branches nunca publicam em produção.
+
+Checklist manual no dashboard da Vercel (não versionado):
+
+- *Settings → Git → Production Branch* = `main`.
+- *Automatically expose System Environment Variables* ligado.
+- Variáveis de ambiente com escopo separado: Production só para Production; Preview com banco/chave de preview (nunca o banco de produção).
+- *Deployment Protection* ativa para Preview; sem Deploy Hooks nem promoção automática para branches de PR.
+
 ## Exclusão de branches após merge
 
 O repositório tem **`delete_branch_on_merge: false`**: a exclusão automática foi desativada porque apagava a `staging` quando o PR `staging` → `main` era mergeado. Apague as branches de feature manualmente após o merge (`git push origin --delete <branch>` e `git branch -d <branch>`). **Nunca apague `staging` nem `main`.**
