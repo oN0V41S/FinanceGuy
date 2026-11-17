@@ -13,6 +13,7 @@ function section(title: string, items: string[]): string[] {
 }
 
 export function renderResult(result: CommandResult, json: boolean): string {
+  if (result.quiet === true && result.status === 'ok') return '';
   if (json) return JSON.stringify(result, null, 2);
 
   const lines = [`${ICONS[result.status]} fg ${result.command}: ${result.message}`];

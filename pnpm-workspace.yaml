@@ -1,5 +1,6 @@
 packages:
   - "."
+  - "tools/*"
 
 allowBuilds:
   '@google/genai': false
@@ -8,6 +9,7 @@ allowBuilds:
   '@scarf/scarf': true
   '@tree-sitter-grammars/tree-sitter-yaml': true
   core-js-pure: true
+  esbuild: true
   msw: true
   prisma: true
   protobufjs: false

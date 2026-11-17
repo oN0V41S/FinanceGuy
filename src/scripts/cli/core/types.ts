@@ -29,6 +29,8 @@ export type FlagValue = string | boolean;
 export interface ParsedArgs {
   positionals: string[];
   flags: Record<string, FlagValue>;
+  /** Todas as ocorrências de flags com valor, na ordem (flags repetíveis, ex.: --dir A --dir B). */
+  repeated?: Record<string, string[]>;
 }
 
 export interface CommandResult {
@@ -42,6 +44,8 @@ export interface CommandResult {
   nextSteps: string[];
   errors: string[];
   previews?: Record<string, string>;
+  /** Quando `true` e `status` é `ok`, nada é impresso depois do comando (a saída do filho já basta). */
+  quiet?: boolean;
 }
 
 export interface Command {

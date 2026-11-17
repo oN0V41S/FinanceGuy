@@ -12,6 +12,7 @@ import { scaffoldCommand } from './scaffold';
 import { specCommand } from './specCommand';
 import { syncCommand } from './sync';
 import { testCommand } from './testCommand';
+import { tuiCommand } from './tui';
 
 export const COMMANDS: Command[] = [
   devCommand,
@@ -27,6 +28,7 @@ export const COMMANDS: Command[] = [
   mvCommand,
   replaceCommand,
   syncCommand,
+  tuiCommand,
 ];
 
 export function findCommandByName(name: string): Command | undefined {
