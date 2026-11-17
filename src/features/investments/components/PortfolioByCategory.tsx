@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { X } from 'lucide-react';
 import { Pie, PieChart, Cell, Tooltip } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -39,9 +40,9 @@ export interface PortfolioByCategoryProps {
   isLoading: boolean;
   /** Erro ao carregar categorias: painel degrada e avisa, sem quebrar a página. */
   categoriesError: string | null;
-  /** Chave da fatia filtrada na grade; `null` = Todas. */
-  selectedKey: string | null;
-  onSelect: (key: string | null) => void;
+  /** Chaves das fatias filtradas na grade (multisseleção); vazio = Todas. */
+  selectedKeys: string[];
+  onSelectionChange: (keys: string[]) => void;
 }
 
 /**
@@ -64,6 +65,15 @@ export function matchesCategoryFilter(
   return investmentCategoryKey(investment, categories) === filterKey;
 }
 
+/** Filtro múltiplo: lista vazia = sem filtro (todos os ativos). */
+export function matchesCategoryFilters(
+  investment: Investment,
+  filterKeys: string[],
+  categories: Category[]
+): boolean {
+  return filterKeys.length === 0 || filterKeys.includes(investmentCategoryKey(investment, categories));
+}
+
 function colorFor(slice: PortfolioSlice, index: number): string {
   // "Sem categoria" já vem em cinza do resumo; cores nulas caem na paleta.
   return slice.color ?? FALLBACK_PALETTE[index % FALLBACK_PALETTE.length];
@@ -84,8 +94,8 @@ export function PortfolioByCategory({
   categories,
   isLoading,
   categoriesError,
-  selectedKey,
-  onSelect,
+  selectedKeys,
+  onSelectionChange,
 }: PortfolioByCategoryProps) {
   const [showAll, setShowAll] = useState(false);
   const summary = useMemo(() => summarizeByCategory(investments, categories), [investments, categories]);
@@ -94,6 +104,20 @@ export function PortfolioByCategory({
     [summary]
   );
   const hasRowsBeyondMobile = slices.length > MOBILE_VISIBLE_ROWS;
+  // Ignora chaves de categorias que sumiram (ex.: excluídas) só para exibição.
+  const activeKeys = useMemo(
+    () => selectedKeys.filter((key) => slices.some((slice) => slice.key === key)),
+    [selectedKeys, slices]
+  );
+  const hasFilter = activeKeys.length > 0;
+  const isActive = (key: string) => !hasFilter || activeKeys.includes(key);
+  const shownTotal = hasFilter
+    ? slices.filter((slice) => activeKeys.includes(slice.key)).reduce((sum, slice) => sum + slice.total, 0)
+    : summary.total;
+
+  function toggleKey(key: string) {
+    onSelectionChange(activeKeys.includes(key) ? activeKeys.filter((k) => k !== key) : [...activeKeys, key]);
+  }
 
   return (
     <section
@@ -133,9 +157,9 @@ export function PortfolioByCategory({
             )
           ) : (
             <>
-              <div className="flex flex-col items-center gap-5 md:flex-row">
+              <div className="flex flex-col items-center gap-5 sm:flex-row">
                 {/* Mobile: barra empilhada com o total. */}
-                <div className="w-full md:hidden">
+                <div className="w-full sm:hidden">
                   <div
                     role="img"
                     aria-label={`Distribuição da carteira por categoria, total ${formatCurrency(summary.total)}`}
@@ -146,18 +170,18 @@ export function PortfolioByCategory({
                         key={slice.key}
                         data-testid="stacked-segment"
                         title={slice.name}
-                        className="h-full"
+                        className={cn('h-full transition-opacity', !isActive(slice.key) && 'opacity-25')}
                         style={{ width: `${slice.pct}%`, backgroundColor: slice.color }}
                       />
                     ))}
                   </div>
                   <p className="mt-2 text-center font-mono text-xs text-on-surface-variant">
-                    Total {formatCurrency(summary.total)}
+                    {hasFilter ? 'Selecionado' : 'Total'} {formatCurrency(shownTotal)}
                   </p>
                 </div>
 
                 {/* Desktop: donut com o total no centro. */}
-                <div className="relative hidden w-[220px] shrink-0 md:block">
+                <div className="relative hidden w-[220px] shrink-0 sm:block">
                   <ChartWrapper height={220}>
                     <PieChart>
                       <Pie
@@ -171,7 +195,7 @@ export function PortfolioByCategory({
                         isAnimationActive={false}
                       >
                         {slices.map((slice) => (
-                          <Cell key={slice.key} fill={slice.color} />
+                          <Cell key={slice.key} fill={slice.color} fillOpacity={isActive(slice.key) ? 1 : 0.25} />
                         ))}
                       </Pie>
                       <Tooltip
@@ -183,9 +207,11 @@ export function PortfolioByCategory({
                     </PieChart>
                   </ChartWrapper>
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-[10px] uppercase tracking-wide text-on-surface-variant">Total</span>
+                    <span className="text-[10px] uppercase tracking-wide text-on-surface-variant">
+                      {hasFilter ? 'Selecionado' : 'Total'}
+                    </span>
                     <span data-testid="portfolio-total" className="font-mono text-sm font-semibold text-on-surface">
-                      {formatCurrency(summary.total)}
+                      {formatCurrency(shownTotal)}
                     </span>
                   </div>
                 </div>
@@ -198,8 +224,9 @@ export function PortfolioByCategory({
                         key={slice.key}
                         data-testid="category-row"
                         className={cn(
-                          'flex items-center gap-2 text-sm',
-                          index >= MOBILE_VISIBLE_ROWS && !showAll && 'hidden md:flex'
+                          'flex items-center gap-2 text-sm transition-opacity',
+                          !isActive(slice.key) && 'opacity-40',
+                          index >= MOBILE_VISIBLE_ROWS && !showAll && 'hidden sm:flex'
                         )}
                       >
                         <span
@@ -228,7 +255,7 @@ export function PortfolioByCategory({
                       variant="ghost"
                       size="sm"
                       aria-expanded={showAll}
-                      className="mt-2 w-full md:hidden"
+                      className="mt-2 w-full sm:hidden"
                       onClick={() => setShowAll((v) => !v)}
                     >
                       {showAll ? 'Mostrar menos' : 'Ver todas'}
@@ -237,14 +264,14 @@ export function PortfolioByCategory({
                 </div>
               </div>
 
-              {/* Chips: filtram a grade de cards sem nova request. */}
-              <div role="group" aria-label="Filtrar carteira por categoria" className="flex flex-wrap gap-2">
+              {/* Chips: multisseleção, filtram a grade de cards sem nova request. */}
+              <div role="group" aria-label="Filtrar carteira por categoria" className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   size="sm"
-                  variant={selectedKey === null ? 'default' : 'outline'}
-                  aria-pressed={selectedKey === null}
-                  onClick={() => onSelect(null)}
+                  variant={!hasFilter ? 'default' : 'outline'}
+                  aria-pressed={!hasFilter}
+                  onClick={() => onSelectionChange([])}
                 >
                   Todas
                 </Button>
@@ -253,10 +280,10 @@ export function PortfolioByCategory({
                     key={slice.key}
                     type="button"
                     size="sm"
-                    variant={selectedKey === slice.key ? 'default' : 'outline'}
-                    aria-pressed={selectedKey === slice.key}
+                    variant={activeKeys.includes(slice.key) ? 'default' : 'outline'}
+                    aria-pressed={activeKeys.includes(slice.key)}
                     className="gap-1.5"
-                    onClick={() => onSelect(slice.key)}
+                    onClick={() => toggleKey(slice.key)}
                   >
                     <span
                       aria-hidden="true"
@@ -266,6 +293,19 @@ export function PortfolioByCategory({
                     {slice.name}
                   </Button>
                 ))}
+                {hasFilter && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Limpar filtros"
+                    title="Limpar filtros"
+                    className="h-8 w-8"
+                    onClick={() => onSelectionChange([])}
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                )}
               </div>
             </>
           )}

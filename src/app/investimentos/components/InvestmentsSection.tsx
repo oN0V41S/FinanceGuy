@@ -9,7 +9,7 @@ import { ConfirmDeleteDialog } from '@/shared/components/ConfirmDeleteDialog';
 import { useCategories } from '@/features/categories/hooks/useCategories';
 import { InvestmentCard } from '@/features/investments/components/InvestmentCard';
 import { InvestmentFormDialog } from '@/features/investments/components/InvestmentFormDialog';
-import { PortfolioByCategory, matchesCategoryFilter } from '@/features/investments/components/PortfolioByCategory';
+import { PortfolioByCategory, matchesCategoryFilters } from '@/features/investments/components/PortfolioByCategory';
 import { RedeemDialog } from '@/features/investments/components/RedeemDialog';
 import { InvestmentHistory } from '@/features/investments/components/InvestmentHistory';
 import { useInvestments } from '@/features/investments/hooks/useInvestments';
@@ -31,13 +31,13 @@ export function InvestmentsSection() {
   const [deletingInvestment, setDeletingInvestment] = useState<Investment | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  // Filtro por chip do painel: null = Todas; senão chave da categoria ou 'sem-categoria'.
-  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  // Filtro por chips do painel (multisseleção): vazio = Todas; senão chaves de categoria ou 'sem-categoria'.
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
 
   const activeInvestments = useMemo(() => investments.filter((i) => i.status !== 'REDEEMED'), [investments]);
   const visibleInvestments = useMemo(() => {
-    if (categoryFilter === null) return investments;
-    return investments.filter((investment) => matchesCategoryFilter(investment, categoryFilter, categories));
+    if (categoryFilter.length === 0) return investments;
+    return investments.filter((investment) => matchesCategoryFilters(investment, categoryFilter, categories));
   }, [investments, categories, categoryFilter]);
 
   function handleCreateClick() {
@@ -81,7 +81,18 @@ export function InvestmentsSection() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label={showHistory ? 'Ocultar histórico de investimentos' : 'Ver histórico de investimentos'}
+          aria-pressed={showHistory}
+          title={showHistory ? 'Ocultar histórico' : 'Ver histórico'}
+          onClick={() => setShowHistory((v) => !v)}
+        >
+          <History className="w-4 h-4" aria-hidden="true" />
+        </Button>
         <Button onClick={handleCreateClick} className="gap-2">
           <Plus className="w-4 h-4" />
           Novo investimento
@@ -106,8 +117,8 @@ export function InvestmentsSection() {
           categories={categories}
           isLoading={isLoading || isCategoriesLoading}
           categoriesError={categoriesError}
-          selectedKey={categoryFilter}
-          onSelect={setCategoryFilter}
+          selectedKeys={categoryFilter}
+          onSelectionChange={setCategoryFilter}
         />
       )}
 
@@ -127,8 +138,8 @@ export function InvestmentsSection() {
             </Card>
           ) : (
             <div className="flex flex-col items-center gap-3 rounded-xl border border-outline-variant/30 bg-surface-container p-8 text-center">
-              <p className="text-sm text-on-surface-variant">Nenhum investimento nesta categoria.</p>
-              <Button variant="outline" size="sm" onClick={() => setCategoryFilter(null)}>
+              <p className="text-sm text-on-surface-variant">Nenhum investimento nas categorias selecionadas.</p>
+              <Button variant="outline" size="sm" onClick={() => setCategoryFilter([])}>
                 Ver todos
               </Button>
             </div>
@@ -150,13 +161,7 @@ export function InvestmentsSection() {
         )}
       </LazyLoad>
 
-      <div className="flex flex-col gap-3">
-        <Button variant="outline" className="self-start gap-2" onClick={() => setShowHistory((v) => !v)}>
-          <History className="w-4 h-4" />
-          {showHistory ? 'Ocultar histórico' : 'Ver histórico de investimentos'}
-        </Button>
-        {showHistory && <InvestmentHistory refreshKey={historyKey} />}
-      </div>
+      {showHistory && <InvestmentHistory refreshKey={historyKey} />}
 
       <RedeemDialog
         open={Boolean(redeemingInvestment)}

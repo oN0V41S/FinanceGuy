@@ -5,6 +5,7 @@ import {
   SEM_CATEGORIA_KEY,
   investmentCategoryKey,
   matchesCategoryFilter,
+  matchesCategoryFilters,
 } from '../PortfolioByCategory';
 import type { Category } from '@/features/categories/validations';
 import { formatCurrency } from '@/shared/utils';
@@ -65,8 +66,8 @@ interface RenderProps {
   categoryList?: Category[];
   isLoading?: boolean;
   categoriesError?: string | null;
-  selectedKey?: string | null;
-  onSelect?: (key: string | null) => void;
+  selectedKeys?: string[];
+  onSelectionChange?: (keys: string[]) => void;
 }
 
 function renderPanel({
@@ -74,8 +75,8 @@ function renderPanel({
   categoryList = categories,
   isLoading = false,
   categoriesError = null,
-  selectedKey = null,
-  onSelect = jest.fn(),
+  selectedKeys = [],
+  onSelectionChange = jest.fn(),
 }: RenderProps = {}) {
   const utils = render(
     <PortfolioByCategory
@@ -83,11 +84,11 @@ function renderPanel({
       categories={categoryList}
       isLoading={isLoading}
       categoriesError={categoriesError}
-      selectedKey={selectedKey}
-      onSelect={onSelect}
+      selectedKeys={selectedKeys}
+      onSelectionChange={onSelectionChange}
     />
   );
-  return { ...utils, onSelect };
+  return { ...utils, onSelectionChange };
 }
 
 describe('PortfolioByCategory', () => {
@@ -167,26 +168,63 @@ describe('PortfolioByCategory', () => {
     expect(screen.queryByTestId('pie')).not.toBeInTheDocument();
   });
 
-  it('emite a chave da categoria ao clicar no chip e volta para Todas', () => {
-    const { onSelect } = renderPanel({
-      investments: [makeInvestment({ categoryId: 'c-rf', value: 100 })],
-    });
+  const twoCategoryInvestments = [
+    makeInvestment({ id: 'i1', categoryId: 'c-rf', value: 300 }),
+    makeInvestment({ id: 'i2', categoryId: 'c-cripto', value: 100 }),
+  ];
+
+  it('acumula chips (multisseleção) e volta para Todas', () => {
+    const { onSelectionChange, rerender } = renderPanel({ investments: twoCategoryInvestments });
 
     fireEvent.click(screen.getByRole('button', { name: 'Renda Fixa' }));
-    expect(onSelect).toHaveBeenCalledWith('c-rf');
+    expect(onSelectionChange).toHaveBeenLastCalledWith(['c-rf']);
+
+    rerender(
+      <PortfolioByCategory
+        investments={twoCategoryInvestments}
+        categories={categories}
+        isLoading={false}
+        categoriesError={null}
+        selectedKeys={['c-rf']}
+        onSelectionChange={onSelectionChange}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cripto' }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith(['c-rf', 'c-cripto']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Renda Fixa' }));
+    expect(onSelectionChange).toHaveBeenLastCalledWith([]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Todas' }));
-    expect(onSelect).toHaveBeenCalledWith(null);
+    expect(onSelectionChange).toHaveBeenLastCalledWith([]);
   });
 
-  it('reflete a categoria selecionada no chip (aria-pressed)', () => {
-    renderPanel({
-      investments: [makeInvestment({ categoryId: 'c-rf', value: 100 })],
-      selectedKey: 'c-rf',
-    });
+  it('reflete as categorias selecionadas (aria-pressed) e mostra o total selecionado', () => {
+    renderPanel({ investments: twoCategoryInvestments, selectedKeys: ['c-rf'] });
 
     expect(screen.getByRole('button', { name: 'Renda Fixa' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Cripto' })).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('button', { name: 'Todas' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('portfolio-total')).toHaveTextContent(money(300));
+    expect(screen.getAllByTestId('category-row')[1].className).toContain('opacity-40');
+  });
+
+  it('mostra o ícone "Limpar filtros" só com filtro ativo e limpa a seleção', () => {
+    const { onSelectionChange, rerender } = renderPanel({ investments: twoCategoryInvestments });
+    expect(screen.queryByRole('button', { name: 'Limpar filtros' })).not.toBeInTheDocument();
+
+    rerender(
+      <PortfolioByCategory
+        investments={twoCategoryInvestments}
+        categories={categories}
+        isLoading={false}
+        categoriesError={null}
+        selectedKeys={['c-rf', 'c-cripto']}
+        onSelectionChange={onSelectionChange}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }));
+    expect(onSelectionChange).toHaveBeenCalledWith([]);
   });
 
   it('no mobile lista as 5 maiores e expande com "ver todas"', () => {
@@ -231,5 +269,17 @@ describe('chaves de filtro por categoria', () => {
     expect(matchesCategoryFilter(semCategoria, SEM_CATEGORIA_KEY, categories)).toBe(true);
     expect(matchesCategoryFilter(idOrfao, SEM_CATEGORIA_KEY, categories)).toBe(true);
     expect(matchesCategoryFilter(idOrfao, 'c-rf', categories)).toBe(false);
+  });
+
+  it('matchesCategoryFilters aceita várias chaves e lista vazia = todos', () => {
+    const rf = makeInvestment({ id: 'i1', categoryId: 'c-rf' });
+    const cripto = makeInvestment({ id: 'i2', categoryId: 'c-cripto' });
+    const sem = makeInvestment({ id: 'i3', categoryId: null });
+
+    expect(matchesCategoryFilters(sem, [], categories)).toBe(true);
+    expect(matchesCategoryFilters(rf, ['c-rf', 'c-cripto'], categories)).toBe(true);
+    expect(matchesCategoryFilters(cripto, ['c-rf', 'c-cripto'], categories)).toBe(true);
+    expect(matchesCategoryFilters(sem, ['c-rf', 'c-cripto'], categories)).toBe(false);
+    expect(matchesCategoryFilters(sem, ['c-rf', SEM_CATEGORIA_KEY], categories)).toBe(true);
   });
 });
