@@ -4,6 +4,7 @@ description: Implementa API routes Next.js, services, repositories e acesso a da
 mode: all
 color: secondary
 ---
+<!-- GERADO de .ai/skills-agents/agents/backend-engineer.md por "pnpm fg sync" — não edite. -->
 
 # Sub-Agent: backend-engineer
 

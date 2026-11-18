@@ -1,6 +1,8 @@
 import { InvestmentService } from '../investment.service';
 import { IInvestmentRepository } from '../IInvestment.repository';
 import { Investment } from '../validations';
+import { InvalidInvestmentCategoryError } from '../investment.service';
+import type { ICategoryRepository } from '@/features/categories/ICategory.repository';
 
 describe('InvestmentService', () => {
   let repository: jest.Mocked<IInvestmentRepository>;
@@ -99,6 +101,86 @@ describe('InvestmentService', () => {
       repository.getById.mockResolvedValue(investment);
       await expect(service.updateInvestment('inv-1', { value: -1 }, userId)).rejects.toThrow();
       expect(repository.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('categoryId', () => {
+    const categoryId = 'ckxyz0000000000000000000a';
+    let categories: jest.Mocked<Pick<ICategoryRepository, 'findById'>>;
+    const invCategory = {
+      id: categoryId,
+      name: 'Cripto',
+      type: 'both' as const,
+      color: null,
+      icon: null,
+      isDefault: false,
+      scope: 'investment' as const,
+    };
+    const base = { name: 'BTC', type: 'Renda Variável', value: 500 };
+
+    beforeEach(() => {
+      categories = { findById: jest.fn() };
+      service = new InvestmentService(repository, undefined, categories);
+    });
+
+    it('create: categoria do usuário no escopo investment é aceita e persistida', async () => {
+      categories.findById.mockResolvedValue(invCategory);
+      repository.create.mockResolvedValue({ ...investment, categoryId });
+
+      await service.createInvestment({ ...base, categoryId }, userId);
+
+      expect(categories.findById).toHaveBeenCalledWith(categoryId, userId);
+      expect(repository.create).toHaveBeenCalledWith(expect.objectContaining({ categoryId, userId }));
+    });
+
+    it('create: categoria inexistente/de outro usuário => "Categoria inválida."', async () => {
+      categories.findById.mockResolvedValue(null);
+      const promise = service.createInvestment({ ...base, categoryId }, userId);
+      await expect(promise).rejects.toBeInstanceOf(InvalidInvestmentCategoryError);
+      await expect(promise).rejects.toThrow('Categoria inválida.');
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('create: categoria de escopo transaction é rejeitada', async () => {
+      categories.findById.mockResolvedValue({ ...invCategory, scope: 'transaction' });
+      await expect(service.createInvestment({ ...base, categoryId }, userId)).rejects.toBeInstanceOf(
+        InvalidInvestmentCategoryError
+      );
+      expect(repository.create).not.toHaveBeenCalled();
+    });
+
+    it('create: categoryId null/ausente não consulta categorias', async () => {
+      repository.create.mockResolvedValue(investment);
+      await service.createInvestment({ ...base, categoryId: null }, userId);
+      await service.createInvestment(base, userId);
+      expect(categories.findById).not.toHaveBeenCalled();
+    });
+
+    it('create: categoryId que não é cuid => ZodError (400 na rota)', async () => {
+      await expect(service.createInvestment({ ...base, categoryId: 'abc' }, userId)).rejects.toMatchObject({
+        name: 'ZodError',
+      });
+    });
+
+    it('update: valida a categoria e permite limpar com null', async () => {
+      repository.getById.mockResolvedValue(investment);
+      repository.update.mockResolvedValue({ ...investment, categoryId: null });
+
+      await service.updateInvestment('inv-1', { categoryId: null }, userId);
+      expect(repository.update).toHaveBeenCalledWith('inv-1', { categoryId: null });
+      expect(categories.findById).not.toHaveBeenCalled();
+
+      categories.findById.mockResolvedValue(null);
+      await expect(service.updateInvestment('inv-1', { categoryId }, userId)).rejects.toBeInstanceOf(
+        InvalidInvestmentCategoryError
+      );
+    });
+
+    it('sem lookup configurado, categoryId é rejeitado (fail-closed)', async () => {
+      service = new InvestmentService(repository);
+      await expect(service.createInvestment({ ...base, categoryId }, userId)).rejects.toBeInstanceOf(
+        InvalidInvestmentCategoryError
+      );
     });
   });
 

@@ -4,6 +4,7 @@ description: Planeja e Coordena a equipe de engenharia do FinanceGuy, divide tar
 mode: all
 color: primary
 ---
+<!-- GERADO de .ai/skills-agents/agents/tech-lead.md por "pnpm fg sync" — não edite. -->
 
 # tech-lead
 

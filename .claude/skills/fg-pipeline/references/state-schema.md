@@ -24,6 +24,7 @@ Arquivo de estado da pipeline, gravado na **raiz da worktree** e mantido **fora 
     }
   ],
   "review": { "cycles": 0, "findings": [] },
+  "qa": { "cycles": 0, "passed": false, "port": 3002, "routes": [], "report": null, "screenshots": [] },
   "updatedAt": "2026-10-16T12:00:00Z"
 }
 ```
@@ -45,9 +46,16 @@ Arquivo de estado da pipeline, gravado na **raiz da worktree** e mantido **fora 
 | `steps[].sessionID` | `string \| null` | Sessão OpenCode da etapa (`ses_…`); `null` se ainda não rodou |
 | `steps[].model` | `string \| null` | Modelo que concluiu a etapa |
 | `steps[].commit` | `string \| null` | SHA do commit da etapa; `null` se não commitada |
+| `steps[].dependsOn` | `number[]?` | Índices (1-based) das etapas que precisam estar `done` antes desta; ausente = sem dependências. Referência própria/inexistente é ignorada; ciclo é sinalizado pela TUI e nada fica "pronto" |
 | `steps[].status` | `string` (enum) | `pending` \| `running` \| `done` \| `failed` |
 | `review.cycles` | `number` | Ciclos de revisão executados (máx. 2) |
 | `review.findings` | `array` | Achados formatados da revisão (`severidade`, `arquivo`, `linha`, `descrição`, `correção sugerida`) |
+| `qa.cycles` | `number` | Ciclos de QA no navegador executados (máx. 2) |
+| `qa.passed` | `boolean` | `true` só quando o sub-agente de QA reportou `PASSOU`; obrigatório antes do RESUMO |
+| `qa.port` | `number` | Porta do servidor de dev da worktree usada no QA (nunca a do checkout principal) |
+| `qa.routes` | `array` | Rotas testadas, derivadas do `git diff` e dos critérios de aceitação da spec |
+| `qa.report` | `string \| null` | Relatório resumido do último ciclo de QA (pt-BR) |
+| `qa.screenshots` | `array` | Caminhos relativos dos prints salvos em `qa/<FING-N>/` (não commitados) |
 | `updatedAt` | `string` | Timestamp ISO 8601 (UTC) da última gravação |
 | `failedAt` | `string` | Presente quando `state` é `failed`: etapa/marco que falhou (ex.: `failed(setup)`, `failed(step_2)`) |
 | `reason` | `string` | Motivo legível da falha, em pt-BR |
@@ -60,6 +68,7 @@ Ciclo de vida do campo `state`:
 intake → notion_ready → spec_approved → worktree_ready → setup_done
   → step_<i>_running → step_<i>_done
   → review_cycle_<n>
+  → qa_browser_<n> → qa_browser_passed
   → committed → pushed (opcional)
 failed (com failedAt + reason)
 ```
@@ -74,7 +83,9 @@ failed (com failedAt + reason)
 | `step_<i>_running` | Etapa `i` em execução via OpenCode |
 | `step_<i>_done` | Etapa `i` validada (jest + lint) e commitada |
 | `review_cycle_<n>` | Ciclo `n` de revisão em andamento (máx. 2) |
-| `committed` | Todos os commits da pipeline concluídos; aguardando decisão de push (Portão 2) |
+| `qa_browser_<n>` | Ciclo `n` de QA no navegador em andamento via sub-agente (máx. 2) |
+| `qa_browser_passed` | QA no navegador `PASSOU`; a entrega (RESUMO) pode começar |
+| `committed` | Todos os commits da pipeline concluídos e QA aprovado; aguardando decisão de push (Portão 2) |
 | `pushed` | Push para `origin/FING-N` realizado (opcional, só com confirmação) |
 | `failed` | Falha irreversível no momento; `failedAt` + `reason` explicam onde e por quê; retomável |
 
@@ -85,3 +96,30 @@ Ao receber `FING-N` e encontrar a worktree com `.fg-pipeline.json`:
 1. Ler o estado e mostrar: "última etapa concluída: **X**; retomar de **Y**?".
 2. Continuar **somente** com confirmação explícita do usuário.
 3. Sem `.fg-pipeline.json` (worktree órfã) → abortar e perguntar; **nunca sobrescrever**.
+
+## Log de eventos (`.fg-pipeline.events.jsonl`)
+
+Arquivo **append-only** na raiz da worktree, ao lado de `.fg-pipeline.json`. Uma linha JSON por evento, escrita **somente pelo maestro da pipeline**; a TUI (`pnpm fg tui`) apenas lê. Não é versionado: o SETUP o adiciona a `.git/info/exclude`.
+
+```json
+{"ts":"2026-11-03T10:00:00.000Z","step":1,"type":"step_started","agent":"backend-engineer","message":"Implementando events.ts","data":{"model":"sonnet"}}
+```
+
+| Campo | Tipo | Regra |
+|---|---|---|
+| `ts` | string | ISO 8601 |
+| `step` | number ou null | índice da etapa; `null` para eventos globais |
+| `type` | enum | `step_started`, `step_done`, `step_failed`, `command`, `file_changed`, `finding`, `note` |
+| `agent` | string? | sub-agente responsável |
+| `message` | string | texto livre; tratado como texto pela TUI (sem ANSI) |
+| `data` | objeto? | detalhes opcionais (ex.: `model`, `commit`, `path`) |
+
+Campos extras são ignorados. Linha inválida é ignorada e contada pela TUI (nunca interrompe a leitura). Arquivo ausente equivale a "sem eventos". Nunca registrar segredos nem conteúdo de `.env`.
+
+## DAG e paralelismo (`dependsOn`)
+
+As etapas formam um **grafo acíclico**: uma etapa está **pronta** quando está `pending` e todas as suas `dependsOn` estão `done`. Etapas prontas ao mesmo tempo podem rodar **em paralelo** (cada uma como tarefa em background própria, com arquivos disjuntos). A TUI mostra `⛓ aguarda N, M` nos cards bloqueados, "Prontas para rodar em paralelo" e um aviso se houver ciclo.
+
+## Métricas de eficácia (derivadas de `events.jsonl`)
+
+A TUI calcula, sem gravar nada: etapas concluídas/falhas/rodando, ciclos de revisão, **% verde de primeira** (`step_done` sem `step_failed` anterior na mesma etapa), duração média por etapa (`step_started` → `step_done`), tempo total (primeiro → último evento) e **pico de paralelismo**. Sem eventos, as métricas dependentes aparecem como "—". Por isso o maestro deve emitir `step_started`/`step_done`/`step_failed` para **toda** etapa.

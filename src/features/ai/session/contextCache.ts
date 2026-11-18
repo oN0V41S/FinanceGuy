@@ -1,4 +1,5 @@
 import { resolveQuestionPeriod } from '../questionPeriod';
+import { wantsPortfolio } from '../portfolioIntent';
 import type { AgentConfig, FinancialContextDto, FinancialContextSource } from '../types';
 import type { IContextCache } from './ISession.service';
 
@@ -158,10 +159,12 @@ export function createContextCache(
 /**
  * Decora uma FinancialContextSource com cache por usuário.
  *
- * Design seguro: o DTO depende do período citado na pergunta (`resolveQuestionPeriod`), e a chave
- * do IContextCache é só `ai:ctx:{userId}`. Por isso só se cacheia quando NENHUM período foi
- * detectado (janela padrão, idêntica para qualquer pergunta). Perguntas com recorte vão direto à
- * fonte, sem ler nem gravar o cache; assim um recorte nunca é servido a outra pergunta.
+ * Design seguro: o DTO depende do período citado na pergunta (`resolveQuestionPeriod`) e da
+ * seção de carteira (`wantsPortfolio`, FING-27), enquanto a chave do IContextCache é só
+ * `ai:ctx:{userId}`. Por isso só se cacheia quando NENHUM período foi detectado e a pergunta
+ * NÃO trata de investimentos (janela padrão, idêntica para qualquer pergunta). Perguntas com
+ * recorte ou sobre a carteira vão direto à fonte, sem ler nem gravar o cache; assim um DTO com
+ * `portfolioByCategory` nunca é servido a outra pergunta e vice-versa.
  * `invalidate(userId)` apaga a única chave do usuário.
  */
 export function withContextCache(
@@ -171,7 +174,7 @@ export function withContextCache(
 ): FinancialContextSource {
   return {
     async getContext(userId: string, question: string): Promise<FinancialContextDto> {
-      if (resolveQuestionPeriod(question, now()) !== null) {
+      if (wantsPortfolio(question) || resolveQuestionPeriod(question, now()) !== null) {
         return source.getContext(userId, question);
       }
 

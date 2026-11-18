@@ -4,6 +4,7 @@
 import { PUT, DELETE } from '../[id]/route';
 import { NextRequest } from 'next/server';
 import { investmentService } from '@/core/container';
+import { InvalidInvestmentCategoryError } from '../../investment.service';
 
 jest.mock('@/core/container', () => ({
   investmentService: {
@@ -21,6 +22,18 @@ describe('Investments API [id] - PUT & DELETE', () => {
   });
 
   describe('PUT /api/investments/[id]', () => {
+    it('returns 400 {error:"Categoria inválida."} when the category is not usable', async () => {
+      (investmentService.updateInvestment as jest.Mock).mockRejectedValue(new InvalidInvestmentCategoryError());
+      const request = new NextRequest(`http://localhost/api/investments/${investmentId}`, {
+        method: 'PUT',
+        headers: { 'x-user-id': userId },
+        body: JSON.stringify({ categoryId: 'ckxyz0000000000000000000a' }),
+      });
+      const response = await PUT(request, { params: Promise.resolve({ id: investmentId }) });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: 'Categoria inválida.' });
+    });
+
     it('returns 401 when x-user-id header is missing', async () => {
       const request = new NextRequest(`http://localhost/api/investments/${investmentId}`, {
         method: 'PUT',

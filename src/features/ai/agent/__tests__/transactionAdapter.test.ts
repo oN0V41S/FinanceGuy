@@ -61,16 +61,15 @@ describe('transaction adapter', () => {
       expect(ev.missing.map((m) => m.key)).toEqual(expect.arrayContaining(['type', 'value', 'category']));
     });
 
-    it('acusa erro por campo (valor <= 0, data inexistente, categoria fora da lista)', () => {
+    it('acusa erro por campo (valor <= 0, data inexistente)', () => {
       const { adapter } = setup();
       const ev = adapter.evaluate(
         'create',
-        { type: 'expense', title: 'x', value: -5, category: 'Inexistente', date: '2026-02-31', responsible: 'Ana' },
+        { type: 'expense', title: 'x', value: -5, category: 'Alimentação', date: '2026-02-31', responsible: 'Ana' },
         OPTS,
       );
       expect(ev.valid).toBe(false);
       expect(ev.errors.value).toMatch(/maior que zero/);
-      expect(ev.errors.category).toBeDefined();
       expect(ev.errors.date).toBeDefined();
     });
 

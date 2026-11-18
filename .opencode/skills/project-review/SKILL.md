@@ -1,4 +1,7 @@
-# Skill: project-review
+---
+name: project-review
+description: Revisa arquitetura, manutenibilidade e simplicidade do FinanceGuy (Clean Architecture, Prisma, Zod, FinOps). Use antes de PRs, releases ou ao auditar uma feature.
+---
 
 # Project Review Skill
 

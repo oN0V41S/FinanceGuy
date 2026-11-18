@@ -4,6 +4,7 @@
 import { GET, POST } from '../route';
 import { NextRequest } from 'next/server';
 import { investmentService } from '@/core/container';
+import { InvalidInvestmentCategoryError } from '../../investment.service';
 
 jest.mock('@/core/container', () => ({
   investmentService: {
@@ -107,6 +108,18 @@ describe('Investments API - GET & POST', () => {
       const data = await response.json();
       expect(data.error).toBe('Validação falhou');
       expect(data.details).toBeDefined();
+    });
+
+    it('returns 400 {error:"Categoria inválida."} when the category is not usable', async () => {
+      (investmentService.createInvestment as jest.Mock).mockRejectedValue(new InvalidInvestmentCategoryError());
+      const request = new NextRequest('http://localhost/api/investments', {
+        method: 'POST',
+        headers: { 'x-user-id': userId },
+        body: JSON.stringify({ ...validBody, categoryId: 'ckxyz0000000000000000000a' }),
+      });
+      const response = await POST(request);
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: 'Categoria inválida.' });
     });
 
     it('returns 500 on unexpected errors', async () => {

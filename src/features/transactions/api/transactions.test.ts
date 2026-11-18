@@ -93,13 +93,13 @@ describe('Transaction Validations (Zod)', () => {
       expect(result.success).toBe(false);
     });
 
-    it('should reject invalid category', () => {
+    it('should reject empty category', () => {
       const invalidInput = {
         type: 'expense',
         description: 'Test',
         value: 100,
         date: '2026-01-21',
-        category: 'InvalidCategory', // inválido
+        category: '', // inválido (categorias agora são por usuário; existência é validada no service)
         responsible: 'João',
       };
 

@@ -1,4 +1,7 @@
-# Skill: documentation-architect
+---
+name: documentation-architect
+description: Cria e mantém documentação técnica clara (páginas, referências de API, diagramas, guias). Use ao documentar código, validar links ou aplicar templates de docs.
+---
 
 # Documentation Architect Skill
 

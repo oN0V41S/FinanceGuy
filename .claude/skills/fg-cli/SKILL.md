@@ -36,6 +36,7 @@ pnpm fg <grupo> --help    # uso do grupo
 | `db` | `pnpm fg db generate\|studio\|push --yes` | Prisma |
 | `pr` | `pnpm fg pr` | Pipeline pré-PR: lint → coverage → build → audit |
 | `audit` | `pnpm fg audit` | context-audit (somente leitura) |
+| `tui` | `pnpm fg tui [--demo\|--once\|--dump] [--dir <worktree>] [FING-N]` | Kanban no terminal da `fg-pipeline` (somente leitura). Lê `.fg-pipeline.json` e `.fg-pipeline.progress.md`. Teclas: setas/`hjkl`, `Enter` detalhe, `Esc` fecha, `r` recarrega, `q` sai. Spec: `docs/specs/FING-30-fg-tui.md` |
 
 ## Fluxo recomendado
 
