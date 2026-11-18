@@ -192,10 +192,16 @@ export function PortfolioByCategory({
                         outerRadius={100}
                         dataKey="total"
                         paddingAngle={2}
+                        stroke="none"
                         isAnimationActive={false}
                       >
                         {slices.map((slice) => (
-                          <Cell key={slice.key} fill={slice.color} fillOpacity={isActive(slice.key) ? 1 : 0.25} />
+                          <Cell
+                            key={slice.key}
+                            fill={slice.color}
+                            stroke="none"
+                            fillOpacity={isActive(slice.key) ? 1 : 0.25}
+                          />
                         ))}
                       </Pie>
                       <Tooltip
