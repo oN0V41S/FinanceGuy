@@ -157,9 +157,9 @@ export function PortfolioByCategory({
             )
           ) : (
             <>
-              <div className="flex flex-col items-center gap-5 sm:flex-row">
-                {/* Mobile: barra empilhada com o total. */}
-                <div className="w-full sm:hidden">
+              <div className="flex flex-col items-center gap-5">
+                {/* Mobile/tablet: barra empilhada com o total. */}
+                <div className="w-full lg:hidden">
                   <div
                     role="img"
                     aria-label={`Distribuição da carteira por categoria, total ${formatCurrency(summary.total)}`}
@@ -181,7 +181,7 @@ export function PortfolioByCategory({
                 </div>
 
                 {/* Desktop: donut com o total no centro. */}
-                <div className="relative hidden w-[220px] shrink-0 sm:block">
+                <div className="relative hidden w-[220px] shrink-0 lg:block">
                   <ChartWrapper height={220}>
                     <PieChart>
                       <Pie
@@ -226,7 +226,7 @@ export function PortfolioByCategory({
                         className={cn(
                           'flex items-center gap-2 text-sm transition-opacity',
                           !isActive(slice.key) && 'opacity-40',
-                          index >= MOBILE_VISIBLE_ROWS && !showAll && 'hidden sm:flex'
+                          index >= MOBILE_VISIBLE_ROWS && !showAll && 'hidden lg:flex'
                         )}
                       >
                         <span
@@ -236,7 +236,7 @@ export function PortfolioByCategory({
                           style={{ backgroundColor: slice.color }}
                         />
                         <span className="min-w-0 flex-1 truncate text-on-surface">{slice.name}</span>
-                        <span className="hidden shrink-0 font-mono text-xs text-on-surface-variant sm:inline">
+                        <span className="hidden shrink-0 font-mono text-xs text-on-surface-variant lg:inline">
                           {slice.count} {slice.count === 1 ? 'ativo' : 'ativos'}
                         </span>
                         <span className="shrink-0 font-mono text-xs text-on-surface">
@@ -255,7 +255,7 @@ export function PortfolioByCategory({
                       variant="ghost"
                       size="sm"
                       aria-expanded={showAll}
-                      className="mt-2 w-full sm:hidden"
+                      className="mt-2 w-full lg:hidden"
                       onClick={() => setShowAll((v) => !v)}
                     >
                       {showAll ? 'Mostrar menos' : 'Ver todas'}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { History, Plus, TrendingUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LazyLoad } from '@/shared/components/LazyLoad';
@@ -79,9 +80,15 @@ export function InvestmentsSection() {
     }
   }
 
+  const showPortfolio = isLoading || activeInvestments.length > 0;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-end gap-2">
+        <Button onClick={handleCreateClick} className="gap-2">
+          <Plus className="w-4 h-4" />
+          Novo investimento
+        </Button>
         <Button
           type="button"
           variant="outline"
@@ -92,10 +99,6 @@ export function InvestmentsSection() {
           onClick={() => setShowHistory((v) => !v)}
         >
           <History className="w-4 h-4" aria-hidden="true" />
-        </Button>
-        <Button onClick={handleCreateClick} className="gap-2">
-          <Plus className="w-4 h-4" />
-          Novo investimento
         </Button>
       </div>
 
@@ -111,17 +114,27 @@ export function InvestmentsSection() {
         </div>
       )}
 
-      {(isLoading || activeInvestments.length > 0) && (
-        <PortfolioByCategory
-          investments={activeInvestments}
-          categories={categories}
-          isLoading={isLoading || isCategoriesLoading}
-          categoriesError={categoriesError}
-          selectedKeys={categoryFilter}
-          onSelectionChange={setCategoryFilter}
-        />
-      )}
+      {/* Desktop (lg+): carteira à esquerda, lista de investimentos à direita. Mobile: carteira em cima. */}
+      <div
+        className={cn(
+          'flex flex-col gap-4',
+          showPortfolio && 'lg:grid lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start lg:gap-6'
+        )}
+      >
+        {showPortfolio && (
+          <div className="lg:sticky lg:top-4">
+            <PortfolioByCategory
+              investments={activeInvestments}
+              categories={categories}
+              isLoading={isLoading || isCategoriesLoading}
+              categoriesError={categoriesError}
+              selectedKeys={categoryFilter}
+              onSelectionChange={setCategoryFilter}
+            />
+          </div>
+        )}
 
+        <div className="flex min-w-0 flex-col gap-4">
       <LazyLoad isReady={!isLoading} message="Carregando investimentos...">
         {visibleInvestments.length === 0 ? (
           investments.length === 0 ? (
@@ -162,6 +175,8 @@ export function InvestmentsSection() {
       </LazyLoad>
 
       {showHistory && <InvestmentHistory refreshKey={historyKey} />}
+        </div>
+      </div>
 
       <RedeemDialog
         open={Boolean(redeemingInvestment)}
