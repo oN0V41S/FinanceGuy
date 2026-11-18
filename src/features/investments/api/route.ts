@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { investmentService } from '@/core/container';
+import { InvalidInvestmentCategoryError } from '../investment.service';
 
 // GET /api/investments - Listar investimentos do usuário logado
 export async function GET(request: NextRequest) {
@@ -34,6 +35,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ data: result }, { status: 201 });
   } catch (error: any) {
+    if (error instanceof InvalidInvestmentCategoryError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     if (error.name === 'ZodError') {
       return NextResponse.json({ error: 'Validação falhou', details: error.errors }, { status: 400 });
     }

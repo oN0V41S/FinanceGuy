@@ -7,6 +7,7 @@ describe('AiService.ask — opções', () => {
       transactions: { getAllTransactions: jest.fn().mockResolvedValue({ data: [{ id: 't', title: 'x', amount: 1, type: 'expense', category: 'other', date: new Date(), paid: true }] }) },
       goals: { getAllGoals: jest.fn().mockResolvedValue([]) },
       investments: { getAllInvestments: jest.fn().mockResolvedValue([]) },
+      categories: { findAll: jest.fn().mockResolvedValue([]) },
       llm: { complete },
       now: () => new Date('2026-10-14T12:00:00Z'),
     } as never);

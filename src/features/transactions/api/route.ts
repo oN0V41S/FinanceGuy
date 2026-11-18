@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { transactionService } from '@/core/container'; // Importa a instância já configurada
+import { CategoryError } from '@/features/categories/categories.service';
+import { STATUS_BY_CODE } from '@/features/categories/api/handleError';
+
+/** Categoria inexistente/incompatível em transações segue 422; demais códigos usam o mapa de categorias. */
+function categoryErrorStatus(error: CategoryError): number {
+  return error.code === 'NOT_FOUND' || error.code === 'INCOMPATIBLE_TYPE' ? 422 : STATUS_BY_CODE[error.code];
+}
 
 // Instanciação com Injeção de Dependência
 // A instância 'transactionService' já está configurada no container.ts
@@ -68,8 +75,12 @@ export async function POST(request: NextRequest) {
     if (error.name === 'ZodError') {
       return NextResponse.json({ error: 'Validação falhou', details: error.errors }, { status: 400 });
     }
-    
+
+    if (error instanceof CategoryError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: categoryErrorStatus(error) });
+    }
+
     console.error('Erro ao criar transação:', error);
-    return NextResponse.json({ error: error.message || 'Erro interno do servidor' }, { status: 500 });
+    return NextResponse.json({ error: 'Não foi possível salvar a transação agora. Tente novamente em instantes.' }, { status: 500 });
   }
 }

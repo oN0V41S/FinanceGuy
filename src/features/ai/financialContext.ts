@@ -1,6 +1,8 @@
 import type { Transaction } from '@/features/transactions/validations';
 import type { Goal } from '@/features/goals/validations';
 import type { Investment } from '@/features/investments/validations';
+import { summarizeByCategory } from '@/features/investments/portfolioSummary';
+import type { Category } from '@/features/categories/validations';
 import type { FinancialContextDto, MoneySplit } from './types';
 import type { QuestionPeriod } from './questionPeriod';
 
@@ -14,6 +16,8 @@ const MAX_PREVIOUS_TOP_TRANSACTIONS = 5;
 const MAX_FOCUS_TRANSACTIONS = 40;
 const MAX_GOALS = 20;
 const MAX_INVESTMENTS = 30;
+const MAX_PORTFOLIO_SLICES = 8;
+const OUTRAS_SLICE_NAME = 'Outras';
 export const MAX_CONTEXT_JSON_CHARS = 12000;
 
 export interface FinancialContextInput {
@@ -117,7 +121,51 @@ const finishSplit = (s: { paid: number; pending: number }): MoneySplit => ({
   total: round2(s.paid + s.pending),
 });
 
-export function buildFinancialContext(input: FinancialContextInput, now: Date, range?: QuestionPeriod | null): FinancialContextDto {
+/**
+ * Seção `portfolioByCategory` (FING-27): top 8 fatias de `summarizeByCategory`
+ * (a mesma função do painel da UI) + o resto agregado em "Outras". Nomes passam
+ * por `sanitizeLabel` (anti prompt-injection); sem ids nem cores no prompt.
+ */
+function buildPortfolioByCategory(
+  investments: Investment[],
+  categories?: Category[] | null,
+): FinancialContextDto['portfolioByCategory'] {
+  if (!categories) return undefined;
+
+  const { slices } = summarizeByCategory(investments, categories);
+  if (slices.length === 0) return undefined;
+
+  const top = slices.slice(0, MAX_PORTFOLIO_SLICES);
+  const rest = slices.slice(MAX_PORTFOLIO_SLICES);
+  const entries: NonNullable<FinancialContextDto['portfolioByCategory']> = top.map((slice) => ({
+    name: sanitizeLabel(slice.name) ?? 'Outros',
+    total: slice.total,
+    pct: slice.pct,
+    count: slice.count,
+  }));
+
+  if (rest.length > 0) {
+    entries.push({
+      name: OUTRAS_SLICE_NAME,
+      total: round2(rest.reduce((sum, s) => sum + s.total, 0)),
+      pct: round2(rest.reduce((sum, s) => sum + s.pct, 0)),
+      count: rest.reduce((sum, s) => sum + s.count, 0),
+    });
+  }
+
+  return entries;
+}
+
+export function buildFinancialContext(
+  input: FinancialContextInput,
+  now: Date,
+  range?: QuestionPeriod | null,
+  /**
+   * Categorias do escopo 'investment' (FING-27): enviadas pelo chamador SOMENTE quando
+   * `wantsPortfolio(question)`; a seção é omitida quando ausentes (ou se a carteira estiver vazia).
+   */
+  portfolioCategories?: Category[] | null,
+): FinancialContextDto {
   const period = getBrtPeriod(now, range);
 
   const income = emptySplit();
@@ -265,6 +313,9 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date, r
       status: 'ativo',
     }));
 
+  // Seção sob demanda (FING-27 §2.4): só existe quando o chamador pediu o tema da carteira.
+  const portfolioByCategory = buildPortfolioByCategory(input.investments, portfolioCategories);
+
   const dto: FinancialContextDto = {
     today: period.today,
     currency: 'BRL',
@@ -289,6 +340,7 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date, r
     recentTransactions: recent,
     goals: goalsAll.slice(0, MAX_GOALS),
     investments: investmentsAll.slice(0, MAX_INVESTMENTS),
+    ...(portfolioByCategory ? { portfolioByCategory } : {}),
     omitted: {
       transactions: currentMonthTransactions.length - recent.length + focusOmitted,
       goals: Math.max(0, goalsAll.length - MAX_GOALS),
@@ -299,7 +351,7 @@ export function buildFinancialContext(input: FinancialContextInput, now: Date, r
   return enforceSizeLimit(dto);
 }
 
-/** Corta itens (transações, depois investimentos, depois metas) até o JSON caber no teto. */
+/** Corta itens (transações, depois investimentos, depois a carteira por categoria e, por fim, metas) até o JSON caber no teto. */
 function enforceSizeLimit(dto: FinancialContextDto): FinancialContextDto {
   const size = (): number => JSON.stringify(dto).length;
 
@@ -326,6 +378,10 @@ function enforceSizeLimit(dto: FinancialContextDto): FinancialContextDto {
   while (size() > MAX_CONTEXT_JSON_CHARS && dto.investments.length > 0) {
     dto.investments.pop();
     dto.omitted.investments += 1;
+  }
+  // Carteira por categoria: sacrificada antes das metas (FING-27 §2.4).
+  while (size() > MAX_CONTEXT_JSON_CHARS && dto.portfolioByCategory && dto.portfolioByCategory.length > 0) {
+    dto.portfolioByCategory.pop();
   }
   while (size() > MAX_CONTEXT_JSON_CHARS && dto.goals.length > 0) {
     dto.goals.pop();

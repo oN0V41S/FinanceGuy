@@ -4,6 +4,7 @@ import { IUserRepository } from '@/features/auth/IUser.repository';
 import { ICacheRepository } from '@/shared/interfaces/ICacheRepository';
 import { CreateTransactionSchema, UpdateTransactionSchema, TransactionInput } from './validations';
 import type { Transaction, FinancialSummary } from '@/types/finance';
+import type { CategoriesService } from '@/features/categories/categories.service';
 import type { MonthlyPoint, SearchTransactionsFilters } from './types';
 
 /**
@@ -42,7 +43,8 @@ export class TransactionService {
   constructor(
     private readonly transactionRepository: ITransactionRepository,
     private readonly userRepository: IUserRepository,
-    private readonly cacheRepository: ICacheRepository
+    private readonly cacheRepository: ICacheRepository,
+    private readonly categoriesService?: Pick<CategoriesService, 'assertUsable'>
   ) {}
 
   /**
@@ -183,6 +185,12 @@ export class TransactionService {
     // Combina o corpo validado com o userId que veio do cabeçalho da requisição (via rota)
     const dataForRepository: TransactionInput = { ...validatedTransactionBody, userId }; // Garante que userId esteja sempre presente
 
+    // Categoria precisa existir para o usuário e ser compatível com o tipo; grava o nome canônico.
+    if (this.categoriesService) {
+      const category = await this.categoriesService.assertUsable(userId, dataForRepository.category, dataForRepository.type);
+      dataForRepository.category = category.name;
+    }
+
     let result: Transaction | (Transaction & { installments: Transaction[] });
 
     // 2. Lógica de Parcelamento (Installments)
@@ -230,6 +238,15 @@ export class TransactionService {
     // Anti-IDOR: sem userId não há como escopar a escrita — trata como não encontrada.
     if (typeof userId !== 'string' || userId.trim() === '') {
       throw new Error('Transação não encontrada.');
+    }
+
+    if (this.categoriesService && validatedData.category !== undefined) {
+      // Sem `type` no payload, usa o da transação existente para checar compatibilidade.
+      const txType = validatedData.type ?? (await this.transactionRepository.getById(id, userId))?.type;
+      if (txType) {
+        const category = await this.categoriesService.assertUsable(userId, validatedData.category, txType);
+        validatedData.category = category.name;
+      }
     }
 
     const updated = await this.transactionRepository.update(id, userId, validatedData);
@@ -329,6 +346,15 @@ export class TransactionService {
 
     if (!transaction) {
       throw new Error('Transação não encontrada.');
+    }
+
+    if (this.categoriesService && validatedData.category !== undefined) {
+      const category = await this.categoriesService.assertUsable(
+        userId,
+        validatedData.category,
+        validatedData.type ?? transaction.type
+      );
+      validatedData.category = category.name;
     }
 
     const parentId = transaction.parent_transaction_id ?? transaction.id;

@@ -13,6 +13,11 @@ describe('MobileNavBar', () => {
     expect(screen.getByRole('link', { name: /transações/i })).toBeInTheDocument();
   });
 
+  it('inclui o link para Categorias', () => {
+    render(<MobileNavBar />);
+    expect(screen.getByRole('link', { name: /categorias/i })).toHaveAttribute('href', '/categorias');
+  });
+
   it('renderiza o item Assistente apontando para /assistente', () => {
     render(<MobileNavBar />);
     expect(screen.getByRole('link', { name: /assistente/i })).toHaveAttribute(
