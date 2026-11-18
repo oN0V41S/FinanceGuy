@@ -24,6 +24,7 @@ Arquivo de estado da pipeline, gravado na **raiz da worktree** e mantido **fora 
     }
   ],
   "review": { "cycles": 0, "findings": [] },
+  "qa": { "cycles": 0, "passed": false, "port": 3002, "routes": [], "report": null, "screenshots": [] },
   "updatedAt": "2026-10-16T12:00:00Z"
 }
 ```
@@ -48,6 +49,12 @@ Arquivo de estado da pipeline, gravado na **raiz da worktree** e mantido **fora 
 | `steps[].status` | `string` (enum) | `pending` \| `running` \| `done` \| `failed` |
 | `review.cycles` | `number` | Ciclos de revisão executados (máx. 2) |
 | `review.findings` | `array` | Achados formatados da revisão (`severidade`, `arquivo`, `linha`, `descrição`, `correção sugerida`) |
+| `qa.cycles` | `number` | Ciclos de QA no navegador executados (máx. 2) |
+| `qa.passed` | `boolean` | `true` só quando o sub-agente de QA reportou `PASSOU`; obrigatório antes do RESUMO |
+| `qa.port` | `number` | Porta do servidor de dev da worktree usada no QA (nunca a do checkout principal) |
+| `qa.routes` | `array` | Rotas testadas, derivadas do `git diff` e dos critérios de aceitação da spec |
+| `qa.report` | `string \| null` | Relatório resumido do último ciclo de QA (pt-BR) |
+| `qa.screenshots` | `array` | Caminhos relativos dos prints salvos em `qa/<FING-N>/` (não commitados) |
 | `updatedAt` | `string` | Timestamp ISO 8601 (UTC) da última gravação |
 | `failedAt` | `string` | Presente quando `state` é `failed`: etapa/marco que falhou (ex.: `failed(setup)`, `failed(step_2)`) |
 | `reason` | `string` | Motivo legível da falha, em pt-BR |
@@ -60,6 +67,7 @@ Ciclo de vida do campo `state`:
 intake → notion_ready → spec_approved → worktree_ready → setup_done
   → step_<i>_running → step_<i>_done
   → review_cycle_<n>
+  → qa_browser_<n> → qa_browser_passed
   → committed → pushed (opcional)
 failed (com failedAt + reason)
 ```
@@ -74,7 +82,9 @@ failed (com failedAt + reason)
 | `step_<i>_running` | Etapa `i` em execução via OpenCode |
 | `step_<i>_done` | Etapa `i` validada (jest + lint) e commitada |
 | `review_cycle_<n>` | Ciclo `n` de revisão em andamento (máx. 2) |
-| `committed` | Todos os commits da pipeline concluídos; aguardando decisão de push (Portão 2) |
+| `qa_browser_<n>` | Ciclo `n` de QA no navegador em andamento via sub-agente (máx. 2) |
+| `qa_browser_passed` | QA no navegador `PASSOU`; a entrega (RESUMO) pode começar |
+| `committed` | Todos os commits da pipeline concluídos e QA aprovado; aguardando decisão de push (Portão 2) |
 | `pushed` | Push para `origin/FING-N` realizado (opcional, só com confirmação) |
 | `failed` | Falha irreversível no momento; `failedAt` + `reason` explicam onde e por quê; retomável |
 

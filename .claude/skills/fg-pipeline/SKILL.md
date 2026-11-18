@@ -26,7 +26,7 @@ Você (Claude) é o **maestro**: orquestra, valida e commita. O **OpenCode headl
 4. Notion MCP acessível (banco "Gestão do Projeto"); indisponível → pare antes da worktree e ofereça seguir com código manual.
 5. Verifique retomada: entrada `FING-N` com worktree + `.fg-pipeline.json` → mostrar "última etapa concluída: X; retomar de Y?" e seguir só com confirmação (ver `references/state-schema.md`). Worktree órfã sem estado → abortar; **nunca sobrescrever**.
 
-## Fluxo (passos 1–11)
+## Fluxo (passos 1–12)
 
 Siga o mapeamento de propriedades do card e do corpo da página em `references/notion-card.md` — não duplique aqui.
 
@@ -42,10 +42,37 @@ Siga o mapeamento de propriedades do card e do corpo da página em `references/n
    - **Valide**: `npx jest <relacionado>` + `pnpm lint` na worktree. Falha → devolva o erro ao mesmo agente/sessão (use `--session <id>`; até 2×) → depois troque de modelo na mesma sessão (`--start-at`) → depois pare sem commitar.
    - Compare `git diff --name-only` com os arquivos previstos da etapa; extras aparecem no resumo e são revertidos só com confirmação.
    - **Commit por etapa**: Conventional Commits com o código e `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`, ex.: `feat(transactions): ... (FING-12)`. O Claude commita, nunca o agente.
-   - **Front-end (regra fixa)**: toda alteração ou fix de front-end (UI, estilos, componentes, `tailwind.config.ts`) é **commitada imediatamente** após validar (jest + lint), sem acumular com outras etapas, para que o usuário veja a correção no preview automático da Vercel. Logo após esse commit, pergunte "dar push para atualizar o preview?" (Portão 2 antecipado); o push continua exigindo "sim" explícito.
+   - **Front-end (regra fixa)**: toda alteração ou fix de front-end (UI, estilos, componentes, `tailwind.config.ts`) é **commitada imediatamente** após validar (jest + lint), sem acumular com outras etapas, para que o usuário veja a correção no preview automático da Vercel. O push para o preview fica **pendente até o QA no navegador (passo 10) aprovar**; só então pergunte "dar push para atualizar o preview?". O push continua exigindo "sim" explícito.
 9. **REVISAR** — `run-agent.sh --chain REVIEW --agent project-review` e idem `security-secret-auditor`, com `references/review-prompt.md` (Gemini, **somente leitura**, sem `--auto`). Parse o formato `ACHADO | severidade: …`. **Críticos/altos** → voltam à implementação (passo 8, mesmo agente/sessão), **máx. 2 ciclos**; persistindo → pare antes do commit final e deixe o usuário decidir. Médios/baixos só no resumo.
-10. **RESUMO** — branch, commits, achados, comandos de push; acrescente o bloco "Execução" ao card (Notion). Estado `committed`.
-11. **PUSH (Portão 2, opcional)** — pergunte "dar push em FING-N?". Somente com "sim": `git push -u origin FING-N` (o preview vem da integração Vercel↔GitHub). **A pipeline nunca abre PR** (`pnpm fg pr` fica para o usuário). Cancelar nos portões → estado permanece, nada é publicado.
+10. **QA NO NAVEGADOR (obrigatório, sempre)** — antes de qualquer entrega, execute a seção "QA no navegador" abaixo via sub-agente. Só avança com `PASSOU`. Estado `qa_browser_passed`.
+11. **RESUMO** — branch, commits, achados da revisão e do QA, comandos de push; acrescente o bloco "Execução" ao card (Notion). Estado `committed`.
+12. **PUSH (Portão 2, opcional)** — pergunte "dar push em FING-N?". Somente com "sim": `git push -u origin FING-N` (o preview vem da integração Vercel↔GitHub). **A pipeline nunca abre PR** (`pnpm fg pr` fica para o usuário). Cancelar nos portões → estado permanece, nada é publicado.
+
+## QA no navegador (obrigatório, sempre, via sub-agente)
+
+**Regra fixa:** nenhuma tarefa é entregue (RESUMO, push, ou aviso de "pronto") sem QA com `PASSOU`. O meio de teste depende do tipo de tarefa:
+
+- **Tarefa de API** (rotas em `src/app/api/**`, services, repositories sem tela nova): teste com **curl local** contra o servidor da worktree. Não usa o navegador. O sub-agente cobre os endpoints afetados com os casos de sucesso, validação (Zod, 400), não autenticado (401) e não encontrado (404), e confere status e corpo. Mutações (POST/PUT/DELETE) usam dados `ZZTeste` e são apagadas ao fim.
+- **Tarefa de UI** (páginas, componentes, estilos): teste no **navegador**, conforme o procedimento abaixo.
+- **Tarefa mista**: as duas partes, na mesma etapa de QA.
+
+Procedimento:
+
+1. **Servidor da worktree.** Suba o dev server **da worktree** (porta em `qa.port`, ex.: 3002). Nunca teste o servidor do checkout principal: ele não contém as alterações. Se o servidor da worktree não puder subir, o QA fica **bloqueado** (não aprovado): pare e avise o usuário.
+2. **Sub-agente.** Use a ferramenta Agent com `subagent_type: general-purpose`, em primeiro plano, passando no prompt: URL base (`http://localhost:<porta>`), tipo da tarefa (API, UI ou mista), rotas e endpoints afetados (de `git diff --name-only`), critérios de aceitação da spec (seção 6) e o checklist abaixo. Para UI, passe também os viewports (**desktop 1280×800** e **mobile 375×812**) e o tema escuro, e o sub-agente usa as ferramentas do navegador (`mcp__Claude_Browser__*`). Para API, usa curl. Em nenhum caso edita nem commita nada.
+3. **Checklist mínimo que o sub-agente executa:**
+   - Cada página afetada carrega sem erro no console e sem falha de rede (4xx/5xx inesperados).
+   - Cada critério de aceitação da spec é exercido pelo fluxo principal, com interação real (clicar, preencher, filtrar), e o resultado é conferido na tela.
+   - Mobile sem overflow horizontal (`scrollWidth > innerWidth` é falha).
+   - Tema escuro: bordas de cards e inputs não ficam brancas (regra de `AGENTS.md`: borda branca = classe `border-…/NN` não gerada).
+   - Estados de loading, vazio e erro se comportam como a spec descreve, sem quebrar a página.
+   - Dados de teste são criados com prefixo `ZZTeste` e **apagados ao fim**. Nunca tocar em dados que não foram criados pelo próprio QA. Credenciais: só a conta de teste local definida na memória de referência; nunca `.env`.
+   - Prints salvos em `qa/<FING-N>/` na worktree (não commitados; adicione `qa/` a `.git/info/exclude`).
+4. **Relatório.** O sub-agente devolve `PASSOU` ou `FALHOU`, com lista de achados: passo reproduzível, severidade (crítico · alto · médio · baixo) e print. Achado crítico ou alto em fluxo da spec = `FALHOU`.
+5. **Decisão.**
+   - `PASSOU` → grave `qa.passed: true`, estado `qa_browser_passed`, siga para o RESUMO.
+   - `FALHOU` → volte ao passo 8 (agente de implementação, mesma sessão) com o relatório. Máx. **2 ciclos** (`qa.cycles`); esgotou → pare, não entregue, e deixe o usuário decidir. Achados médios/baixos vão só para o RESUMO.
+6. **Encerramento.** Pare o servidor de QA ao final, com ou sem aprovação.
 
 ## `run-agent.sh` (uso)
 
@@ -77,6 +104,7 @@ Ao iniciar o passo 8, lance **um agente Claude somente leitura em background** (
 
 - **Nunca** ler, copiar ou editar `.env` (nem prompts nem logs registram segredos).
 - **Nunca** `--auto` por padrão (nem revisores); se uma etapa travar em permissão, mostre o comando bloqueado e pergunte antes de reexecutar com `--auto` (só dentro da worktree, `--dir` explícito).
+- **Nunca** entregar (RESUMO, push ou aviso de "pronto") sem QA `PASSOU`: no navegador para UI, com curl para API.
 - **Nunca** `prisma db push`; **nunca** abrir PR; push só no Portão 2 com "sim".
 - Escrita no Notion só após "ok"; `Concluído` nunca é definido pela pipeline.
 - Falha de validação ou cadeia esgotada → estado `failed` com `failedAt` + `reason`, mensagem acionável em pt-BR e retomada possível; nada de uma etapa falha é commitado.
