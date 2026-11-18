@@ -78,6 +78,14 @@ Feature branches abrem PR contra **`staging`** (não direto em `main`). Depois d
 feat/minha-feature ──► PR ──► staging ──► PR ──► main
 ```
 
+### Regra: `staging` existe apenas no GitHub
+
+- **Não mantenha branch `staging` local.** Ela só existe em `origin/staging`; nunca faça `git checkout staging`, `git merge`/`git pull` em `staging` nem `git push origin staging` a partir do terminal.
+- **O PR para `staging` é aberto e mergeado somente no GitHub** (UI ou `gh pr create --base staging` / `gh pr merge --squash`). Nenhum merge local de feature em `staging`.
+- A promoção `staging` → `main` também é um PR no GitHub (`gh pr create --base main --head staging`), nunca merge local.
+- Para ler o conteúdo de `staging`, use `git fetch origin staging` e `origin/staging` (somente leitura).
+- Exceção: commits de governança/docs pontuais autorizados explicitamente pelo mantenedor podem ir direto em `main`.
+
 ## Exclusão de branches após merge
 
 O repositório tem **`delete_branch_on_merge: false`**: a exclusão automática foi desativada porque apagava a `staging` quando o PR `staging` → `main` era mergeado. Apague as branches de feature manualmente após o merge (`git push origin --delete <branch>` e `git branch -d <branch>`). **Nunca apague `staging` nem `main`.**
