@@ -699,9 +699,11 @@ vercel env add DATABASE_URL "postgresql://..."
 vercel env add GEMINI_API_KEY "<sua-chave-rotacionada>"
 vercel env add GEMINI_MODEL "gemini-3.8-flash"
 
-# 3. Deploy
+# 3. Deploy emergencial manual (uso excepcional)
 vercel deploy --prod
 ```
+
+> O deploy normal é automático: merge em `main` publica em Production; branches e PRs geram apenas Preview. Ver `docs/git-workflow.md` (seção "Ambientes Vercel").
 
 ### Checklist de Deploy
 
