@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { createContextCache, withContextCache, InMemoryContextCache, UpstashContextCache } from '../contextCache';
+import { wantsPortfolio } from '../../portfolioIntent';
 import type { FinancialContextDto, FinancialContextSource } from '../../types';
 
 const mockRedis = { get: jest.fn(), set: jest.fn(), del: jest.fn() };
@@ -154,6 +155,46 @@ describe('withContextCache', () => {
     expect(getContext).toHaveBeenCalledTimes(2);
     expect(cache.get).not.toHaveBeenCalled();
     expect(cache.set).not.toHaveBeenCalled();
+  });
+
+  it('pergunta sobre carteira: ignora o cache (DTO pode ter portfolioByCategory)', async () => {
+    const { source, getContext } = makeSource();
+    const cache = makeCache();
+    cache.get.mockResolvedValue(dto);
+    const wrapped = withContextCache(source, cache, () => NOW);
+    await wrapped.getContext('u1', 'como está minha carteira?');
+    expect(getContext).toHaveBeenCalledTimes(1);
+    expect(cache.get).not.toHaveBeenCalled();
+    expect(cache.set).not.toHaveBeenCalled();
+  });
+
+  it('DTO com portfolioByCategory nunca vaza para pergunta sem o tema (nem o contrário)', async () => {
+    const dtoSemSecao = { today: '2026-10-14' } as unknown as FinancialContextDto;
+    const dtoComSecao = {
+      today: '2026-10-14',
+      portfolioByCategory: [{ name: 'Cripto', total: 10, pct: 100, count: 1 }],
+    } as unknown as FinancialContextDto;
+    const getContext = jest
+      .fn()
+      .mockImplementation((_userId: string, question: string) =>
+        Promise.resolve(wantsPortfolio(question) ? dtoComSecao : dtoSemSecao),
+      );
+    const cache = new InMemoryContextCache(60, () => NOW.getTime());
+    const wrapped = withContextCache({ getContext } as FinancialContextSource, cache, () => NOW);
+
+    // 1) pergunta sem o tema: miss → fonte → gravado sem a seção.
+    const semTema1 = await wrapped.getContext('u1', 'quanto gastei?');
+    expect('portfolioByCategory' in semTema1).toBe(false);
+
+    // 2) pergunta de carteira: bypass → fonte devolve a seção; nada é gravado por cima.
+    const comTema = await wrapped.getContext('u1', 'como está minha carteira?');
+    expect((comTema as { portfolioByCategory?: unknown }).portfolioByCategory).toBeDefined();
+
+    // 3) repetir pergunta sem o tema: cache hit do DTO sem seção (não vazou a de carteira).
+    const semTema2 = await wrapped.getContext('u1', 'e o saldo?');
+    expect(semTema2).toBe(dtoSemSecao);
+    expect('portfolioByCategory' in semTema2).toBe(false);
+    expect(getContext).toHaveBeenCalledTimes(2);
   });
 
   it('erro do cache degrada para miss', async () => {

@@ -22,6 +22,9 @@ import { IGoalRepository } from '../features/goals/IGoal.repository';
 import { PostgresGoalRepository } from '../features/goals/postgresGoal.repository';
 import { GoalService } from '../features/goals/goal.service';
 
+import { ICategoryRepository } from '../features/categories/ICategory.repository';
+import { PostgresCategoryRepository } from '../features/categories/postgresCategory.repository';
+import { CategoriesService } from '../features/categories/categories.service';
 import { AiService } from '../features/ai/ai.service';
 import { GeminiLlmProvider } from '../features/ai/gemini.provider';
 import { createRateLimiter } from '../features/ai/rateLimiter';
@@ -52,11 +55,13 @@ export const cacheRepository: ICacheRepository = cache;
 export const investmentRepository: IInvestmentRepository = new PostgresInvestmentRepository();
 export const investmentHistoryRepository: IInvestmentHistoryRepository = new PostgresInvestmentHistoryRepository();
 export const goalRepository: IGoalRepository = new PostgresGoalRepository();
+export const categoryRepository: ICategoryRepository = new PostgresCategoryRepository();
 
 // Services
-export const transactionService: TransactionService = new TransactionService(transactionRepository, userRepository, cacheRepository);
+export const categoriesService: CategoriesService = new CategoriesService(categoryRepository, cacheRepository);
+export const transactionService: TransactionService = new TransactionService(transactionRepository, userRepository, cacheRepository, categoriesService);
 export const authService: AuthService = new AuthService(userRepository);
-export const investmentService: InvestmentService = new InvestmentService(investmentRepository, investmentHistoryRepository);
+export const investmentService: InvestmentService = new InvestmentService(investmentRepository, investmentHistoryRepository, categoryRepository);
 export const quoteService: QuoteService = new QuoteService(
   { brapi: new BrapiQuoteProvider(), yahoo: new YahooQuoteProvider() },
   cacheRepository
@@ -77,6 +82,7 @@ export const aiService: AiService = new AiService({
   transactions: transactionService,
   goals: goalService,
   investments: investmentService,
+  categories: categoryRepository,
   llm: aiLlm,
 });
 
@@ -117,7 +123,12 @@ export const aiAgent: AgentService = new AgentService({
   rateLimiter: aiRateLimiter,
   categorySuggester: aiCategorySuggester,
   context: withContextCache(
-    createFinancialContextSource({ transactions: transactionService, goals: goalService, investments: investmentService }),
+    createFinancialContextSource({
+      transactions: transactionService,
+      goals: goalService,
+      investments: investmentService,
+      categories: categoryRepository,
+    }),
     aiContextCache,
   ),
   config: agentConfig,

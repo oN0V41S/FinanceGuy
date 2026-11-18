@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useCategories } from '@/features/categories/hooks/useCategories';
 import { useRecentTickers } from '@/features/investments/hooks/useRecentTickers';
 import { useTickerPreview } from '@/features/investments/hooks/useTickerPreview';
 import { PriceHistoryChart } from '@/features/investments/components/PriceHistoryChart';
@@ -44,6 +45,8 @@ interface InvestmentFormState {
   purchaseDate: string;
   unitPrice: string;
   shares: string;
+  /** 'none' quando sem categoria; senão o id (cuid) da categoria de investimento. */
+  categoryId: string;
 }
 
 const MARKET_LABELS: Record<string, string> = {
@@ -72,10 +75,19 @@ const emptyForm: InvestmentFormState = {
   purchaseDate: '',
   unitPrice: '',
   shares: '',
+  categoryId: 'none',
 };
+
+const NO_CATEGORY = 'none';
 
 export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit }: InvestmentFormDialogProps) {
   const { recent, add: addRecent, clear: clearRecent } = useRecentTickers();
+  const {
+    categories: investmentCategories,
+    isLoading: isCategoriesLoading,
+    isFallback: isCategoriesFallback,
+    error: categoriesError,
+  } = useCategories({ scope: 'investment' });
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,6 +105,13 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
   const suggestedName = preview.quote?.name;
   const closeOnPurchaseDate = preview.history?.points.find((p) => p.date === form.purchaseDate);
   const totalInvested = Number(form.shares) * Number(form.unitPrice);
+  // Fallback local tem ids que não são cuids: só oferece categorias reais do servidor.
+  const selectableCategories = isCategoriesFallback ? [] : investmentCategories;
+  const categoryLabel =
+    form.categoryId === NO_CATEGORY
+      ? 'Sem categoria'
+      : (selectableCategories.find((c) => c.id === form.categoryId)?.name ?? 'Sem categoria');
+  const categoryIdPayload = form.categoryId === NO_CATEGORY ? null : form.categoryId;
 
   useEffect(() => {
     if (open) {
@@ -109,6 +128,7 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
               purchaseDate: investment.purchaseDate ? new Date(investment.purchaseDate).toISOString().slice(0, 10) : '',
               unitPrice: investment.unitPrice !== undefined ? String(investment.unitPrice) : '',
               shares: investment.shares !== undefined ? String(investment.shares) : '',
+              categoryId: investment?.categoryId ?? NO_CATEGORY,
             }
           : emptyForm
       );
@@ -138,15 +158,16 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
     const parsed = CreateInvestmentSchema.safeParse(
       editingMarketAsset
         ? // ativo de mercado: só nome e prazo são editáveis; a posição muda apenas por compra/resgate
-          { name: form.name, type: form.type, value: investment?.value, term: form.term || undefined, ...marketPayload }
+          { name: form.name, type: form.type, value: investment?.value, term: form.term || undefined, categoryId: categoryIdPayload, ...marketPayload }
         : isMarketAsset
-          ? { name: form.name, type: 'Renda Variável', term: form.term || undefined, ...marketPayload }
+          ? { name: form.name, type: 'Renda Variável', term: form.term || undefined, categoryId: categoryIdPayload, ...marketPayload }
           : {
               name: form.name,
               type: form.type,
               value: Number(form.value),
               quantity: form.quantity || undefined,
               term: form.term || undefined,
+              categoryId: categoryIdPayload,
             }
     );
 
@@ -444,6 +465,35 @@ export function InvestmentFormDialog({ open, onOpenChange, investment, onSubmit 
               />
             </div>
             )}
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="investment-category">Categoria (opcional)</Label>
+              {isCategoriesLoading ? (
+                <Skeleton className="h-12 w-full rounded-xl" data-testid="category-select-loading" />
+              ) : (
+                <Select
+                  value={form.categoryId}
+                  onValueChange={(value) => handleChange('categoryId', value ?? NO_CATEGORY)}
+                >
+                  <SelectTrigger id="investment-category" className="w-full h-12 px-4 rounded-xl">
+                    <SelectValue>{categoryLabel}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="bg-surface-container">
+                    <SelectItem value={NO_CATEGORY}>Sem categoria</SelectItem>
+                    {selectableCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {categoriesError && !isCategoriesLoading && (
+                <p className="text-xs text-on-surface-variant" role="status">
+                  Não foi possível carregar as categorias agora. Você pode salvar sem categoria.
+                </p>
+              )}
+            </div>
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="investment-term">Prazo (opcional)</Label>

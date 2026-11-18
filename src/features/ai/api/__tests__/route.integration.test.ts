@@ -47,6 +47,7 @@ const service = new AiService({
   },
   goals: { getAllGoals: jest.fn().mockResolvedValue([]) },
   investments: { getAllInvestments: jest.fn().mockResolvedValue([]) },
+  categories: { findAll: jest.fn().mockResolvedValue([]) },
   llm: provider,
   now: () => new Date('2026-10-15T15:00:00Z'),
 });

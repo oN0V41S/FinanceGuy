@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Transaction, TransactionFormData } from '@/features/transactions/types';
-import { CategoryEnum } from '@/features/transactions/validations';
+import { useCategories } from '@/features/categories/hooks/useCategories';
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
@@ -40,10 +40,8 @@ const FormSchema = z.object({
     { message: 'Valor deve ser positivo' },
   ),
   date: z.string().min(1, 'Data é obrigatória'),
-  category: z.string().refine(
-    (val) => CategoryEnum.safeParse(val).success,
-    { message: 'Este campo não deve estar vazio' },
-  ),
+  // Existência/compatibilidade da categoria é validada no servidor (categorias por usuário).
+  category: z.string().trim().min(1, 'Este campo não deve estar vazio').max(40),
   responsible: z
     .string()
     .min(1, 'Responsável é obrigatório')
@@ -78,8 +76,6 @@ interface TransactionModalProps {
   isLoading?: boolean;
 }
 
-const categoryOptions = CategoryEnum.options;
-
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -97,6 +93,12 @@ export default function TransactionModal({
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
   const [category, setCategory] = useState('');
+  const { categories } = useCategories({ type });
+  // Mantém visível a categoria atual mesmo que tenha sido removida/seja de outro tipo.
+  const categoryOptions = useMemo(() => {
+    const names = categories.map((c) => c.name);
+    return category && !names.includes(category) ? [category, ...names] : names;
+  }, [categories, category]);
   const [responsible, setResponsible] = useState('');
   const [paid, setPaid] = useState(false);
   const [applyToFuture, setApplyToFuture] = useState(false);
@@ -374,7 +376,7 @@ export default function TransactionModal({
             setCategory(value ?? '');
           }}>
             <SelectTrigger className="w-full h-9">
-              <SelectValue placeholder="Selecione uma categoria" />
+              <SelectValue placeholder="Selecione uma categoria">{category || undefined}</SelectValue>
             </SelectTrigger>
             <SelectContent className="bg-surface-container">
               {categoryOptions.map((cat) => (

@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { transactionService } from '@/core/container';
+import { CategoryError } from '@/features/categories/categories.service';
+import { STATUS_BY_CODE } from '@/features/categories/api/handleError';
+
+/** Categoria inexistente/incompatível em transações segue 422; demais códigos usam o mapa de categorias. */
+function categoryErrorStatus(error: CategoryError): number {
+  return error.code === 'NOT_FOUND' || error.code === 'INCOMPATIBLE_TYPE' ? 422 : STATUS_BY_CODE[error.code];
+}
 
 // PUT /api/transactions/[id] - Atualizar transação existente
 export async function PUT(
@@ -33,6 +40,10 @@ export async function PUT(
         { error: 'Validação falhou', issues: error.issues ?? error.errors },
         { status: 400 }
       );
+    }
+
+    if (error instanceof CategoryError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: categoryErrorStatus(error) });
     }
 
     if (error?.message?.includes('não encontrada')) {

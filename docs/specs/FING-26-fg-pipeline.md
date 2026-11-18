@@ -107,8 +107,9 @@ Chamadas de outros arquivos não se aplicam: a skill é autocontida. `chains.con
                     run-agent.sh --chain IMPL --agent <agente> → validar (jest + lint) → commit
  9. REVISAR       run-agent.sh --chain REVIEW --agent project-review ; idem security-secret-auditor
                     achados críticos/altos → volta ao passo 8 (agente de implementação), máx. 2 ciclos
-10. RESUMO        branch, commits, achados, comandos de push; PERGUNTA: "dar push em FING-N?"
-11. PUSH (opc.)   git push -u origin FING-N   (somente com "sim"); lembrar que o preview vem da integração Vercel↔GitHub
+10. QA            OBRIGATÓRIO, sempre: sub-agente testa os critérios da spec. UI → navegador (desktop 1280×800 e mobile 375×812); API → curl local no servidor da worktree; só PASSOU segue; FALHOU → passo 8 (máx. 2 ciclos)
+11. RESUMO        branch, commits, achados da revisão e do QA, comandos de push; PERGUNTA: "dar push em FING-N?"
+12. PUSH (opc.)   git push -u origin FING-N   (somente com "sim"); lembrar que o preview vem da integração Vercel↔GitHub
 ```
 
 Cadeias (em `chains.conf`):
