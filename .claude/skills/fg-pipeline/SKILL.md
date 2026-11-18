@@ -25,8 +25,9 @@ Você (Claude) é o **maestro**: orquestra, valida e commita. O **OpenCode headl
 3. `git fetch origin main` — se `origin/main` inacessível, pare (não criar worktree de `main` local desatualizado sem confirmação).
 4. Notion MCP acessível (banco "Gestão do Projeto"); indisponível → pare antes da worktree e ofereça seguir com código manual.
 5. Verifique retomada: entrada `FING-N` com worktree + `.fg-pipeline.json` → mostrar "última etapa concluída: X; retomar de Y?" e seguir só com confirmação (ver `references/state-schema.md`). Worktree órfã sem estado → abortar; **nunca sobrescrever**.
+6. **Teste os modelos** (diretriz abaixo): `scripts/run-agent.sh --chain IMPL --dir <repo> --probe` (e `--chain REVIEW` se for revisar). Nenhum saudável → pare e avise qual provedor falhou (quota, chave, rede) antes de criar qualquer coisa.
 
-## Fluxo (passos 1–12)
+## Fluxo (passos 1–13)
 
 Siga o mapeamento de propriedades do card e do corpo da página em `references/notion-card.md` — não duplique aqui.
 
@@ -38,41 +39,36 @@ Siga o mapeamento de propriedades do card e do corpo da página em `references/n
 6. **WORKTREE** — `git worktree add ../FinanceGuy-FING-N -b FING-N origin/main` (o checkout principal nunca é tocado; alterações não commitadas nele são ignoradas).
 7. **SETUP** — na worktree: `pnpm install --frozen-lockfile`, `npx prisma generate`; grave `.fg-pipeline.json` (schema em `references/state-schema.md`) e adicione-o a `.git/info/exclude`. Falha aqui → estado `failed(setup)`; variável de ambiente faltando → informe **qual**, sem procurar `.env`.
 8. **IMPLEMENTAR** — antes disso, lance o **agente monitor** (seção abaixo). Para cada etapa do Mapa de Execução da spec:
+   - **Sonde antes de cada etapa** (`--probe`) e passe como `--start-at` o primeiro índice saudável (diretriz abaixo).
    - Preencha `references/impl-prompt.md` (placeholders `{{…}}`) e rode `scripts/run-agent.sh --chain IMPL --agent <agente> --dir <worktree> --prompt-file <prompt>` — **cada `opencode run` como tarefa em background própria** (ver monitor). Uma sessão OpenCode **por etapa**.
    - **Valide**: `npx jest <relacionado>` + `pnpm lint` na worktree. Falha → devolva o erro ao mesmo agente/sessão (use `--session <id>`; até 2×) → depois troque de modelo na mesma sessão (`--start-at`) → depois pare sem commitar.
    - Compare `git diff --name-only` com os arquivos previstos da etapa; extras aparecem no resumo e são revertidos só com confirmação.
    - **Commit por etapa**: Conventional Commits com o código e `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`, ex.: `feat(transactions): ... (FING-12)`. O Claude commita, nunca o agente.
-   - **Front-end (regra fixa)**: toda alteração ou fix de front-end (UI, estilos, componentes, `tailwind.config.ts`) é **commitada imediatamente** após validar (jest + lint), sem acumular com outras etapas, para que o usuário veja a correção no preview automático da Vercel. O push para o preview fica **pendente até o QA no navegador (passo 10) aprovar**; só então pergunte "dar push para atualizar o preview?". O push continua exigindo "sim" explícito.
 9. **REVISAR** — `run-agent.sh --chain REVIEW --agent project-review` e idem `security-secret-auditor`, com `references/review-prompt.md` (Gemini, **somente leitura**, sem `--auto`). Parse o formato `ACHADO | severidade: …`. **Críticos/altos** → voltam à implementação (passo 8, mesmo agente/sessão), **máx. 2 ciclos**; persistindo → pare antes do commit final e deixe o usuário decidir. Médios/baixos só no resumo.
-10. **QA NO NAVEGADOR (obrigatório, sempre)** — antes de qualquer entrega, execute a seção "QA no navegador" abaixo via sub-agente. Só avança com `PASSOU`. Estado `qa_browser_passed`.
-11. **RESUMO** — branch, commits, achados da revisão e do QA, comandos de push; acrescente o bloco "Execução" ao card (Notion). Estado `committed`.
-12. **PUSH (Portão 2, opcional)** — pergunte "dar push em FING-N?". Somente com "sim": `git push -u origin FING-N` (o preview vem da integração Vercel↔GitHub). **A pipeline nunca abre PR** (`pnpm fg pr` fica para o usuário). Cancelar nos portões → estado permanece, nada é publicado.
+10. **TESTAR (rodadas até zerar)** — **regra de segurança máxima**: antes de pedir o push, teste **tudo o que for possível** e repita em rodadas até **não sobrar nenhuma validação pendente**. Cada rodada: `npx jest`/`vitest` completos dos pacotes tocados, `pnpm lint`, typecheck, build quando aplicável, execução real do artefato entregue (ex.: `--dump`, `--demo`, saídas e exit codes de erro), conferência do estado `.fg-pipeline.json` contra os commits e checagem dos critérios de aceite da spec (incluindo os manuais). **Traga os erros em rodadas** (lista numerada por severidade ao fim de cada uma), corrija e rode a próxima. **Não pare** por conta própria nem entre rodadas — só pare se o usuário pedir uma correção específica ou se a mesma falha persistir após 3 rodadas (aí relate e deixe o usuário decidir). Só quando uma rodada completa vier limpa (ou com pendências explicitamente aceitas pelo usuário) siga ao resumo.
+11. **CORRIGIR** — falhas da rodada de teste voltam à implementação (passo 8, mesmo agente/sessão) com commit `fix(...)` por correção, e retornam ao passo 10.
+12. **RESUMO** — branch, commits, achados, comandos de push; acrescente o bloco "Execução" ao card (Notion). Estado `committed`.
+13. **PUSH (Portão 2, opcional)** — pergunte "dar push em FING-N?". Somente com "sim": `git push -u origin FING-N` (o preview vem da integração Vercel↔GitHub). **A pipeline nunca abre PR** (`pnpm fg pr` fica para o usuário). Cancelar nos portões → estado permanece, nada é publicado.
 
-## QA no navegador (obrigatório, sempre, via sub-agente)
+## Contrato de loop (passos 8, 9 e 10)
 
-**Regra fixa:** nenhuma tarefa é entregue (RESUMO, push, ou aviso de "pronto") sem QA com `PASSOU`. O meio de teste depende do tipo de tarefa:
+Todo laço de validar → corrigir declara, **antes de começar**, três coisas — sem elas o laço não roda:
 
-- **Tarefa de API** (rotas em `src/app/api/**`, services, repositories sem tela nova): teste com **curl local** contra o servidor da worktree. Não usa o navegador. O sub-agente cobre os endpoints afetados com os casos de sucesso, validação (Zod, 400), não autenticado (401) e não encontrado (404), e confere status e corpo. Mutações (POST/PUT/DELETE) usam dados `ZZTeste` e são apagadas ao fim.
-- **Tarefa de UI** (páginas, componentes, estilos): teste no **navegador**, conforme o procedimento abaixo.
-- **Tarefa mista**: as duas partes, na mesma etapa de QA.
+| Item | Regra |
+|---|---|
+| **Critério de saída** | condição verificável que encerra o laço (ex.: testes + lint + typecheck verdes; zero achados críticos/altos; rodada de TESTAR limpa) |
+| **Orçamento** | máximo de tentativas/tempo: passo 8 = 2 devoluções ao mesmo agente + 1 troca de modelo; passo 9 = 2 ciclos; passo 10 = 3 rodadas com a mesma falha |
+| **Estagnação** | a mesma falha (mesmo teste/arquivo/mensagem) em 2 tentativas seguidas ⇒ **não repetir a mesma abordagem**: trocar de modelo/agente ou parar e escalar ao usuário |
 
-Procedimento:
+Cada rodada grava um evento `note` no `.fg-pipeline.events.jsonl` (rodada, resultado, falhas). O **verificador** (testes, lint, revisores) é sempre distinto do **executor** que escreveu o código.
 
-1. **Servidor da worktree.** Suba o dev server **da worktree** (porta em `qa.port`, ex.: 3002). Nunca teste o servidor do checkout principal: ele não contém as alterações. Se o servidor da worktree não puder subir, o QA fica **bloqueado** (não aprovado): pare e avise o usuário.
-2. **Sub-agente.** Use a ferramenta Agent com `subagent_type: general-purpose`, em primeiro plano, passando no prompt: URL base (`http://localhost:<porta>`), tipo da tarefa (API, UI ou mista), rotas e endpoints afetados (de `git diff --name-only`), critérios de aceitação da spec (seção 6) e o checklist abaixo. Para UI, passe também os viewports (**desktop 1280×800** e **mobile 375×812**) e o tema escuro, e o sub-agente usa as ferramentas do navegador (`mcp__Claude_Browser__*`). Para API, usa curl. Em nenhum caso edita nem commita nada.
-3. **Checklist mínimo que o sub-agente executa:**
-   - Cada página afetada carrega sem erro no console e sem falha de rede (4xx/5xx inesperados).
-   - Cada critério de aceitação da spec é exercido pelo fluxo principal, com interação real (clicar, preencher, filtrar), e o resultado é conferido na tela.
-   - Mobile sem overflow horizontal (`scrollWidth > innerWidth` é falha).
-   - Tema escuro: bordas de cards e inputs não ficam brancas (regra de `AGENTS.md`: borda branca = classe `border-…/NN` não gerada).
-   - Estados de loading, vazio e erro se comportam como a spec descreve, sem quebrar a página.
-   - Dados de teste são criados com prefixo `ZZTeste` e **apagados ao fim**. Nunca tocar em dados que não foram criados pelo próprio QA. Credenciais: só a conta de teste local definida na memória de referência; nunca `.env`.
-   - Prints salvos em `qa/<FING-N>/` na worktree (não commitados; adicione `qa/` a `.git/info/exclude`).
-4. **Relatório.** O sub-agente devolve `PASSOU` ou `FALHOU`, com lista de achados: passo reproduzível, severidade (crítico · alto · médio · baixo) e print. Achado crítico ou alto em fluxo da spec = `FALHOU`.
-5. **Decisão.**
-   - `PASSOU` → grave `qa.passed: true`, estado `qa_browser_passed`, siga para o RESUMO.
-   - `FALHOU` → volte ao passo 8 (agente de implementação, mesma sessão) com o relatório. Máx. **2 ciclos** (`qa.cycles`); esgotou → pare, não entregue, e deixe o usuário decidir. Achados médios/baixos vão só para o RESUMO.
-6. **Encerramento.** Pare o servidor de QA ao final, com ou sem aprovação.
+## Paralelismo por DAG (passo 8)
+
+Se o Mapa de Execução da spec declara dependências, grave-as em `steps[].dependsOn` no `.fg-pipeline.json`. A cada rodada, lance **ao mesmo tempo** todas as etapas `pending` cujas dependências estão todas `done` (cada uma como tarefa em background própria, `--session` separada, arquivos disjuntos) e aguarde todas antes de recalcular as prontas. Etapas que tocam os mesmos arquivos **não** são paralelizadas: declare dependência entre elas. Ciclo de dependência ⇒ pare e corrija o mapa. Cada etapa emite `step_started`/`step_done`/`step_failed` (alimentam as métricas de eficácia da TUI).
+
+## Visibilidade para a TUI (`pnpm fg tui`)
+
+A TUI só lê arquivos, então o maestro precisa mantê-los atuais: **antes de lançar** um agente/etapa, grave a etapa em `.fg-pipeline.json` (`status: running`, `state: step_<i>_running`) e um evento `step_started` em `.fg-pipeline.events.jsonl`; ao terminar, `step_done`/`step_failed` com o SHA do commit. Etapa fora do estado não aparece no Kanban. Formato dos eventos: `references/state-schema.md`.
 
 ## `run-agent.sh` (uso)
 
@@ -80,18 +76,33 @@ Procedimento:
 .claude/skills/fg-pipeline/scripts/run-agent.sh \
   --chain <IMPL|REVIEW> --agent <nome> --dir <worktree> --prompt-file <arquivo> \
   [--session <ses_id>] [--start-at <índice-do-modelo>] [--title <texto>] [--timeout <s>]
+
+# pré-voo: testa a cadeia (sem agente nem prompt) e lista os índices saudáveis
+.claude/skills/fg-pipeline/scripts/run-agent.sh --chain <IMPL|REVIEW> --dir <worktree> --probe [--start-at <n>]
 ```
 
 - Cadeias em `scripts/chains.conf`: **IMPL** = modelos free (ordem da spec §2.2); **REVIEW** = Gemini (`gemini-3.8-flash → 3.7-flash → 3.5-flash-lite → 3.1-flash-lite`).
 - O script faz fallback automático entre modelos, reutiliza a sessão com `-s <id>` capturado do JSON (**nunca use `-c`**: em chamadas paralelas pega a sessão errada), espera 5 s entre tentativas e detecta falha por exit ≠ 0, `Error:`/`Request too large`/rate limit ou texto vazio.
 - stdout = uma linha JSON (`ok`, `sessionID`, `model`/`lastModel`, `attempts`, `text`/`error`); exit `0` ok · `1` cadeia falhou · `2` args inválidos. Guarde `sessionID`/`model` no `.fg-pipeline.json`.
+- `--probe`: stdout `{"chain":…,"healthy":[idx…],"models":[{index,model,ok,reason}]}`; exit `0` se há ao menos um saudável, `1` se nenhum. Roda em lotes de `FG_PROBE_JOBS` (padrão 3) — muitos `opencode` ao mesmo tempo causam falso timeout.
+- Variáveis: `FG_HANG_TIMEOUT` (60 s sem progresso → mata o modelo), `FG_PROBE_TIMEOUT` (45 s por sonda), `FG_PROBE` (0 desliga a sonda por tentativa), `FG_POLL_INTERVAL` (2 s). `--timeout` padrão **300 s** (teto duro).
+
+## Diretriz: sempre testar os modelos, antes e durante
+
+O `opencode run` **não sai** quando o provedor recusa (ex.: *Free usage limit reached*) e não escreve nada — parece "agente lendo pasta errada", mas é modelo morto. Por isso:
+
+1. **Antes**: `--probe` no pré-voo e antes de cada etapa; use o primeiro índice saudável como `--start-at`. Cadeia inteira morta → pare e avise (não adianta esperar timeout).
+2. **Durante**: o script sonda o modelo antes de **cada** tentativa e vigia o processo (log do provedor com `stream error` → mata na hora; saída e `git status` da worktree parados por `FG_HANG_TIMEOUT` = 60 s → mata e cai para o próximo modelo). Nada de esperar 900 s.
+3. **Ao identificar travamento** (maestro): não espere mais de **1 min** sem progresso — rode `--probe` de novo, reordene com `--start-at` para um modelo saudável e relance a etapa na mesma sessão (`--session`).
+4. **Cada sonda gasta 1 requisição free** (OpenRouter sem créditos = ~50/dia, erro `free-models-per-day`). Sonde a cadeia inteira uma vez por etapa no máximo; entre etapas confie na sonda por tentativa. Erro de limite diário em todos os provedores → pare e peça ao usuário: esperar o reset, adicionar créditos ou trocar o executor.
+5. Modelo sempre falhando (exit 1 na sonda, "model not found") → está obsoleto: confira com `opencode models <provedor>` e remova de `scripts/chains.conf` (atualizando os testes em `scripts/__tests__/run-agent.test.sh`).
 
 ## Agente monitor (paralelo, spec §3.4b)
 
 Ao iniciar o passo 8, lance **um agente Claude somente leitura em background** (`run_in_background: true`, modelo barato como `haiku`):
-- A cada ~30 s observe `git status --short`, `git diff --stat`, arquivos novos, `out/*.json|.err` e o `.fg-pipeline.json`; grave o painel em `.fg-pipeline.progress.md` (em `.git/info/exclude`, nunca commitado).
+- A cada ~15 s observe `git status --short`, `git diff --stat`, arquivos novos, `out/*.json|.err` e o `.fg-pipeline.json`; grave o painel em `.fg-pipeline.progress.md` (em `.git/info/exclude`, nunca commitado).
 - **Nunca** edita o repositório, commita, inicia `opencode` ou lê `.env`.
-- Encerra após 2 min sem saída dos agentes ou 25 min; relatório final ≤ 5 linhas.
+- Sem progresso (mesma saída e mesmo `git status`) por **60 s**, registre "TRAVADO" no painel e encerre o relatório: o maestro sonda os modelos e relança (diretriz acima). Encerra também ao fim das etapas ou após 25 min; relatório final ≤ 5 linhas.
 - **Regra de lançamento**: cada `opencode run` (via `run-agent.sh`) roda como **tarefa em background própria** do maestro; `cmd &` solto morre com o shell e deixa saída vazia.
 - Ao reportar andamento, leia `.fg-pipeline.progress.md`.
 
@@ -104,7 +115,7 @@ Ao iniciar o passo 8, lance **um agente Claude somente leitura em background** (
 
 - **Nunca** ler, copiar ou editar `.env` (nem prompts nem logs registram segredos).
 - **Nunca** `--auto` por padrão (nem revisores); se uma etapa travar em permissão, mostre o comando bloqueado e pergunte antes de reexecutar com `--auto` (só dentro da worktree, `--dir` explícito).
-- **Nunca** entregar (RESUMO, push ou aviso de "pronto") sem QA `PASSOU`: no navegador para UI, com curl para API.
+- **Nunca** pedir push com validação pendente: o passo 10 (TESTAR) precisa terminar limpo antes do Portão 2.
 - **Nunca** `prisma db push`; **nunca** abrir PR; push só no Portão 2 com "sim".
 - Escrita no Notion só após "ok"; `Concluído` nunca é definido pela pipeline.
 - Falha de validação ou cadeia esgotada → estado `failed` com `failedAt` + `reason`, mensagem acionável em pt-BR e retomada possível; nada de uma etapa falha é commitado.

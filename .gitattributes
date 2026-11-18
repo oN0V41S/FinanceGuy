@@ -1,0 +1,2 @@
+# scripts bash da fg-pipeline precisam de LF (autocrlf no Windows quebraria o bash)
+.claude/skills/fg-pipeline/scripts/** text eol=lf

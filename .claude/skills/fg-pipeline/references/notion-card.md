@@ -42,3 +42,4 @@ Banco **"Gestão do Projeto"** (`collection://334d3856-092b-83dc-842f-874864bcd6
 3. Notion indisponível / sem permissão → parar antes de criar a worktree; oferecer seguir com código manual informado pelo usuário.
 4. Entrada `FING-N` inexistente no Notion → avisar e perguntar se o usuário quer criar um novo card.
 5. Escrita no Notion apenas após o "ok" do usuário (e a spec aprovada para o corpo da página).
+6. **Nova versão (V2, V3…)** da mesma tarefa → incrementar este card (bloco `# Versão VN` append-only no fim da página + `Versão` → `VN`), nunca criar card novo. Padrão completo no agente `docs-architect` (seção "Versionamento no mesmo card do Notion").
